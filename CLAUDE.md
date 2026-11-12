@@ -80,5 +80,8 @@ It is the product version of the team's research framework. There is **no resear
 - Docs: done and reviewed (12/11/2026). The team review of the docs is in progress and does not block GĐ0.
 - Plan: about 11.5–12 weeks, one phase after another; M1 demo after about 6.5 weeks (PLAN §7).
 - GĐ0 step 1 done (12/11/2026): `docs/baseline-arrow-framework.md`. All 211 old test cases pass on net8.0 and net10.0; 117 of 164 methods are to be rewritten as parity tests.
-- **Next:** GĐ0 step 2 (`git init`, new solution, first push), only after Chính has read the baseline report and says go.
+- GĐ0 step 2 done (12/11/2026): solution scaffold pushed to `main`. Build with `dotnet build ARROW.slnx`, test with `dotnet test --solution ARROW.slnx` (Microsoft.Testing.Platform, set in `global.json`). Text files are LF everywhere (`.gitattributes`). In PowerShell 5.1, `Get-Content`/`Set-Content` corrupt UTF-8 files (they add a BOM and garble `§`), so edit files with the Edit tool or bash.
+- Branch protection on `main` is not set yet; turn it on once `ci.yml` exists (GĐ0 step 8). From now on, work on `gd0/<task>` branches and merge through PRs.
+- GĐ0 step 3 done (12/11/2026), branch `gd0/copy-assets`: 7 product prompts in `src/Arrow.Business/Prompts/`, `tools/tools.lock.json` (12 entries, no EvoSuite), 5 fixtures in `tests/fixtures/`. The sha256 values are in the commit messages, for comparison when the team changes a source.
+- **Next:** GĐ0 step 4, `Arrow.Common`: `ProjectTarget`, `CutInfo`, `TargetResult`, `RunInfo`, `ArrowEvent`, `ErrorCatalog`, JSON conventions (P00 §5).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
