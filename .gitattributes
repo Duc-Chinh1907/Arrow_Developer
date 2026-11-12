@@ -1,0 +1,15 @@
+# Normalize text files to LF in the repository; checkout follows the platform.
+* text=auto
+
+# Scripts that must keep their native line endings on every platform
+*.sh text eol=lf
+mvnw text eol=lf
+gradlew text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files
+*.jar binary
+*.png binary
+*.zip binary

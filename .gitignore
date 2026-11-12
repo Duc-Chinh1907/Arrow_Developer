@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.trx
+target/
+
+# IDE and local tool state
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+.claude/settings.local.json
+
+# ARROW run data and scratch folders (never commit: may contain user code and LLM output)
+runs/
+work/
+
+# Machine-specific config and secrets
+*.local.json
+*.local.yaml
+.env
+.env.*
+
+# Copy of the docs made for the team
+docs.zip
