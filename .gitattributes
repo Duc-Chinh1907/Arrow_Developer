@@ -1,5 +1,5 @@
-# Normalize text files to LF in the repository; checkout follows the platform.
-* text=auto
+# Text files use LF in the repository and in the working tree on every platform (matches .editorconfig).
+* text=auto eol=lf
 
 # Scripts that must keep their native line endings on every platform
 *.sh text eol=lf
