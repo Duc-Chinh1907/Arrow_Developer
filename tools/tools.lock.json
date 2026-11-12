@@ -1,0 +1,17 @@
+{
+  "comment": "Công cụ của khối 4 (spec 04 Mục 1). maven: tải qua Maven Central; url: tải trực tiếp. sha256 null = chưa khóa: lần tải đầu ghi sha256 vào <tools_dir>/tools.installed.json và doctor báo cần khóa vào file này.",
+  "tools": [
+    { "id": "jacoco-agent", "file": "jacoco-0.8.12/jacocoagent.jar", "maven": "org.jacoco:org.jacoco.agent:0.8.12:jar:runtime", "sha256": "115e8e6e6593ca3a9892dfef695df4d487c706e59e71e64dc0ab95716ee02622" },
+    { "id": "jacoco-cli", "file": "jacoco-0.8.12/jacococli.jar", "maven": "org.jacoco:org.jacoco.cli:0.8.12:jar:nodeps", "sha256": "594c01125b84864a7fc5a9efab19b71b7de36b27346863f6d7cd0cd45400ceb0" },
+    { "id": "pitest", "file": "pit-1.17.4/pitest-1.17.4.jar", "maven": "org.pitest:pitest:1.17.4", "sha256": "97082da0ae5283f564b3f51652c39f4f1d235eb3b019384d11eb5d4fc0e4219e" },
+    { "id": "pitest-entry", "file": "pit-1.17.4/pitest-entry-1.17.4.jar", "maven": "org.pitest:pitest-entry:1.17.4", "sha256": "809c1cf0b83c14e5c5cdb8d70c2c231db24499243263e18474436e30c23657eb" },
+    { "id": "pitest-command-line", "file": "pit-1.17.4/pitest-command-line-1.17.4.jar", "maven": "org.pitest:pitest-command-line:1.17.4", "sha256": "a1785b9ec46daf34685b63b9702c1b94f052fa90d74cc1a84f20944894e34ccc" },
+    { "id": "pitest-html-report", "file": "pit-1.17.4/pitest-html-report-1.17.4.jar", "maven": "org.pitest:pitest-html-report:1.17.4", "sha256": "50882b3610de9bfaf1e2de62c101e4b41db8ebdca6caa836b55d05f362aa1eb9" },
+    { "id": "commons-text", "file": "pit-1.17.4/commons-text-1.12.0.jar", "maven": "org.apache.commons:commons-text:1.12.0", "sha256": "de023257ff166044a56bd1aa9124e843cd05dac5806cc705a9311f3556d5a15f" },
+    { "id": "commons-lang3", "file": "pit-1.17.4/commons-lang3-3.14.0.jar", "maven": "org.apache.commons:commons-lang3:3.14.0", "sha256": "7b96bf3ee68949abb5bc465559ac270e0551596fa34523fddf890ec418dde13c" },
+    { "id": "jopt-simple", "file": "pit-1.17.4/jopt-simple-4.9.jar", "maven": "net.sf.jopt-simple:jopt-simple:4.9", "sha256": "26c5856e954b5f864db76f13b86919b59c6eecf9fd930b96baa8884626baf2f5" },
+    { "id": "pitest-junit5-plugin", "file": "pit-1.17.4/pitest-junit5-plugin-1.2.1.jar", "maven": "org.pitest:pitest-junit5-plugin:1.2.1", "sha256": "9d944887a583ebd4adc33d2d26b8b56639fd53fee93b4d068a90596705c072b5" },
+    { "id": "pitest-testng-plugin", "file": "pit-1.17.4/pitest-testng-plugin-1.0.0.jar", "maven": "org.pitest:pitest-testng-plugin:1.0.0", "sha256": "cbd566f4edc888620233464a192ffdc82e2c226c9c094948d38e3fe233ddfc6e" },
+    { "id": "tsdetect", "file": "tsdetect-2.2/TestSmellDetector.jar", "url": "https://github.com/TestSmells/TestSmellDetector/releases/download/v2.2/TestSmellDetector.jar", "sha256": "6a12de6d1613c7ee9e845a2b69d876834f8ee98379e85d38c0e6027f7110f7bc" }
+  ]
+}
