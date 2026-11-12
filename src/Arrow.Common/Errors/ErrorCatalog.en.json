@@ -1,0 +1,230 @@
+{
+  "B1_BUILD_ROOT_NOT_FOUND": {
+    "message": "No Maven or Gradle build file was found in the project.",
+    "hint": "Run inside a Maven/Gradle project folder, or use --project <folder>."
+  },
+  "B1_URL_HAS_CREDENTIALS": {
+    "message": "The repository URL contains credentials (user:token@).",
+    "hint": "Remove the credentials from the URL; use a git credential helper instead."
+  },
+  "B1_AUTH_REQUIRED": {
+    "message": "The repository needs a login and git could not sign in.",
+    "hint": "Sign in to GitHub with \"gh auth login\" or Git Credential Manager."
+  },
+  "B1_CLONE_FAILED": {
+    "message": "Could not download the repository because of a network error (3 attempts).",
+    "hint": "Check the network and the proxy (git config --global http.proxy)."
+  },
+  "B1_COMMIT_MISSING": {
+    "message": "Ref or commit {ref} was not found.",
+    "hint": "Check the branch or tag name; use the full SHA."
+  },
+  "B1_CUT_MISSING": {
+    "message": "Class {query} was not found.",
+    "hint": "Use the FQN or the path of the .java file; similar names are listed above."
+  },
+  "B1_CUT_AMBIGUOUS": {
+    "message": "Several classes are named {query} and none was chosen.",
+    "hint": "Use the FQN, for example com.acme.shop.OrderService."
+  },
+  "B1_CUT_NOT_TESTABLE": {
+    "message": "{query} is an interface, an annotation, a nested class, or lies in the test folder.",
+    "hint": "Choose a concrete class."
+  },
+  "B1_MODULE_MISMATCH": {
+    "message": "Could not tell which module contains the CUT: module root {module_root}, build root {build_root}.",
+    "hint": "Check the two paths above; use \"arrow inspect\" to see how ARROW reads the project."
+  },
+  "B1_BUILD_TOOL_MISSING": {
+    "message": "The project has no wrapper and this machine has neither Maven nor Gradle.",
+    "hint": "Install Maven or Gradle, or run \"arrow setup\"."
+  },
+  "B1_JDK_MISSING": {
+    "message": "No usable JDK was found on this machine.",
+    "hint": "Install JDK {jdk}, then run \"arrow setup\"."
+  },
+  "B1_DEPENDENCY_RESOLUTION": {
+    "message": "Could not download the project dependencies.",
+    "hint": "Run \"mvn -q dependency:resolve\" to see the error; check settings.xml and the proxy."
+  },
+  "B1_BASELINE_BUILD_FAILED": {
+    "message": "No JDK could compile the project.",
+    "hint": "See the first error above; run \"mvn -q test-compile\" in the project for the full output."
+  },
+  "B1_BASELINE_TIMEOUT": {
+    "message": "Building or testing the project took longer than allowed (3 attempts).",
+    "hint": "Increase verification.step_timeout_seconds."
+  },
+  "B1_TEST_NAME_EXHAUSTED": {
+    "message": "Files _ArrowTest to _Arrow99Test already exist for this class.",
+    "hint": "Delete some of the old test files that ARROW generated."
+  },
+  "B1_WORKSPACE": {
+    "message": "Could not copy or delete the working copy (disk space, permissions, path too long).",
+    "hint": "Check the free disk space; set ARROW_HOME to a shorter path."
+  },
+  "B2_INVALID_OUTPUT": {
+    "message": "The model did not return usable test code.",
+    "hint": "Run again, or switch to another model."
+  },
+  "B2_TEMPLATE_INVALID": {
+    "message": "A prompt template is invalid: missing or extra placeholders, wrong id, or a broken override file.",
+    "hint": "Fix or remove the prompts.override_dir folder."
+  },
+  "B2_LLM_UNAVAILABLE": {
+    "message": "Could not reach the model: the network or the provider is failing.",
+    "hint": "Try again later with \"arrow gen --resume {run_id}\"."
+  },
+  "B2_LLM_CONFIG": {
+    "message": "The model configuration does not work (key, account, base_url, model_id or parameters).",
+    "hint": "Check it with \"arrow models test\", then continue with \"arrow gen --resume {run_id}\"."
+  },
+  "B2_WRONG_MODEL": {
+    "message": "The endpoint answered with another model: {actual} instead of {expected}.",
+    "hint": "Check model_id, or remove expected_model_id_prefix."
+  },
+  "B2_TOKEN_BUDGET": {
+    "message": "The token budget (--max-tokens) is used up.",
+    "hint": "Raise the budget, then continue with \"arrow gen --resume {run_id}\"."
+  },
+  "B3_TIMEOUT": {
+    "message": "A verification step took longer than allowed (3 attempts).",
+    "hint": "The generated test may hang (endless loop, waiting for the network). Increase verification.step_timeout_seconds or run again."
+  },
+  "B3_DEPENDENCY": {
+    "message": "Could not download dependencies while verifying the test.",
+    "hint": "Check the network and settings.xml."
+  },
+  "B3_TOOL_ERROR": {
+    "message": "Maven, Gradle or the JVM could not run, or was stopped midway.",
+    "hint": "See the log; run \"arrow doctor\"."
+  },
+  "B3_WORKSPACE": {
+    "message": "Could not create or delete the verification copy (disk space, permissions).",
+    "hint": "Run \"arrow clean --work\"; check the free disk space."
+  },
+  "B4_SUITE_COMPILE": {
+    "message": "Could not compile the test suite in the measuring copy (3 attempts).",
+    "hint": "Environment problem; run again. If it keeps failing, report it with the log."
+  },
+  "B4_JACOCO_FAILED": {
+    "message": "No coverage data was collected for the class under test.",
+    "hint": "The project may run tests in a separate JVM that ignores JAVA_TOOL_OPTIONS. See the log."
+  },
+  "B4_PIT_FAILED": {
+    "message": "PIT failed, or no JDK 11 or newer is available.",
+    "hint": "Install JDK 11 or newer; see the last 20 lines of the log."
+  },
+  "B4_PIT_SCOPE": {
+    "message": "PIT created mutants outside the class under test and its nested classes.",
+    "hint": "This is an ARROW configuration bug. Please report it with the log."
+  },
+  "B4_TSDETECT_FAILED": {
+    "message": "tsDetect failed.",
+    "hint": "See the log."
+  },
+  "W_TARGET_OUTSIDE_PROJECT": {
+    "message": "The target path is outside the project or its test folder (symlink, junction, \"..\"). Nothing was written.",
+    "hint": "Check the symlinks in the project; report it with the log."
+  },
+  "W_PROJECT_CHANGED": {
+    "message": "The source file of the class under test changed since the run.",
+    "hint": "Run \"arrow gen\" again for that class."
+  },
+  "W_REVERIFY_FAILED": {
+    "message": "The renamed _Arrow<k>Test version is no longer VALID.",
+    "hint": "The original is still in runs/. Run \"arrow gen\" again."
+  },
+  "W_TARGET_EXISTS": {
+    "message": "The target file appeared while writing, twice in a row.",
+    "hint": "Run again."
+  },
+  "W_IO": {
+    "message": "Could not write the test file (permissions, full disk, or a locked file).",
+    "hint": "Check write access to the test folder, or close the IDE that locks the file."
+  },
+  "CFG_HOME_PATH": {
+    "message": "ARROW_HOME contains a space or a non-ASCII character: {path}.",
+    "hint": "Set the ARROW_HOME environment variable to another folder, for example D:\\arrow."
+  },
+  "CFG_PARSE": {
+    "message": "Config file {file} is not valid JSON (line {line}, column {column}).",
+    "hint": "Fix the file at that position; \"arrow config path\" prints where the config files are."
+  },
+  "CFG_INVALID": {
+    "message": "Invalid config value: {key} = {value} (from {origin}).",
+    "hint": "Fix it with \"arrow config set {key} <value>\" or in the config file above."
+  },
+  "CFG_NEWER_SCHEMA": {
+    "message": "Config file {file} was written by a newer version of ARROW.",
+    "hint": "Update ARROW."
+  },
+  "CFG_SECRET_IN_PROJECT": {
+    "message": "The project file .arrow.json contains an API key.",
+    "hint": "Remove the key from the file, then use \"arrow secrets set <ref>\"."
+  },
+  "CFG_NO_MODEL": {
+    "message": "No model is selected.",
+    "hint": "Run \"arrow setup\", or use --model <name>."
+  },
+  "CFG_SECRET_MISSING": {
+    "message": "Provider {provider} needs an API key and none was found.",
+    "hint": "Run \"arrow secrets set {ref}\", or set the environment variable {env_var}."
+  },
+  "CFG_TOOL_MISSING": {
+    "message": "Tool {tool} is missing and could not be downloaded.",
+    "hint": "Run \"arrow tools install\" when the network is available."
+  },
+  "CFG_TOOL_CHECKSUM": {
+    "message": "The downloaded file {tool} has a wrong sha256.",
+    "hint": "Try again; if it is still wrong, check the proxy or ARROW_MAVEN_MIRROR."
+  },
+  "CFG_DISK_FULL": {
+    "message": "Not enough free space in ARROW_HOME (at least 2 GB needed).",
+    "hint": "Run \"arrow clean --work --runs\"."
+  },
+  "JH_JDK_MISSING": {
+    "message": "java-helper needs JDK 17 or newer, and none was found.",
+    "hint": "Install JDK 17 or newer, then run \"arrow setup\"."
+  },
+  "JH_START_FAILED": {
+    "message": "java-helper could not start, or stopped unexpectedly twice in a row.",
+    "hint": "See the log; run \"arrow doctor\"."
+  },
+  "JH_TIMEOUT": {
+    "message": "A java-helper command timed out twice in a row.",
+    "hint": "Please report it with the log."
+  },
+  "JH_VERSION_MISMATCH": {
+    "message": "Wrong java-helper version: expected {expected}, found {actual}.",
+    "hint": "Delete ARROW_HOME/tools/java-helper-*.jar and run again."
+  },
+  "JH_INPUT_TOO_LARGE": {
+    "message": "The code sent to java-helper is larger than 2 MB.",
+    "hint": null
+  },
+  "GEN_NO_TARGETS": {
+    "message": "There is no class left to run.",
+    "hint": "Check the class or package names."
+  },
+  "GEN_RESUME_MISMATCH": {
+    "message": "The project has changed since run {run_id}.",
+    "hint": "Start a new \"arrow gen\" without --resume."
+  },
+  "GEN_RESUME_NOT_FOUND": {
+    "message": "Run {run_id} does not exist, or belongs to another project.",
+    "hint": "List the runs with \"arrow history\"."
+  },
+  "CLI_ARGS": {
+    "message": "Wrong or missing arguments.",
+    "hint": "Type \"arrow {command} --help\" to see the usage."
+  },
+  "CLI_NO_TTY": {
+    "message": "This command needs a keyboard, but the input is redirected.",
+    "hint": "Run the command in an interactive terminal."
+  },
+  "CLI_INTERNAL": {
+    "message": "Internal ARROW error.",
+    "hint": "Please report it with the log file: {log_path}."
+  }
+}
