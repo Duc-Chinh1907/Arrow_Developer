@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Shared records, enums, ArrowEvent, ErrorCatalog and JSON conventions. References nothing. -->
   <ItemGroup>
+    <!-- WithCulture=false: ".vi." / ".en." in the name must not turn these into satellite-assembly resources. -->
+    <EmbeddedResource Include="Errors\ErrorCatalog.*.json" LogicalName="Arrow.Common.Errors.%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Arrow.Business.Tests" />
   </ItemGroup>
 </Project>

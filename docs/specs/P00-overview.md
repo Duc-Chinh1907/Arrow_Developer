@@ -87,8 +87,11 @@ flowchart LR
 ## 5. Quy ước chung
 
 **JSON:**
-- UTF-8 không BOM, xuống dòng LF, tên trường `snake_case`, enum viết HOA (`"COMPILE"`);
-- C# dùng `System.Text.Json` với `JsonNamingPolicy.SnakeCaseLower` và `JsonStringEnumConverter`.
+- UTF-8 không BOM, xuống dòng LF, tên trường `snake_case`, enum viết HOA (`"COMPILE"`, `"INVALID_OUTPUT"`);
+- **ngoại lệ:** các giá trị mà spec ghi chữ thường vẫn viết thường: `kind` của nguồn (`"local"`, `"git"`), `kind` của class (`"class"`, `"enum"`…), `stop_reason` (`"valid"`…), `decision` của P06 (`"written"`…);
+- enum không bao giờ ghi bằng số; khoá của từ điển giữ nguyên, không đổi sang `snake_case`;
+- chữ tiếng Việt ghi thẳng, không thoát thành `\uXXXX`;
+- C# dùng `System.Text.Json` với `JsonNamingPolicy.SnakeCaseLower` và `JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper)`; giá trị chữ thường dùng `[JsonStringEnumMemberName]`. Cài đặt ở `Arrow.Common.Json.ArrowJson`.
 
 **Ghi file nguyên tử:** ghi `<file>.tmp`, flush, rồi đổi tên đè (`File.Move(tmp, path, overwrite: true)`). Áp dụng cho mọi file kết quả và cấu hình.
 
@@ -104,13 +107,18 @@ flowchart LR
 
 **Bí mật:** khoá API không bao giờ xuất hiện trong log, file kết quả hay output, kể cả với `--json`. Chỉ hiện 4 ký tự cuối, ví dụ `...2a4b`.
 
-**Thời gian:** ghi theo UTC, định dạng ISO 8601. Khoảng thời gian ghi bằng giây (`*_seconds`, số thực).
+**Thời gian:** ghi theo UTC, định dạng ISO 8601, chính xác tới giây, có hậu tố `Z` (ví dụ `2026-11-10T07:25:30Z`). Khoảng thời gian ghi bằng giây (`*_seconds`, số thực).
 
 **Huỷ:** mọi hàm bất đồng bộ nhận `CancellationToken`. Khi bị huỷ thì giết cả cây tiến trình con và dọn bản sao workspace.
 
 ## 6. Mã lỗi
 
 Mã viết HOA, có tiền tố. Mỗi mã có một câu giải thích và một **gợi ý sửa bằng tiếng Việt**, đặt trong `ErrorCatalog` (Common). CLI in hai câu này cho người dùng.
+
+- Catalog nhúng sẵn hai ngôn ngữ, `ErrorCatalog.vi.json` và `ErrorCatalog.en.json`, chọn theo `ui.language` (P09); ngôn ngữ khác thì dùng tiếng Việt.
+- Câu có thể chứa chỗ trống `{tên}` (ví dụ `Cài JDK {jdk}`), điền từ tham số của `ArrowException`. Hai ngôn ngữ phải có cùng tập chỗ trống. Thiếu tham số thì giữ nguyên `{tên}` để dễ thấy lỗi.
+- Nơi phát lỗi có thể đưa câu mô tả riêng cho lần lỗi đó (ví dụ lỗi biên dịch đầu tiên); câu này thay câu giải thích của catalog, còn gợi ý vẫn lấy từ catalog.
+- Kết quả ghi vào file và in ra có dạng `{ "code", "message", "hint", "log" }` (`ErrorInfo`, P07 §6).
 
 | Tiền tố | Spec | Ví dụ |
 |---|---|---|

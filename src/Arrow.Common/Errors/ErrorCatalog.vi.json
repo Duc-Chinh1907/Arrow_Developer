@@ -1,0 +1,230 @@
+{
+  "B1_BUILD_ROOT_NOT_FOUND": {
+    "message": "Không tìm thấy file build Maven hay Gradle trong project.",
+    "hint": "Chạy trong thư mục project Maven/Gradle, hoặc dùng --project <thư mục>."
+  },
+  "B1_URL_HAS_CREDENTIALS": {
+    "message": "URL của repo có thông tin đăng nhập (user:token@).",
+    "hint": "Bỏ thông tin đăng nhập khỏi URL; dùng credential helper của git."
+  },
+  "B1_AUTH_REQUIRED": {
+    "message": "Repo cần đăng nhập mà git không đăng nhập được.",
+    "hint": "Đăng nhập GitHub bằng \"gh auth login\" hoặc Git Credential Manager."
+  },
+  "B1_CLONE_FAILED": {
+    "message": "Không tải được repo vì lỗi mạng (đã thử 3 lần).",
+    "hint": "Kiểm tra mạng và proxy (git config --global http.proxy)."
+  },
+  "B1_COMMIT_MISSING": {
+    "message": "Không tìm thấy ref hoặc commit {ref}.",
+    "hint": "Kiểm tra tên nhánh hoặc tag; dùng SHA đầy đủ."
+  },
+  "B1_CUT_MISSING": {
+    "message": "Không tìm thấy class {query}.",
+    "hint": "Dùng FQN hoặc đường dẫn file .java; xem các tên gần giống ở trên."
+  },
+  "B1_CUT_AMBIGUOUS": {
+    "message": "Có nhiều class tên {query}, không chọn được class nào.",
+    "hint": "Dùng FQN, ví dụ com.acme.shop.OrderService."
+  },
+  "B1_CUT_NOT_TESTABLE": {
+    "message": "{query} là interface, annotation, class lồng, hoặc nằm trong thư mục test.",
+    "hint": "Chọn một class cài đặt."
+  },
+  "B1_MODULE_MISMATCH": {
+    "message": "Không xác định được module chứa CUT: module root {module_root}, build root {build_root}.",
+    "hint": "Kiểm tra hai đường dẫn trên; dùng \"arrow inspect\" để xem cách ARROW hiểu project."
+  },
+  "B1_BUILD_TOOL_MISSING": {
+    "message": "Project không có wrapper, và máy không có Maven hay Gradle.",
+    "hint": "Cài Maven hoặc Gradle, hoặc chạy \"arrow setup\"."
+  },
+  "B1_JDK_MISSING": {
+    "message": "Máy không có JDK nào dùng được.",
+    "hint": "Cài JDK {jdk}, rồi chạy \"arrow setup\"."
+  },
+  "B1_DEPENDENCY_RESOLUTION": {
+    "message": "Không tải được dependency của project.",
+    "hint": "Chạy \"mvn -q dependency:resolve\" để xem lỗi; kiểm tra settings.xml và proxy."
+  },
+  "B1_BASELINE_BUILD_FAILED": {
+    "message": "Không JDK nào biên dịch được project.",
+    "hint": "Xem lỗi đầu tiên ở trên; chạy \"mvn -q test-compile\" trong project để xem lỗi đầy đủ."
+  },
+  "B1_BASELINE_TIMEOUT": {
+    "message": "Build hoặc chạy test của project quá thời gian cho phép (đã thử 3 lần).",
+    "hint": "Tăng verification.step_timeout_seconds."
+  },
+  "B1_TEST_NAME_EXHAUSTED": {
+    "message": "Đã có đủ các file từ _ArrowTest tới _Arrow99Test cho class này.",
+    "hint": "Xoá bớt các file test cũ do ARROW sinh."
+  },
+  "B1_WORKSPACE": {
+    "message": "Không chép hay xoá được bản sao làm việc (đĩa, quyền, đường dẫn quá dài).",
+    "hint": "Kiểm tra dung lượng trống; đặt ARROW_HOME ở đường dẫn ngắn hơn."
+  },
+  "B2_INVALID_OUTPUT": {
+    "message": "Model không trả về mã test dùng được.",
+    "hint": "Chạy lại, hoặc đổi model."
+  },
+  "B2_TEMPLATE_INVALID": {
+    "message": "Template prompt không hợp lệ: thiếu hoặc thừa placeholder, sai id, hoặc file ghi đè sai.",
+    "hint": "Sửa hoặc xoá thư mục prompts.override_dir."
+  },
+  "B2_LLM_UNAVAILABLE": {
+    "message": "Không gọi được model: mạng hoặc provider đang lỗi.",
+    "hint": "Chạy lại sau bằng \"arrow gen --resume {run_id}\"."
+  },
+  "B2_LLM_CONFIG": {
+    "message": "Cấu hình model không dùng được (khoá, tài khoản, base_url, model_id hoặc tham số).",
+    "hint": "Kiểm tra cấu hình bằng \"arrow models test\", rồi chạy tiếp bằng \"arrow gen --resume {run_id}\"."
+  },
+  "B2_WRONG_MODEL": {
+    "message": "Endpoint trả về model khác: {actual} thay vì {expected}.",
+    "hint": "Kiểm tra model_id, hoặc bỏ expected_model_id_prefix."
+  },
+  "B2_TOKEN_BUDGET": {
+    "message": "Đã dùng hết ngân sách token (--max-tokens).",
+    "hint": "Tăng ngân sách rồi chạy tiếp bằng \"arrow gen --resume {run_id}\"."
+  },
+  "B3_TIMEOUT": {
+    "message": "Một bước xác minh quá thời gian cho phép (đã thử 3 lần).",
+    "hint": "Test sinh ra có thể bị treo (vòng lặp vô hạn, chờ mạng). Tăng verification.step_timeout_seconds hoặc chạy lại."
+  },
+  "B3_DEPENDENCY": {
+    "message": "Không tải được dependency khi xác minh test.",
+    "hint": "Kiểm tra mạng và settings.xml."
+  },
+  "B3_TOOL_ERROR": {
+    "message": "Maven, Gradle hoặc JVM không chạy được, hoặc bị dừng giữa chừng.",
+    "hint": "Xem log; chạy \"arrow doctor\"."
+  },
+  "B3_WORKSPACE": {
+    "message": "Không tạo hay xoá được bản sao để xác minh (đĩa, quyền).",
+    "hint": "Chạy \"arrow clean --work\"; kiểm tra dung lượng trống."
+  },
+  "B4_SUITE_COMPILE": {
+    "message": "Không biên dịch được bộ test trong bản sao dùng để đo (đã thử 3 lần).",
+    "hint": "Lỗi môi trường; chạy lại. Nếu vẫn lỗi thì báo lỗi kèm log."
+  },
+  "B4_JACOCO_FAILED": {
+    "message": "Không có dữ liệu coverage của class cần test.",
+    "hint": "Project có thể chạy test bằng JVM riêng không nhận JAVA_TOOL_OPTIONS. Xem log."
+  },
+  "B4_PIT_FAILED": {
+    "message": "PIT lỗi, hoặc máy không có JDK 11 trở lên.",
+    "hint": "Cài JDK 11 trở lên; xem 20 dòng cuối của log."
+  },
+  "B4_PIT_SCOPE": {
+    "message": "PIT tạo mutant ngoài class cần test và các class lồng của nó.",
+    "hint": "Đây là lỗi cấu hình của ARROW. Báo lỗi kèm log."
+  },
+  "B4_TSDETECT_FAILED": {
+    "message": "tsDetect lỗi.",
+    "hint": "Xem log."
+  },
+  "W_TARGET_OUTSIDE_PROJECT": {
+    "message": "Đường dẫn đích nằm ngoài project hoặc ngoài thư mục test (symlink, junction, \"..\"). Không ghi file.",
+    "hint": "Kiểm tra symlink trong project; báo lỗi kèm log."
+  },
+  "W_PROJECT_CHANGED": {
+    "message": "File của class cần test đã thay đổi kể từ lúc chạy.",
+    "hint": "Chạy lại \"arrow gen\" cho class đó."
+  },
+  "W_REVERIFY_FAILED": {
+    "message": "Bản đổi tên _Arrow<k>Test không còn VALID.",
+    "hint": "Bản gốc vẫn nằm trong runs/. Chạy lại \"arrow gen\"."
+  },
+  "W_TARGET_EXISTS": {
+    "message": "File đích xuất hiện trong lúc ghi, hai lần liền.",
+    "hint": "Chạy lại."
+  },
+  "W_IO": {
+    "message": "Không ghi được file test (quyền, đĩa đầy, hoặc file bị khoá).",
+    "hint": "Kiểm tra quyền ghi thư mục test, hoặc đóng IDE đang khoá file."
+  },
+  "CFG_HOME_PATH": {
+    "message": "ARROW_HOME có dấu cách hoặc ký tự không phải ASCII: {path}.",
+    "hint": "Đặt biến môi trường ARROW_HOME tới một thư mục khác, ví dụ D:\\arrow."
+  },
+  "CFG_PARSE": {
+    "message": "File cấu hình {file} không phải JSON hợp lệ (dòng {line}, cột {column}).",
+    "hint": "Sửa file ở vị trí trên; \"arrow config path\" in đường dẫn các file cấu hình."
+  },
+  "CFG_INVALID": {
+    "message": "Giá trị cấu hình không hợp lệ: {key} = {value} (từ {origin}).",
+    "hint": "Sửa bằng \"arrow config set {key} <giá trị>\" hoặc trong file cấu hình ở trên."
+  },
+  "CFG_NEWER_SCHEMA": {
+    "message": "File cấu hình {file} do một bản ARROW mới hơn tạo ra.",
+    "hint": "Cập nhật ARROW."
+  },
+  "CFG_SECRET_IN_PROJECT": {
+    "message": "File .arrow.json của project có khoá API.",
+    "hint": "Xoá khoá khỏi file, rồi dùng \"arrow secrets set <ref>\"."
+  },
+  "CFG_NO_MODEL": {
+    "message": "Chưa chọn model.",
+    "hint": "Chạy \"arrow setup\", hoặc dùng --model <tên>."
+  },
+  "CFG_SECRET_MISSING": {
+    "message": "Provider {provider} cần khoá API mà không tìm thấy khoá.",
+    "hint": "Chạy \"arrow secrets set {ref}\", hoặc đặt biến môi trường {env_var}."
+  },
+  "CFG_TOOL_MISSING": {
+    "message": "Thiếu công cụ {tool} và không tải được.",
+    "hint": "Chạy \"arrow tools install\" khi có mạng."
+  },
+  "CFG_TOOL_CHECKSUM": {
+    "message": "File {tool} tải về sai sha256.",
+    "hint": "Thử lại; nếu vẫn sai thì kiểm tra proxy hoặc ARROW_MAVEN_MIRROR."
+  },
+  "CFG_DISK_FULL": {
+    "message": "Không đủ chỗ trống trong ARROW_HOME (cần ít nhất 2 GB).",
+    "hint": "Chạy \"arrow clean --work --runs\"."
+  },
+  "JH_JDK_MISSING": {
+    "message": "java-helper cần JDK 17 trở lên mà máy không có.",
+    "hint": "Cài JDK 17 hoặc mới hơn, rồi chạy \"arrow setup\"."
+  },
+  "JH_START_FAILED": {
+    "message": "java-helper không khởi động được, hoặc dừng bất thường hai lần liền.",
+    "hint": "Xem log; chạy \"arrow doctor\"."
+  },
+  "JH_TIMEOUT": {
+    "message": "Lệnh java-helper quá thời gian cho phép hai lần liền.",
+    "hint": "Báo lỗi kèm log."
+  },
+  "JH_VERSION_MISMATCH": {
+    "message": "java-helper sai phiên bản: cần {expected}, có {actual}.",
+    "hint": "Xoá ARROW_HOME/tools/java-helper-*.jar rồi chạy lại."
+  },
+  "JH_INPUT_TOO_LARGE": {
+    "message": "Mã gửi cho java-helper lớn hơn 2 MB.",
+    "hint": null
+  },
+  "GEN_NO_TARGETS": {
+    "message": "Không còn class nào để chạy.",
+    "hint": "Kiểm tra tên class hoặc package."
+  },
+  "GEN_RESUME_MISMATCH": {
+    "message": "Project đã thay đổi kể từ run {run_id}.",
+    "hint": "Chạy \"arrow gen\" mới, không dùng --resume."
+  },
+  "GEN_RESUME_NOT_FOUND": {
+    "message": "Không có run {run_id}, hoặc run đó thuộc project khác.",
+    "hint": "Xem các run bằng \"arrow history\"."
+  },
+  "CLI_ARGS": {
+    "message": "Tham số sai hoặc thiếu.",
+    "hint": "Gõ \"arrow {command} --help\" để xem cách dùng."
+  },
+  "CLI_NO_TTY": {
+    "message": "Lệnh này cần bàn phím, nhưng đầu vào đang bị chuyển hướng.",
+    "hint": "Chạy lệnh trong một terminal tương tác."
+  },
+  "CLI_INTERNAL": {
+    "message": "Lỗi nội bộ của ARROW.",
+    "hint": "Báo lỗi kèm file log: {log_path}."
+  }
+}
