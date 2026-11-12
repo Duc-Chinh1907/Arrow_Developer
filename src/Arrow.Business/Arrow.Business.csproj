@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Decisions: analysis (block 1), generation (2), repair (3), quality (4), apply, use cases. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
+    <ProjectReference Include="..\Arrow.DataAccess\Arrow.DataAccess.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Arrow.Business.Tests" />
+    <InternalsVisibleTo Include="Arrow.IntegrationTests" />
+  </ItemGroup>
+</Project>

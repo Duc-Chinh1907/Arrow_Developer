@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Commands, interactive session and rendering. Uses Arrow.DataAccess only in CompositionRoot. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
+    <ProjectReference Include="..\Arrow.Business\Arrow.Business.csproj" />
+    <ProjectReference Include="..\Arrow.DataAccess\Arrow.DataAccess.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Arrow.Cli.Tests" />
+    <InternalsVisibleTo Include="Arrow.IntegrationTests" />
+  </ItemGroup>
+</Project>

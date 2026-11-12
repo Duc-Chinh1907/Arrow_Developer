@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Arrow.Business/Arrow.Business.csproj" />
+    <Project Path="src/Arrow.Cli/Arrow.Cli.csproj" />
+    <Project Path="src/Arrow.Common/Arrow.Common.csproj" />
+    <Project Path="src/Arrow.DataAccess/Arrow.DataAccess.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Arrow.Business.Tests/Arrow.Business.Tests.csproj" />
+    <Project Path="tests/Arrow.Cli.Tests/Arrow.Cli.Tests.csproj" />
+    <Project Path="tests/Arrow.DataAccess.Tests/Arrow.DataAccess.Tests.csproj" />
+    <Project Path="tests/Arrow.IntegrationTests/Arrow.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unit tests for Arrow.Business and Arrow.Common: pure logic, no process, network or real JDK. -->
+  <PropertyGroup>
+    <!-- No tests yet: accept exit code 8 (zero tests ran). Remove this when the first test is added. -->
+    <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Arrow.Business\Arrow.Business.csproj" />
+  </ItemGroup>
+</Project>

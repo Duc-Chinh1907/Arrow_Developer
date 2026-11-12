@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Process, HTTP and file I/O: git, build tools, java-helper, LLM clients, tools, storage, secrets. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Arrow.DataAccess.Tests" />
+    <InternalsVisibleTo Include="Arrow.IntegrationTests" />
+  </ItemGroup>
+</Project>

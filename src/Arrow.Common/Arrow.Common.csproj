@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared records, enums, ArrowEvent, ErrorCatalog and JSON conventions. References nothing. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Arrow.Business.Tests" />
+  </ItemGroup>
+</Project>

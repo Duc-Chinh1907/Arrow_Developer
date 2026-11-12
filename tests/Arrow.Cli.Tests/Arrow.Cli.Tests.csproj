@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unit tests for Arrow.Cli (parsing, rendering, exit codes) and the architecture rules of the solution. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Arrow.Cli\Arrow.Cli.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.eNhancedEdition" />
+  </ItemGroup>
+</Project>
