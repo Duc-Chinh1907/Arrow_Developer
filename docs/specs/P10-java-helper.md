@@ -37,6 +37,9 @@
 - `java-helper.jar` được nhúng vào `Arrow.DataAccess` (EmbeddedResource).
 - Lần chạy đầu, jar được giải nén ra `ARROW_HOME/tools/java-helper-<version>.jar`. Đã có thì kiểm tra sha256, sai thì giải nén lại.
 - sha256 của jar được ghi vào `tools.lock.json` lúc build (CI tính).
+  - Jar build ở mỗi máy khác nhau (có timestamp), nên trong repo mục `java-helper` của `tools.lock.json` để `"sha256": null`; `release.yml` (GĐ8) ghi giá trị thật.
+  - Khi giải nén, `JavaHelperJar.Ensure` so sha256 của file đã có với **chính jar được nhúng**, nên không cần giá trị trong `tools.lock.json`.
+- Build .NET chỉ nhúng jar khi `tools/java-helper/target/java-helper.jar` đã có; CI chạy `mvn verify` của java-helper **trước** `dotnet build`. Bản build không có jar vẫn chạy, `JavaHelperJar.Ensure` báo `JH_START_FAILED`.
 
 ## 3. Giao thức
 
@@ -140,6 +143,7 @@
 | Ra | `{ "parsed": true, "total": 11, "per_method": { "addsItem": 3, "rejectsNull": 1 } }` |
 | Tính | Theo R03 §3.6 (bổ sung 15/10/2026):<br>• `assert*` của JUnit/TestNG; `assertThat` (AssertJ, Hamcrest);<br>• `@Test(expected = …)`, `expectedExceptions`; `fail()` trong `try`;<br>• Mockito: `verify(…)`, kể cả `inOrder.verify(…)`; `verifyNoInteractions`, `verifyNoMoreInteractions`, `verifyZeroInteractions`;<br>• kiểu BDD: `then(mock).should…()` và `then(actual).is…()`;<br>• MockMvc `andExpect(…)`;<br>• `thrown.expect…(…)` của `ExpectedException` (JUnit 4);<br>• mỗi kiểm tra trong chuỗi `then()`/`expect()` của RestAssured |
 | Không tính | Assertion tầm thường: `assertTrue(true)`, `assertEquals(x, x)`, `assertNull(null)`, `assertNotNull(new X())`; `assertThat()` không tham số |
+| Nhận diện không cần kiểu (1.1.0) | Không có thông tin kiểu, nên các loại mới được nhận theo cú pháp:<br>• `verify` có phạm vi chỉ tính khi phạm vi là `Mockito`/`BDDMockito`, biến có tên chứa `inOrder`, hoặc `inOrder(…)`. `signature.verify(bytes)` của `java.security` không bị tính;<br>• BDD là `then(x)` đúng **một** tham số, không phạm vi hoặc phạm vi `BDDMockito`/`BDDAssertions`. `then()` không tham số là RestAssured; `when(…).then(answer)` không tính. `then(mock).should…()` tính một lần ở `should…`; `then(actual).is…()` tính một lần ở `then`;<br>• `expect…(…)` chỉ tính khi gọi trên biến hoặc field (`thrown`, `this.thrown`) và có tham số. `EasyMock.expect(…)` và `expect()` của RestAssured không tính |
 | Dùng ở | P04: `assertion_count`, tiêu chí thứ 3 khi so checkpoint |
 
 ### 4.9 `method_at_line`
@@ -185,7 +189,7 @@
 | Vào | `{ "roots": ["/abs/shop-core/src/main/java", "…"], "max_files": 20000 }` |
 | Ra | `{ "classes": [ { "fqn": "com.myshop.service.OrderService", "simple_name": "OrderService", "kind": "class", "is_abstract": false, "is_public": true, "path": "/abs/…/OrderService.java", "root": "/abs/shop-core/src/main/java" } ], "errors": [ { "path": "…", "error": "…" } ], "truncated": false }` |
 | Hành vi | Duyệt mọi file `.java` trong `roots`. Mỗi file lấy **các kiểu top-level**. `kind` là `class`, `interface`, `enum`, `record` hoặc `annotation`; `fqn` = package + tên. File không parse được ghi vào `errors`, không dừng. Quá `max_files` thì dừng, `truncated: true` |
-| Hiệu năng | Chỉ parse phần khai báo: dùng `StaticJavaParser` với `setAttributeComments(false)`. Mục tiêu dưới 10 giây cho 5.000 file |
+| Hiệu năng | Mục tiêu dưới 10 giây cho 5.000 file. Cách làm: không gắn comment (`setAttributeComments(false)`), không giữ danh sách token (`setStoreTokens(false)`), mức ngôn ngữ `RAW` (đọc mọi cú pháp tới Java 21 nhưng bỏ bộ kiểm tra của các mức khác), parse **song song**, mỗi luồng một parser, kết quả giữ thứ tự file. Đo ngày 13/11/2026 trên 4.886 file của các repo pilot: 3,4 giây (bản parse tuần tự ở mức `JAVA_21`: 34,6 giây) |
 | Dùng ở | P01 §3.3 `ClassLocator`; P08 §5.3 ô chọn class |
 
 ### 4.14 `shutdown`

@@ -40,14 +40,8 @@ public final class ListClasses {
         List<String> roots = Json.strings(args, "roots");
         int maxFiles = args.has("max_files") && !args.get("max_files").isJsonNull() ? args.get("max_files").getAsInt() : DEFAULT_MAX_FILES;
 
-        // Declarations only: comments are not attached, which keeps the parse fast (target: 5 000 files in 10 s).
-        JavaParser parser = new JavaParser(new ParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
-                .setAttributeComments(false));
-
-        List<Map<String, Object>> classes = new ArrayList<>();
         List<Map<String, Object>> errors = new ArrayList<>();
-        int files = 0;
+        List<Path[]> work = new ArrayList<>();
         boolean truncated = false;
         outer:
         for (String rootText : roots) {
@@ -57,28 +51,21 @@ public final class ListClasses {
                 continue;
             }
             for (Path file : javaFiles(root)) {
-                if (files >= maxFiles) {
+                if (work.size() >= maxFiles) {
                     truncated = true;
                     break outer;
                 }
-                files++;
-                try {
-                    ParseResult<CompilationUnit> result = parser.parse(Files.readString(file, StandardCharsets.UTF_8));
-                    if (!result.isSuccessful() || result.getResult().isEmpty()) {
-                        String message = result.getProblems().stream().findFirst().map(Problem::getVerboseMessage).orElse("parse error");
-                        errors.add(error(file, message.lines().findFirst().orElse(message)));
-                        continue;
-                    }
-                    CompilationUnit unit = result.getResult().get();
-                    String pkg = unit.getPackageDeclaration().map(p -> p.getNameAsString()).orElse("");
-                    for (TypeDeclaration<?> type : unit.getTypes()) {
-                        classes.add(describe(type, pkg, file, root));
-                    }
-                } catch (IOException | UncheckedIOException e) {
-                    errors.add(error(file, e.getClass().getSimpleName() + ": " + e.getMessage()));
-                } catch (RuntimeException | StackOverflowError e) {
-                    errors.add(error(file, e.getClass().getSimpleName() + ": " + e.getMessage()));
-                }
+                work.add(new Path[] {file, root});
+            }
+        }
+
+        // Files are independent: parse them in parallel, one parser per thread, and keep the input order in the output.
+        List<FileResult> results = work.parallelStream().map(item -> read(item[0], item[1])).toList();
+        List<Map<String, Object>> classes = new ArrayList<>();
+        for (FileResult fileResult : results) {
+            classes.addAll(fileResult.classes());
+            if (fileResult.error() != null) {
+                errors.add(fileResult.error());
             }
         }
 
@@ -87,6 +74,39 @@ public final class ListClasses {
         result.put("errors", errors);
         result.put("truncated", truncated);
         return result;
+    }
+
+    private record FileResult(List<Map<String, Object>> classes, Map<String, Object> error) {
+    }
+
+    /**
+     * Declarations only, tuned for speed (P10 §4.13, target 5 000 files in 10 s): no comments attached, no token list kept,
+     * and the RAW language level, which reads every syntax up to Java 21 but skips the validators of the other levels.
+     */
+    private static final ThreadLocal<JavaParser> PARSER = ThreadLocal.withInitial(() -> new JavaParser(new ParserConfiguration()
+            .setLanguageLevel(ParserConfiguration.LanguageLevel.RAW)
+            .setAttributeComments(false)
+            .setStoreTokens(false)));
+
+    private static FileResult read(Path file, Path root) {
+        try {
+            ParseResult<CompilationUnit> result = PARSER.get().parse(Files.readString(file, StandardCharsets.UTF_8));
+            if (!result.isSuccessful() || result.getResult().isEmpty()) {
+                String message = result.getProblems().stream().findFirst().map(Problem::getVerboseMessage).orElse("parse error");
+                return new FileResult(List.of(), error(file, message.lines().findFirst().orElse(message)));
+            }
+            CompilationUnit unit = result.getResult().get();
+            String pkg = unit.getPackageDeclaration().map(p -> p.getNameAsString()).orElse("");
+            List<Map<String, Object>> classes = new ArrayList<>();
+            for (TypeDeclaration<?> type : unit.getTypes()) {
+                classes.add(describe(type, pkg, file, root));
+            }
+            return new FileResult(classes, null);
+        } catch (IOException | UncheckedIOException e) {
+            return new FileResult(List.of(), error(file, e.getClass().getSimpleName() + ": " + e.getMessage()));
+        } catch (RuntimeException | StackOverflowError e) {
+            return new FileResult(List.of(), error(file, e.getClass().getSimpleName() + ": " + e.getMessage()));
+        }
     }
 
     /** Every {@code .java} file below {@code root}, sorted for a stable order, without package-info and module-info. */

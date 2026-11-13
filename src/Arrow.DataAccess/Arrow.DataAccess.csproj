@@ -6,6 +6,16 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
+  <!--
+    java-helper (P10 §2), built beforehand by "mvn -q -f tools/java-helper/pom.xml package". Without the jar the build
+    still works; JavaHelperJar.Ensure then reports JH_START_FAILED and the java-helper tests are skipped.
+  -->
+  <PropertyGroup>
+    <JavaHelperJar>$(MSBuildThisFileDirectory)..\..\tools\java-helper\target\java-helper.jar</JavaHelperJar>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(JavaHelperJar)')">
+    <EmbeddedResource Include="$(JavaHelperJar)" LogicalName="Arrow.DataAccess.JavaHelper.java-helper.jar" Visible="false" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Arrow.DataAccess.Tests" />
     <InternalsVisibleTo Include="Arrow.IntegrationTests" />

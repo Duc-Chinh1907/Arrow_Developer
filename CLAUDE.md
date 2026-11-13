@@ -96,5 +96,8 @@ It is the product version of the team's research framework. There is **no resear
   - Steps still to add: `mvn verify` of `tools/java-helper` (GĐ1), `ARROW_HOME/config.json` pointing to the JDKs (GĐ2).
   - Write paths in tests with `Path.Combine`/temp folders: `D:/x` is a relative path on Linux.
 - **GĐ0 is complete** (13/11/2026), branch protection included.
-- **Next:** GĐ1, java-helper (P10): copy `tools/java-helper` verbatim in its own commit, `mvn verify`, add `list_classes`, extend `count_assertions` (R03 §3.6), new `JavaHelperClient` in DataAccess, GĐ1 parity tests (`docs/baseline-arrow-framework.md` §5.2).
+- GĐ1 done (13/11/2026), PR `gd1/java-helper`: java-helper copied verbatim (fingerprint `b687e0f2d605db9d`), then 1.1.0 with `list_classes` and the R03 §3.6 assertion kinds (25 JUnit tests); `JavaHelperClient`, `JavaHelperPool`, `JavaHelperJar` in `Arrow.DataAccess/JavaHelper`; CI runs `mvn verify` of java-helper before `dotnet build`. 160 .NET tests pass.
+  - **Build order:** `mvn -q -f tools/java-helper/pom.xml package` (or `verify`) first, then `dotnet build`; the jar is embedded only if it exists. After changing java-helper, rebuild both, and keep `JavaHelperJar.Version` equal to `Main.VERSION`.
+  - java-helper tests need a JDK ≥ 17 in `JAVA_HOME_17_X64` or `JAVA_HOME_21_X64`; without it or without the jar they are skipped.
+- **Next:** GĐ2, block 1 (P01): `ProjectSource`, `ClassLocator` (on `list_classes`), build analysis (build root, wrapper, Java version and JDK, dependencies, test framework), `MetadataBuilder`, `TestPathPlanner`, snapshot and baseline, `AnalysisCache`, `arrow inspect`, first `arrow doctor`; GĐ2 parity tests (`docs/baseline-arrow-framework.md` §5.3). Resolve Maven/Gradle to absolute paths (see the Windows note above).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
