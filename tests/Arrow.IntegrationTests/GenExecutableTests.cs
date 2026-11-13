@@ -176,6 +176,44 @@ public sealed class GenExecutableTests : IDisposable
         Assert.All(runJson.RootElement.GetProperty("targets").EnumerateArray(), t => Assert.Equal("DONE", t.GetProperty("state").GetString()));
     }
 
+    // P07 §5, §8: P03 stops the run at the second class; --resume keeps the first and runs the second again.
+    [Fact]
+    public async Task AStoppedRunIsResumed()
+    {
+        await ConfigureAsync();
+        var stopped = await Arrow(Scenario("stop-at-second"), null, "gen", "PriceCalculator", "Invoice", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--jobs", "1");
+        Assert.True(stopped.ExitCode == 2, stopped.Output);
+        Assert.Contains("B2_LLM_CONFIG", stopped.Output, StringComparison.Ordinal);
+        var dir = RunDir(stopped);
+        var id = Path.GetFileName(dir);
+        using (var run = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "run.json"), TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal("FAILED", run.RootElement.GetProperty("status").GetString());
+            Assert.Equal(["DONE", "RUNNING"], run.RootElement.GetProperty("targets").EnumerateArray().Select(t => t.GetProperty("state").GetString()));
+        }
+
+        var priceFile = Path.Combine(_project.Root, TestDir.Replace('/', Path.DirectorySeparatorChar), "PriceCalculator_ArrowTest.java");
+        var written = File.GetLastWriteTimeUtc(priceFile);
+
+        var resumed = await Arrow(Scenario("two-classes"), null, "gen", "--resume", id, "--project", _project.Root, "--no-metrics", "--plain", "--yes");
+        Assert.True(resumed.ExitCode == 0, resumed.Output);
+        Assert.Equal(dir, RunDir(resumed));
+        Assert.Contains("giữ 1 class, chạy lại 1 class", resumed.Output, StringComparison.Ordinal);
+        Assert.Contains("2/2 class VALID", resumed.Output, StringComparison.Ordinal);
+        Assert.Equal(["Invoice_ArrowTest.java", "PriceCalculatorTest.java", "PriceCalculator_ArrowTest.java", "TotalsTest.java"], Files());
+        Assert.Equal(written, File.GetLastWriteTimeUtc(priceFile));
+        using (var run = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "run.json"), TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal("COMPLETED", run.RootElement.GetProperty("status").GetString());
+        }
+
+        // A changed project cannot be resumed.
+        await File.AppendAllTextAsync(Path.Combine(_project.Root, "src", "main", "java", "com", "acme", "billing", "Invoice.java"), "\n// changed\n", TestContext.Current.CancellationToken);
+        var mismatch = await Arrow(Scenario("two-classes"), null, "gen", "--resume", id, "--project", _project.Root, "--no-metrics", "--plain", "--yes");
+        Assert.Equal(2, mismatch.ExitCode);
+        Assert.Contains("GEN_RESUME_MISMATCH", mismatch.Output, StringComparison.Ordinal);
+    }
+
     // P07 §3 step 5: a query without a class is BLOCKED; the other class still runs, and the exit code is 1.
     [Fact]
     public async Task AMissingClassDoesNotStopTheOthers()

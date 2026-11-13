@@ -5,6 +5,7 @@ using Arrow.Business.Environment;
 using Arrow.Business.Generation;
 using Arrow.Business.Llm;
 using Arrow.Business.Quality;
+using Arrow.Business.Repair;
 using Arrow.Common;
 using Arrow.Common.Analysis;
 using Arrow.Common.Errors;
@@ -28,7 +29,8 @@ namespace Arrow.Business.UseCases;
 /// <param name="DryRun"><c>--dry-run</c>: never write into the project.</param>
 /// <param name="MaxTokens"><c>--max-tokens</c>.</param>
 /// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null);
+/// <param name="ResumeRunId"><c>--resume</c>: the run to resume (P07 §5).</param>
+public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null);
 
 /// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
 /// <param name="Kind">Local folder or GitHub repository.</param>
@@ -91,7 +93,7 @@ public sealed class GenerateTestsUseCase(
         var options = request.Options;
 
         // P07 §2: nothing is created until these pass.
-        if (request.CutQueries.Count == 0 && request.Package is null)
+        if (request.CutQueries.Count == 0 && request.Package is null && options.ResumeRunId is null)
         {
             throw new ArrowException(ErrorCodes.CliArgs, "Cần tên class hoặc --package.");
         }
@@ -112,6 +114,26 @@ public sealed class GenerateTestsUseCase(
         }
 
         var catalog = ErrorCatalog.For(settings.Ui.Language);
+        var warnings = new List<string>();
+
+        // P07 §5.1: a run to resume, named or found; its settings win over the options (P07 §5.2).
+        var resume = await FindResumeAsync(request, confirm, ct).ConfigureAwait(false);
+        if (resume?.Info.Config is { } old)
+        {
+            var changed = new List<string>();
+            if (options.Model is { } m && m != old.Model) { changed.Add($"model {old.Model}"); }
+            if (options.Rounds is { } n && n != old.Rounds) { changed.Add($"N = {old.Rounds}"); }
+            if (options.NoRepair == old.Repair) { changed.Add(old.Repair ? "có sửa" : "không sửa"); }
+            if (options.NoMetrics == old.Quality) { changed.Add(old.Quality ? "có đo" : "không đo"); }
+            if (changed.Count > 0)
+            {
+                warnings.Add("Dùng cấu hình của run cũ: " + string.Join(", ", changed));
+            }
+
+            options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality };
+            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP } };
+        }
+
         var model = ResolvedModel.From(settings, options.Model);
         var limits = LlmLimits.From(settings, options.MaxTokens);
         _ = llms.CreateProvider(model, limits); // CFG_SECRET_MISSING before anything starts
@@ -143,8 +165,8 @@ public sealed class GenerateTestsUseCase(
         var analysisOptions = AnalysisOptions.From(settings.Verification, machine.BuildJdkHomes, machine.Maven, machine.Gradle);
         await using var host = await hosts.StartAsync(new AnalyzerSetup(java, machine.Git, analysisOptions, catalog, jobs), ct).ConfigureAwait(false);
 
-        // P07 §3: the run.
-        var id = runs.NewUniqueRunId(DateTime.Now);
+        // P07 §3: the run (a resumed one keeps its id).
+        var id = resume?.Handle.RunId ?? runs.NewUniqueRunId(DateTime.Now);
         var repair = settings.Repair with { Enabled = settings.Repair.Enabled && !options.NoRepair, Rounds = options.Rounds ?? settings.Repair.Rounds };
         var measure = !options.NoMetrics && settings.Quality.Enabled
             ? new QualityOptions(settings.Quality.Tools, machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
@@ -153,10 +175,16 @@ public sealed class GenerateTestsUseCase(
             : null;
         var project = new RunProject(request.Kind, remote?.RepoPath ?? new DirectoryInfo(request.Location).Name,
             remote is null ? request.Location.Replace('\\', '/') : null, remote?.Url, request.GitRef, null, null, null);
-        var info = new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-            new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null),
-            templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
-        var handle = runs.Create(info);
+        var info = resume is { } r
+            ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
+            : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null),
+                templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
+        var handle = resume?.Handle ?? runs.Create(info);
+        if (resume is not null)
+        {
+            runs.Update(handle, info);
+        }
         var work = Path.Combine(home.WorkDir, id);
         Directory.CreateDirectory(work);
         var run = new RunContext(id, home.Root, work, handle, new RunProgress(runs, handle, progress));
@@ -164,15 +192,19 @@ public sealed class GenerateTestsUseCase(
 
         var state = new RunState(runs, handle, info);
         ProjectWorkspace? workspace = null;
-        var warnings = new List<string>();
         try
         {
-            var target = new ProjectTarget(request.Kind, request.Location, request.GitRef, request.CutQueries.FirstOrDefault() ?? "");
+            var target = new ProjectTarget(request.Kind, request.Location, resume?.Info.Project.GitCommit ?? request.GitRef, request.CutQueries.FirstOrDefault() ?? "");
             workspace = await host.Analyzer.PrepareAsync(target, run, size => confirm.ConfirmAsync(
                 $"Project nặng {size / (1024 * 1024 * 1024.0):0.0} GB sau khi lọc. Vẫn chép?", true, ct), ct).ConfigureAwait(false);
+            if (resume is { } previous && !SameCode(previous.Info.Project, workspace.Checkout, WrittenPaths(handle, previous.Info.Targets)))
+            {
+                throw new ArrowException(ErrorCodes.GenResumeMismatch, args: new Dictionary<string, string> { ["run_id"] = id });
+            }
+
             state.Update(i => i with
             {
-                Project = project with
+                Project = (resume?.Info.Project ?? project) with
                 {
                     Root = workspace.Checkout.ProjectRoot?.Replace('\\', '/') ?? project.Root,
                     GitCommit = workspace.Checkout.GitCommit,
@@ -182,21 +214,41 @@ public sealed class GenerateTestsUseCase(
             });
             warnings.AddRange(workspace.Warnings);
 
-            // P07 §3 steps 4–6: the classes.
-            var (cuts, blocked) = await SelectAsync(host.Analyzer, workspace, request, catalog, confirm, warnings, ct).ConfigureAwait(false);
-            var order = cuts.Select(c => c.Fqn).Concat(blocked.Select(b => b.CutFqn)).ToList();
-            state.Update(i => i with { Targets = [.. cuts.Select(c => new RunTarget(c.Fqn, TargetState.Pending)), .. blocked.Select(b => new RunTarget(b.CutFqn, TargetState.Done))] });
+            // P07 §3 steps 4–6: the classes; a resumed run keeps its finished targets (P07 §5.3).
+            var results = new Dictionary<string, TargetResult>(StringComparer.Ordinal);
+            var kept = new List<TargetRun>();
+            var selection = request;
+            if (resume is not null)
+            {
+                var (redo, keep) = SplitForResume(handle, state.Info.Targets);
+                foreach (var done in keep)
+                {
+                    results[done.Result.CutFqn] = done.Result;
+                    if (!runs.Exists(handle, $"{ProjectAnalyzer.TargetDir(done.Result.CutFqn)}/apply.json") && done.Final is not null)
+                    {
+                        kept.Add(done);
+                    }
+                }
+
+                selection = request with { CutQueries = redo, Package = null };
+                warnings.Add($"Chạy tiếp run {id}: giữ {keep.Count} class, chạy lại {redo.Count} class");
+            }
+
+            var (cuts, blocked) = await SelectAsync(host.Analyzer, workspace, selection, catalog, confirm, warnings, ct).ConfigureAwait(false);
+            var order = (resume is null ? [] : state.Info.Targets.Select(t => t.CutFqn).ToList())
+                .Concat(cuts.Select(c => c.Fqn)).Concat(blocked.Select(b => b.CutFqn)).Distinct(StringComparer.Ordinal).ToList();
+            state.Update(i => i with
+            {
+                Targets = order.Select(fqn => new RunTarget(fqn,
+                    results.ContainsKey(fqn) || blocked.Any(b => b.CutFqn == fqn) ? TargetState.Done : TargetState.Pending)).ToList(),
+            });
             foreach (var b in blocked)
             {
                 runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(b.CutFqn)}/result.json", b);
+                results[b.CutFqn] = b;
             }
 
             Report(run, ArrowEventTypes.RunTargetsResolved, null, $"{cuts.Count} class: {string.Join(", ", cuts.Select(c => c.SimpleName))}", ("targets", cuts.Select(c => c.Fqn).ToList()));
-            var results = new Dictionary<string, TargetResult>(StringComparer.Ordinal);
-            foreach (var b in blocked)
-            {
-                results[b.CutFqn] = b;
-            }
 
             // P07 §4: the estimate and the question.
             if (cuts.Count > 0 && !await ConfirmCostAsync(cuts, workspace, model, repair, templates, limits, settings, options, confirm, run, ct).ConfigureAwait(false))
@@ -214,7 +266,7 @@ public sealed class GenerateTestsUseCase(
             var policy = new TestWritePolicy(writer, host.Verifier, host.JavaHelpers, runs, catalog);
             var applyContext = new ApplyContext(run, workspace.Checkout.ProjectRoot, options.Yes, options.DryRun, settings.Apply.Confirm,
                 TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds));
-            var applied = await ApplyStep.RunAsync(policy, runs2, applyContext, confirm, warnings, ct).ConfigureAwait(false);
+            var applied = await ApplyStep.RunAsync(policy, [.. kept, .. runs2], applyContext, confirm, warnings, ct).ConfigureAwait(false);
             foreach (var (cut, apply) in applied)
             {
                 var withApply = results[cut] with { Apply = apply };
@@ -253,6 +305,113 @@ public sealed class GenerateTestsUseCase(
                 WorkspaceManager.DeleteTree(work);
             }
         }
+    }
+
+    /// <summary>
+    /// P07 §5.1: the run of <c>--resume</c>, or the newest unfinished <c>gen</c> run of the same project from the last 7 days, when
+    /// the user agrees to resume it (<c>--yes</c> agrees; without a keyboard a new run starts). Null for a new run.
+    /// </summary>
+    private async Task<(RunHandle Handle, RunInfo Info)?> FindResumeAsync(GenerateRequest request, IConfirmation confirm, CancellationToken ct)
+    {
+        if (request.Options.ResumeRunId is { } named)
+        {
+            var handle = runs.Open(named);
+            var info = runs.ReadJson<RunInfo>(handle, "run.json");
+            if (info is null || info.Command.FirstOrDefault() != "gen" || !SameProject(info.Project, request))
+            {
+                throw new ArrowException(ErrorCodes.GenResumeNotFound, args: new Dictionary<string, string> { ["run_id"] = named });
+            }
+
+            return (handle, info);
+        }
+
+        var since = DateTimeOffset.UtcNow.AddDays(-7);
+        var candidate = runs.Recent(50).FirstOrDefault(r =>
+            r.Info.Status is RunStatus.Running or RunStatus.Cancelled or RunStatus.Failed
+            && r.Info.StartedAt >= since
+            && r.Info.Command.FirstOrDefault() == "gen"
+            && SameProject(r.Info.Project, request));
+        if (candidate.Info is null)
+        {
+            return null;
+        }
+
+        var targets = candidate.Info.Targets;
+        var question = $"Run {candidate.Info.RunId} chưa xong ({targets.Count(t => t.State == TargetState.Done)}/{targets.Count} class). Chạy tiếp?";
+        var yes = request.Options.Yes || (confirm.CanAsk && await confirm.ConfirmAsync(question, true, ct).ConfigureAwait(false));
+        return yes ? candidate : null;
+    }
+
+    /// <summary>The same local folder, or the same repository URL.</summary>
+    private static bool SameProject(RunProject project, GenerateRequest request) =>
+        request.Kind == ProjectSourceKind.GitRepository
+            ? project.Url is not null && GitRemote.Parse(request.Location).Url == project.Url
+            : project.Root is not null && string.Equals(
+                project.Root.Replace('\\', '/').TrimEnd('/'), Path.GetFullPath(request.Location).Replace('\\', '/').TrimEnd('/'),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    /// <summary>
+    /// P07 §5.2: a folder must have the same <c>source_tree_hash</c>, without the test files this run wrote into it; a repository the
+    /// same commit.
+    /// </summary>
+    private static bool SameCode(RunProject before, SourceCheckout now, IReadOnlySet<string> written)
+    {
+        if (before.SourceTreeHash is null)
+        {
+            return before.GitCommit == now.GitCommit;
+        }
+
+        return now.ProjectRoot is { } root && LocalProjectTree.Scan(root).SourceTreeHashWithout(written) == before.SourceTreeHash;
+    }
+
+    /// <summary>Paths that this run wrote into the project (<c>apply.json</c> with <c>written</c>).</summary>
+    private HashSet<string> WrittenPaths(RunHandle handle, IReadOnlyList<RunTarget> targets) =>
+        targets.Select(t => runs.ReadJson<ApplyRecord>(handle, $"{ProjectAnalyzer.TargetDir(t.CutFqn)}/apply.json"))
+            .Where(a => a is { Decision: ApplyDecision.Written, Path: not null })
+            .Select(a => a!.Path!)
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// P07 §5.3: DONE targets other than BLOCKED and INFRA are kept (with what the write step needs when they have no
+    /// <c>apply.json</c>); the others run again from the start, their old files removed.
+    /// </summary>
+    private (List<string> Redo, List<TargetRun> Keep) SplitForResume(RunHandle handle, IReadOnlyList<RunTarget> targets)
+    {
+        var redo = new List<string>();
+        var keep = new List<TargetRun>();
+        foreach (var t in targets)
+        {
+            var dir = ProjectAnalyzer.TargetDir(t.CutFqn);
+            var result = runs.ReadJson<TargetResult>(handle, $"{dir}/result.json");
+            if (t.State == TargetState.Done && result is not null && result.Result is not (TargetOutcome.Blocked or TargetOutcome.Infra))
+            {
+                keep.Add(new TargetRun(result, KeptFinal(handle, dir, result), runs.ReadJson<RepositoryMetadata>(handle, $"{dir}/block1/metadata.json"), []));
+                continue;
+            }
+
+            foreach (var part in new[] { "block1", "block2", "block3", "block4", "apply", "result.json", "apply.json" })
+            {
+                runs.Delete(handle, $"{dir}/{part}");
+            }
+
+            redo.Add(t.CutFqn);
+        }
+
+        return (redo, keep);
+    }
+
+    /// <summary>The final suite of a kept target, rebuilt from <c>final.json</c> and <c>final.java</c>.</summary>
+    private FinalTestSuite? KeptFinal(RunHandle handle, string dir, TargetResult result)
+    {
+        var final = runs.ReadJson<FinalTestSuite>(handle, $"{dir}/block3/final.json");
+        var code = runs.ReadText(handle, $"{dir}/block3/final.java");
+        if (final is null || code is null || result.TestFqn is null || result.TestPath is null)
+        {
+            return null;
+        }
+
+        var candidate = new Common.Generation.CandidateTest(true, null, null, code, result.TestFqn, result.TestPath, null, 0, 0, [], [], null);
+        return final with { Candidate = candidate, Verify = new Common.Verification.VerifyResult { State = final.FinalState, GeneratedTestRanInModule = final.GeneratedTestRanInModule } };
     }
 
     /// <summary>

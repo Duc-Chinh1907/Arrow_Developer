@@ -27,6 +27,9 @@ public interface IRunStore
     /// <summary>Opens a run by its id or by a prefix that matches exactly one run.</summary>
     RunHandle Open(string runIdOrPrefix);
 
+    /// <summary>The newest <paramref name="limit"/> runs with a readable <c>run.json</c>, newest first.</summary>
+    IReadOnlyList<(RunHandle Handle, RunInfo Info)> Recent(int limit);
+
     /// <summary>Rewrites <c>run.json</c> atomically.</summary>
     void Update(RunHandle run, RunInfo info);
 
@@ -141,6 +144,38 @@ public sealed class RunStore : IRunStore
                 : throw new ArrowException(ErrorCodes.CliArgs, $"Tiền tố {runIdOrPrefix} khớp {matches.Count} run: {string.Join(", ", matches.Take(5))}",
                     new Dictionary<string, string> { ["help_command"] = "arrow history" }),
         };
+    }
+
+    public IReadOnlyList<(RunHandle Handle, RunInfo Info)> Recent(int limit)
+    {
+        if (!Directory.Exists(_home.RunsDir))
+        {
+            return [];
+        }
+
+        var list = new List<(RunHandle, RunInfo)>();
+        foreach (var dir in Directory.GetDirectories(_home.RunsDir).OrderByDescending(Path.GetFileName, StringComparer.Ordinal))
+        {
+            var handle = new RunHandle(Path.GetFileName(dir), dir);
+            try
+            {
+                if (ReadJson<RunInfo>(handle, RunFile) is { } info)
+                {
+                    list.Add((handle, info));
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // A damaged run.json is skipped.
+            }
+
+            if (list.Count >= limit)
+            {
+                break;
+            }
+        }
+
+        return list;
     }
 
     public void Update(RunHandle run, RunInfo info) => WriteJson(run, RunFile, info);

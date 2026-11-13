@@ -153,4 +153,10 @@ It is the product version of the team's research framework. There is **no resear
     - Naming (§4.2): when the name appeared during the run, the policy picks the next `_Arrow<k>Test`, renames with java-helper `rename_class`, and verifies once more on a fresh copy (`targets/<cut>/apply/reverify`). If the file appears at the moment of writing, it renames once more.
     - Questions: one for one class, or one multi-select for several (`IConfirmation.ChooseManyAsync`, Spectre `MultiSelectionPrompt`). A changed CUT is never written with `--yes`.
     - `TargetRun` keeps the `TaskContext`, which the second verification needs.
+  - PR `gd6/resume` (14/11/2026), P07 §5:
+    - `arrow gen --resume <run>`, or an unfinished `gen` run of the same project from the last 7 days that the user agrees to resume (`--yes` agrees; no keyboard starts a new run).
+    - The settings of the old run win, with a warning when the options differ.
+    - The project must be unchanged: a local project must have the same `source_tree_hash` once the files this run wrote are ignored (`LocalProjectTree.SourceTreeHashWithout`, paths from `apply.json`); a repository must have the same commit. Otherwise `GEN_RESUME_MISMATCH`.
+    - DONE targets other than BLOCKED/INFRA are kept; a kept target without `apply.json` still goes to the write step, rebuilt from `final.json` and `final.java`. Other targets are deleted and run again, and model calls replay from `llm_cache`. Block 1 runs again too, since `work/<run>` is deleted at the end of a run.
+    - `IRunStore.Recent(limit)` lists runs newest first. Scenario `stop-at-second` gives a P03 stop at the second class.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

@@ -10,7 +10,7 @@ namespace Arrow.Cli.Commands;
 
 /// <summary>
 /// <c>arrow gen &lt;class…&gt; [--package &lt;pkg&gt;]</c> (P08 §2.2): blocks 1–4 for each class, at most <c>--jobs</c> at once,
-/// then the question to write the files. <c>--resume</c> comes with the resume PR of GĐ6.
+/// then the question to write the files; <c>--resume</c> continues an interrupted run (P07 §5).
 /// </summary>
 internal static class GenCommand
 {
@@ -28,14 +28,15 @@ internal static class GenCommand
         var maxTokens = new Option<long?>("--max-tokens") { Description = "Ngân sách token của cả run" };
         var package = new Option<string?>("--package") { Description = "Mọi class cụ thể trong package này" };
         var jobs = new Option<int?>("--jobs") { Description = "Số class chạy song song, 1–8 (mặc định: run.jobs)" };
+        var resume = new Option<string?>("--resume") { Description = "Chạy tiếp một run bị ngắt (id hoặc tiền tố của id)" };
         var command = new Command("gen", "Sinh unit test cho một hoặc nhiều class, xác minh trên build thật, sửa tự động, đo chất lượng, rồi hỏi ghi file")
         {
-            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, dryRun, jobs, maxTokens,
+            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, dryRun, jobs, maxTokens, resume,
         };
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, token) =>
         {
             var options = new GenerateOptions(parse.GetValue(model), parse.GetValue(rounds), parse.GetValue(noRepair), parse.GetValue(noMetrics),
-                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs));
+                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume));
             return RunAsync(context, parse.GetValue(classes) ?? [], parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
                 parse.Tokens.Select(t => t.Value).ToList(), token);
         }));
@@ -57,7 +58,7 @@ internal static class GenCommand
             Usage("--ref chỉ dùng cùng --repo.");
         }
 
-        if (classes.Length == 0 && package is null)
+        if (classes.Length == 0 && package is null && options.ResumeRunId is null)
         {
             Usage("Cần ít nhất một class, hoặc --package.");
         }
