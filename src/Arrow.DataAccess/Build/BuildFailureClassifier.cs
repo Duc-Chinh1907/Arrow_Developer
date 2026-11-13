@@ -132,11 +132,18 @@ public static partial class BuildFailureClassifier
 
     /// <summary>
     /// First error line of a failed build, shown in <c>outcome.json</c> (P01 §8): a javac error (<c>[ERROR] …java:[3,24] …</c> or
-    /// <c>…java:3: error: …</c>), otherwise the first <c>[ERROR]</c> line, otherwise the last line.
+    /// <c>…java:3: error: …</c>), the first lines under Gradle's <c>* What went wrong:</c>, otherwise the first <c>[ERROR]</c> line, otherwise the last line.
     /// </summary>
     public static string? FirstError(string output)
     {
         var lines = output.Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).ToList();
+        // Gradle: the lines under "* What went wrong:" say more than the last line ("BUILD FAILED in 5s").
+        var wentWrong = lines.FindIndex(l => l == "* What went wrong:");
+        if (wentWrong >= 0 && !lines.Any(l => l.Contains(".java:", StringComparison.Ordinal) && l.Contains("error:", StringComparison.Ordinal)))
+        {
+            return string.Join(" ", lines.Skip(wentWrong + 1).Take(3).Select(l => l.Trim().TrimStart('>').Trim()));
+        }
+
         return lines.FirstOrDefault(l => l.Contains(".java:[", StringComparison.Ordinal) || l.Contains(".java:", StringComparison.Ordinal) && l.Contains("error:", StringComparison.Ordinal))
             ?? lines.FirstOrDefault(l => l.StartsWith("[ERROR]", StringComparison.Ordinal) && l.Length > "[ERROR] ".Length)
             ?? lines.LastOrDefault();

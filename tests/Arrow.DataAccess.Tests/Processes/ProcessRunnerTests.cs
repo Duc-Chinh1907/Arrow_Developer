@@ -34,7 +34,8 @@ public class ProcessRunnerTests
         Assert.Contains("removed=\n", result.Output.Replace("removed= \n", "removed=\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("to-stderr", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("\r", result.Output, StringComparison.Ordinal);
-        Assert.Equal("to-stderr", result.Tail(1).Trim());
+        // stdout and stderr are different pipes: their lines may arrive in either order, so only the end of the output is checked.
+        Assert.Contains("to-stderr", result.Tail(2), StringComparison.Ordinal);
     }
 
     /// <summary>Parity: <c>ProcessRunnerTests.TimeoutKillsProcess</c>.</summary>

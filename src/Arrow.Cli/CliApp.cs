@@ -34,6 +34,9 @@ public sealed class CliApp
     /// <summary>Name shown in help and error hints.</summary>
     public const string CommandName = "arrow";
 
+    /// <summary>Version written into <c>run.json</c> (<c>arrow_version</c>).</summary>
+    public static string Version { get; } = typeof(CliApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
     private readonly CliConsole _console;
     private readonly Func<CliConsole, GlobalOptions, IServiceProvider> _compose;
 
@@ -48,7 +51,7 @@ public sealed class CliApp
     public CliApp(CliConsole console, Func<CliConsole, GlobalOptions, IServiceProvider>? compose = null)
     {
         _console = console;
-        _compose = compose ?? CompositionRoot.Build;
+        _compose = compose ?? ((c, g) => CompositionRoot.Build(c, g));
     }
 
     /// <summary>Parses <paramref name="args"/>, runs the command and returns the exit code of P08 §8.</summary>
@@ -83,6 +86,8 @@ public sealed class CliApp
             root.Options.Add(option);
         }
 
+        root.Subcommands.Add(InspectCommand.Build(this));
+        root.Subcommands.Add(DoctorCommand.Build(this));
         root.Subcommands.Add(ConfigCommand.Build(this));
         root.Subcommands.Add(SecretsCommand.Build(this));
 

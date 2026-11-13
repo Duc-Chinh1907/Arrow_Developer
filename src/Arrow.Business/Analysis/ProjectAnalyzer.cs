@@ -18,12 +18,14 @@ namespace Arrow.Business.Analysis;
 /// <param name="source">Gets the code.</param>
 /// <param name="javaHelper">Rents a java-helper process for <c>list_classes</c>.</param>
 /// <param name="modules">Analyses modules.</param>
+/// <param name="workspaces">Deletes the working copies at the end of the run.</param>
 /// <param name="runs">Writes the result files.</param>
 /// <param name="catalog">Error texts in the UI language.</param>
 public sealed class ProjectAnalyzer(
     IProjectSource source,
     Func<CancellationToken, Task<JavaHelperPool.Lease>> javaHelper,
     ModuleAnalyzer modules,
+    IWorkspaceManager workspaces,
     IRunStore runs,
     ErrorCatalog catalog) : IProjectAnalyzer
 {
@@ -110,6 +112,17 @@ public sealed class ProjectAnalyzer(
         }
 
         return Finish(run, workspace, cut, null, module, warnings, watch, sharedFrom);
+    }
+
+    public async Task CleanupAsync(ProjectWorkspace workspace, RunContext run, bool keep, CancellationToken ct)
+    {
+        if (keep)
+        {
+            return;
+        }
+
+        await source.CleanupAsync(workspace.Checkout, ct).ConfigureAwait(false);
+        await workspaces.DeleteAsync(run.WorkDir, ct).ConfigureAwait(false);
     }
 
     /// <summary>Folder of a CUT below the run, <c>targets/&lt;cut_fqn&gt;</c> (P09 §5.2).</summary>

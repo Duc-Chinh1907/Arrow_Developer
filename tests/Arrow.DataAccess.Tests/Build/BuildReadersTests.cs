@@ -126,6 +126,8 @@ public class BuildReadersTests
             ARROW|test_src|/ws/b/core/src/test/java
             ARROW|dep|testImplementation|org.junit.jupiter|junit-jupiter|5.10.0
             ARROW|dep|compileOnly|org.projectlombok|lombok|1.18.30
+            ARROW|dep|testCompile|junit|junit|4.12
+            ARROW|dep|compile|com.google.guava|guava|20.0
             ARROW|test_include|**/*Test.class
             ARROW|test_exclude|**/Slow*
             ARROW|resolved|org.junit.jupiter|junit-jupiter-api|5.10.0|/g/junit-jupiter-api-5.10.0.jar
@@ -137,7 +139,7 @@ public class BuildReadersTests
         Assert.Equal("/ws/b/core", info.ProjectDir);
         Assert.Equal(2, info.Projects.Count);
         Assert.Equal(("1.8", "sourceCompatibility"), (info.Declared, info.DeclaredSource));
-        Assert.Equal(["test", "provided"], info.Dependencies.Select(d => d.Scope));
+        Assert.Equal(["test", "provided", "test", "compile"], info.Dependencies.Select(d => d.Scope));
         Assert.Equal("junit-jupiter-api", Assert.Single(info.Resolved).Artifact);
         Assert.Equal(["/ws/b/api/build/libs/api.jar"], info.Classpath);
         Assert.Equal(["**/*Test.class"], info.TestIncludes);

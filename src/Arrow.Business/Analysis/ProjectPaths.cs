@@ -14,26 +14,28 @@ public static partial class ProjectPaths
     }
 
     /// <summary>
-    /// <paramref name="cutPath"/> without <c>&lt;package path&gt;/&lt;File&gt;.java</c>; the folder of the file when the path does not
-    /// end with the package path.
+    /// <paramref name="cutPath"/> without <c>&lt;package path&gt;/&lt;File&gt;.java</c>. Only the package of <paramref name="fqn"/> is used, not
+    /// its simple name: Java allows a top-level class in a file with another name (<c>NamedExtension</c> in <c>Extension.java</c>).
+    /// When the folder does not end with the package path, the folder itself.
     /// </summary>
     public static string SourceRoot(string cutPath, string fqn)
     {
         var path = BuildLayout.Normalize(cutPath);
-        var (package, simple) = SplitFqn(fqn);
-        var suffix = (package.Length == 0 ? "" : package.Replace('.', '/') + "/") + simple + ".java";
-        if (path == suffix)
+        var slash = path.LastIndexOf('/');
+        var folder = slash < 0 ? "." : path[..slash];
+        var package = SplitFqn(fqn).Package;
+        if (package.Length == 0)
+        {
+            return folder;
+        }
+
+        var packagePath = package.Replace('.', '/');
+        if (folder == packagePath)
         {
             return ".";
         }
 
-        if (path.EndsWith("/" + suffix, StringComparison.Ordinal))
-        {
-            return path[..^(suffix.Length + 1)];
-        }
-
-        var slash = path.LastIndexOf('/');
-        return slash < 0 ? "." : path[..slash];
+        return folder.EndsWith("/" + packagePath, StringComparison.Ordinal) ? folder[..^(packagePath.Length + 1)] : folder;
     }
 
     /// <summary>Up to <paramref name="limit"/> packages: the CUT package, then its parents and children, then the others alphabetically.</summary>

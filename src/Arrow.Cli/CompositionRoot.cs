@@ -1,4 +1,8 @@
+using Arrow.Business;
+using Arrow.Business.Analysis;
+using Arrow.Business.Environment;
 using Arrow.Business.UseCases;
+using Arrow.Cli.Prompts;
 using Arrow.Common.Logging;
 using Arrow.DataAccess.Config;
 using Arrow.DataAccess.Logging;
@@ -18,8 +22,11 @@ public sealed record GlobalOptions(bool Plain, bool Json, bool Verbose, bool Yes
 /// </summary>
 internal static class CompositionRoot
 {
-    /// <summary>Builds the services of one command run. <c>--home</c> overrides <c>ARROW_HOME</c>.</summary>
-    public static ServiceProvider Build(CliConsole console, GlobalOptions globals)
+    /// <summary>
+    /// Builds the services of one command run. <c>--home</c> overrides <c>ARROW_HOME</c>. <paramref name="configure"/> runs last, so
+    /// tests can replace use cases with fakes (P11: output of the commands is tested with fake use cases).
+    /// </summary>
+    public static ServiceProvider Build(CliConsole console, GlobalOptions globals, Action<IServiceCollection>? configure = null)
     {
         var env = console.Environment;
         var home = globals.Home is { Length: > 0 } dir
@@ -33,8 +40,20 @@ internal static class CompositionRoot
         services.AddSingleton<ISecretStore>(_ => new SecretStore(home.SecretsDir, name => env.GetValueOrDefault(name), () => env.Keys));
         services.AddSingleton<IRunStore>(_ => new RunStore(home));
         services.AddSingleton<IProcessRunner, ProcessRunner>();
+        var userProfile = env.GetValueOrDefault("USERPROFILE") ?? env.GetValueOrDefault("HOME") ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Func<string, string?> getEnvironment = name => env.GetValueOrDefault(name);
+        services.AddSingleton(sp => new ToolDiscovery(sp.GetRequiredService<IProcessRunner>(), getEnvironment, userProfile));
+        services.AddSingleton<IAnalyzerHostFactory>(sp => new AnalyzerHostFactory(
+            home, sp.GetRequiredService<IProcessRunner>(), sp.GetRequiredService<IRunStore>(), getEnvironment, userProfile, sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IConfirmation>(_ => globals.Yes || globals.Json || !console.HasKeyboard ? new NoConfirmation(globals.Yes) : new SpectrePrompter());
+        services.AddSingleton<IInspectUseCase>(sp => new InspectUseCase(
+            sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IRunStore>(),
+            sp.GetRequiredService<IAnalyzerHostFactory>(), CliApp.Version));
+        services.AddSingleton<IDoctorUseCase>(sp => new DoctorUseCase(
+            sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IProcessRunner>(), new JavaHelperProbe(home)));
         services.AddSingleton<ConfigUseCase>();
         services.AddSingleton<SecretsUseCase>();
+        configure?.Invoke(services);
         return services.BuildServiceProvider();
     }
 }

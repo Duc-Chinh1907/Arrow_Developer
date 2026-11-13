@@ -95,4 +95,10 @@ public interface IProjectAnalyzer
 
     /// <summary>Analyses the module of <paramref name="cut"/>, sharing module results within the run (P01 §4–§8). Throws only <see cref="OperationCanceledException"/>.</summary>
     Task<ProjectAnalysis> AnalyzeAsync(ProjectWorkspace workspace, ClassCandidate cut, RunContext run, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes the working copies of the run: the git worktree (when the code came from a repository) and <c>work/&lt;run_id&gt;</c>
+    /// (P09 §8). Does nothing when <paramref name="keep"/> is true (<c>run.keep_workspaces</c>).
+    /// </summary>
+    Task CleanupAsync(ProjectWorkspace workspace, RunContext run, bool keep, CancellationToken ct);
 }
