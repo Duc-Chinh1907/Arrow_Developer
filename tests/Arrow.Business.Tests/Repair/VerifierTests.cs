@@ -324,7 +324,7 @@ public sealed class VerifierTests : IDisposable
             return this;
         }
 
-        public Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct)
+        public Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct, string? extraJavaToolOptions = null)
         {
             Copies.Add(projectRoot);
             Arguments.Add(arguments);

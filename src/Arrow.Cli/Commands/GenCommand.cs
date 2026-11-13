@@ -89,6 +89,8 @@ internal static class GenCommand
         return result.ExitCode;
     }
 
+    private static string Percent(double? ratio) => ratio is { } r ? (r * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "-";
+
     private static void Print(IRenderer renderer, GenerateResult result)
     {
         foreach (var warning in result.Warnings.Distinct(StringComparer.Ordinal))
@@ -116,6 +118,12 @@ internal static class GenCommand
                 renderer.Fail(line, target.Result is TargetOutcome.Compile or TargetOutcome.Unknown or TargetOutcome.Discovery or TargetOutcome.Runtime or TargetOutcome.Assertion or TargetOutcome.Regression
                     ? $"Thử tăng --rounds, đổi model, hoặc xem các vòng trong {Path.Combine(result.RunDir, "targets", target.CutFqn, "block3")}"
                     : null);
+            }
+
+            if (target.Metrics is { } q)
+            {
+                renderer.Line($"Chất lượng: line {Percent(q.Line)} · branch {Percent(q.Branch)} · method {Percent(q.Method)} · mutation {Percent(q.Mutation)}"
+                    + $" · test strength {Percent(q.TestStrength)} · smell {(q.SmellDensity is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "-")}");
             }
 
             switch (target.Apply?.Decision)

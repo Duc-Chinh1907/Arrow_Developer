@@ -77,7 +77,7 @@ Lỗi tham số in ngắn kèm `Gõ arrow gen --help để xem cách dùng`, mã
 
 **Trạng thái (14/11/2026, GĐ4, mốc M1):** đã có bản tối thiểu:
 - **Tuỳ chọn có:** một class mỗi lần, `--project`/`--repo`/`--ref`, `--model`, `--rounds`, `--no-repair`, `--no-metrics`, `--yes`, `--dry-run`, `--max-tokens`.
-- **Khối 4:** chưa có. Không có `--no-metrics` thì in cảnh báo.
+- **Khối 4:** có từ GĐ5 (14/11/2026). Bộ cuối VALID được đo bằng JaCoCo, PIT và tsDetect, rồi in dòng `Chất lượng: line … · mutation … · smell …`. `--no-metrics` hoặc `quality.enabled = false` thì không đo.
 - **Ghi file:** chỉ ghi bộ VALID, không ghi đè, chặn đường dẫn ra ngoài project.
 - **Để GĐ6:** nhiều class, `--package`, `--jobs`, `--resume`, câu hỏi chi phí, đổi tên rồi xác minh lại khi tên vừa xuất hiện.
 
