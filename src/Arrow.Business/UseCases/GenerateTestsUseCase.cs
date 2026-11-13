@@ -1,4 +1,5 @@
 using Arrow.Business.Analysis;
+using Arrow.Business.Apply;
 using Arrow.Business.Config;
 using Arrow.Business.Environment;
 using Arrow.Business.Generation;
@@ -210,14 +211,15 @@ public sealed class GenerateTestsUseCase(
             var runs2 = await RunTargetsAsync(cuts, run, shared, jobs, state, results, warnings, ct).ConfigureAwait(false);
 
             // P07 §9: the write step, then the end of the run.
-            var applier = new ProjectApplier(writer, runs, catalog);
-            var applyContext = new ApplyContext(run, workspace.Checkout.ProjectRoot, options.Yes, options.DryRun, settings.Apply.Confirm);
-            foreach (var done in runs2.Where(r => r.Final is not null && r.Metadata is not null))
+            var policy = new TestWritePolicy(writer, host.Verifier, host.JavaHelpers, runs, catalog);
+            var applyContext = new ApplyContext(run, workspace.Checkout.ProjectRoot, options.Yes, options.DryRun, settings.Apply.Confirm,
+                TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds));
+            var applied = await ApplyStep.RunAsync(policy, runs2, applyContext, confirm, warnings, ct).ConfigureAwait(false);
+            foreach (var (cut, apply) in applied)
             {
-                var apply = await applier.ApplyAsync(done.Metadata!, done.Final!, applyContext, confirm, warnings, ct).ConfigureAwait(false);
-                var withApply = done.Result with { Apply = apply };
-                results[withApply.CutFqn] = withApply;
-                runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(withApply.CutFqn)}/result.json", withApply);
+                var withApply = results[cut] with { Apply = apply };
+                results[cut] = withApply;
+                runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(cut)}/result.json", withApply);
             }
 
             var stopped = runs2.Any(r => r.Result is { Result: TargetOutcome.Cancelled, Error: not null });

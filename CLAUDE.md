@@ -147,4 +147,10 @@ It is the product version of the team's research framework. There is **no resear
     - The per-target pipeline is `TargetPipeline` (`PipelineShared`, `TargetRun`); the write step is `ProjectApplier`, run after all targets. `TestWritePolicy` replaces it in `gd6/apply`.
     - `ToolStore` retries HTTP 429/5xx and network errors (2/5/10 s or `Retry-After` ≤ 30 s): Maven Central answered 429 after many test downloads. `GenExecutableTests` copy tools from `%TEMP%/arrow-quality-tools/tools`.
     - New scenario `tests/scenarios/two-classes`.
+  - PR `gd6/apply` (14/11/2026):
+    - `TestWritePolicy` and `ApplyStep` in `Arrow.Business/Apply` implement P06 in full, replacing `ProjectApplier`.
+    - Checks: §3 (inside `test_root`, CUT unchanged, name still free).
+    - Naming (§4.2): when the name appeared during the run, the policy picks the next `_Arrow<k>Test`, renames with java-helper `rename_class`, and verifies once more on a fresh copy (`targets/<cut>/apply/reverify`). If the file appears at the moment of writing, it renames once more.
+    - Questions: one for one class, or one multi-select for several (`IConfirmation.ChooseManyAsync`, Spectre `MultiSelectionPrompt`). A changed CUT is never written with `--yes`.
+    - `TargetRun` keeps the `TaskContext`, which the second verification needs.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
