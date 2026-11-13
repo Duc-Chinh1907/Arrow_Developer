@@ -128,6 +128,7 @@ It is the product version of the team's research framework. There is **no resear
     - `IAnalyzerHost` also gives `JavaHelpers` and `Verifier`, so one java-helper pool serves blocks 1–3.
     - Scenarios: `tests/scenarios/valid-at-c0` and `o8-o3-o4-o7-o1`, for `maven-verify-junit4`/`PriceCalculator`. `GenExecutableTests` (E2E) run the executable with `ARROW_FAKE_LLM`.
     - Manual check: `arrow config set llm.providers.local '{"kind":"openai-compatible","base_url":"http://localhost:9/v1","secret_ref":null}'`, `arrow config set llm.models.fake '{"provider":"local","model_id":"fake-model"}'`, `arrow models default fake`, then `ARROW_FAKE_LLM=<rules.json> arrow gen PriceCalculator --project <copy> --no-metrics --yes`.
-    - Still to do for GĐ4 "xong khi": `arrow gen` with a real model on a fixture (needs `ARROW_SECRET_TEAMO` or another key).
-- **Next:** GĐ5, block 4 (P05: JaCoCo, PIT, tsDetect).
+    - Real model (14/11/2026): Chính ran `arrow setup` (model `gpt6Luna` = `gpt-6-luna` on TeamoRouter, key `teamo` in the secret store); `arrow models test` OK; `arrow gen PriceCalculator --no-metrics --yes` on a copy of `maven-verify-junit4` gave c0 ASSERTION 5/6, then VALID in round 1, 46 s, 3.7k tokens; `mvn test` of the copy passes. **GĐ4 is complete.**
+- GĐ5 (block 4, P05) in 3 PRs: `gd5/tools`, `gd5/parsers`, `gd5/quality`.
+  - PR `gd5/tools` (14/11/2026): `ToolStore`/`ToolLock` in `Arrow.DataAccess/Tools` (`tools/tools.lock.json` embedded as `Arrow.DataAccess.Tools.tools.lock.json`; HTTPS from Maven Central or `ARROW_MAVEN_MIRROR`; sha256 check, `.part` then rename, `tools/tools.installed.json`; `EnsureMavenArtifactAsync` checks the `.sha1` of Maven Central), `ToolsUseCase`, `arrow tools list|install`. A real `arrow tools install` downloads the 12 tools in about 5 s and every sha256 matches.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

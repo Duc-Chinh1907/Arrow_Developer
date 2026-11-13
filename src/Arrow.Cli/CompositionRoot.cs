@@ -12,6 +12,8 @@ using Arrow.DataAccess.Logging;
 using Arrow.DataAccess.Processes;
 using Arrow.DataAccess.Security;
 using Arrow.DataAccess.Storage;
+using Arrow.DataAccess.Tools;
+using Arrow.Common.Errors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Arrow.Cli;
@@ -59,6 +61,8 @@ internal static class CompositionRoot
         services.AddSingleton<IGenerateTestsUseCase>(sp => new GenerateTestsUseCase(
             sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IRunStore>(),
             sp.GetRequiredService<IAnalyzerHostFactory>(), sp.GetRequiredService<ILlmClientFactory>(), new ProjectFileWriter(), CliApp.Version));
+        services.AddSingleton<IToolStore>(_ => new ToolStore(home, new HttpClient { Timeout = TimeSpan.FromMinutes(5) }, getEnvironment));
+        services.AddSingleton<IToolsUseCase>(sp => new ToolsUseCase(sp.GetRequiredService<IToolStore>(), ErrorCatalog.For("vi")));
         services.AddSingleton(sp => new ModelsUseCase(
             sp.GetRequiredService<IConfigStore>(), sp.GetRequiredService<ISecretStore>(), sp.GetRequiredService<ILlmClientFactory>(), sp.GetRequiredService<OllamaClient>()));
         services.AddSingleton<IModelsUseCase>(sp => sp.GetRequiredService<ModelsUseCase>());
