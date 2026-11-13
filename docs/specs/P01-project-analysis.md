@@ -266,7 +266,7 @@ Mọi đường dẫn tính từ **gốc project**, dùng `/`.
 
 ```json
 {
-  "source": { "kind": "local", "path_name": "MyShop", "git_commit": "ab12…", "dirty": true },
+  "source": { "kind": "local", "path_name": "MyShop", "url": null, "git_commit": "ab12…", "dirty": true },
   "build_tool": { "kind": "maven", "version": "3.9.9", "wrapper": true, "wrapper_fallback": false,
                   "build_root": ".", "build_mode": "reactor", "build_file": "pom.xml", "reactor_module": "shop-core",
                   "build_root_source": "detected:reactor",
@@ -278,7 +278,7 @@ Mọi đường dẫn tính từ **gốc project**, dùng `/`.
                 { "group": "org.mockito", "artifact": "mockito-core", "version": "5.11.0", "scope": "test" } ],
     "resolved_count": 41
   },
-  "test_framework": { "name": "junit5", "version": "5.10.2", "vintage": false, "mocking": ["mockito"], "assertion_libs": [], "evidence": "dependency org.junit.jupiter:junit-jupiter (test)" },
+  "test_framework": { "name": "junit5", "version": "5.10.2", "vintage": false, "mocking": ["org.mockito:mockito-core:5.11.0"], "assertion_libs": [], "evidence": "dependency org.junit.jupiter:junit-jupiter (test)" },
   "project_structure": { "multi_module": true, "modules": ["shop-api", "shop-core"], "target_module": "shop-core",
                          "module_root": "shop-core", "packages": ["com.myshop", "com.myshop.service"] },
   "paths": { "source_root": "shop-core/src/main/java", "test_root": "shop-core/src/test/java",
@@ -293,6 +293,7 @@ Mọi đường dẫn tính từ **gốc project**, dùng `/`.
 ```
 
 - M chứa đúng **6 thông tin** của Đóng góp 1: `build_tool`, `java`, `dependencies`, `test_framework`, `project_structure`, `paths`.
+- `mocking` và `assertion_libs` ghi toạ độ `group:artifact:version`, để `metadata_prompt.txt` in được phiên bản (`Mockito 5.11.0`). `source.url` chỉ có với repo GitHub.
 - `source` và `cut` là thông tin kèm theo, không thuộc 6 thông tin đó.
 - Nhóm nào không xác định được thì là `null`, lý do ghi trong `missing_reasons`.
 
