@@ -11,7 +11,7 @@ namespace Arrow.Common;
 /// <param name="Status">Run status.</param>
 /// <param name="Command">Command line arguments, e.g. <c>["gen", "OrderService", "--rounds", "5"]</c>.</param>
 /// <param name="Project">The project of the run.</param>
-/// <param name="Config">Settings that change results; a resumed run keeps these (P07 §5.2).</param>
+/// <param name="Config">Settings that change results; a resumed run keeps these (P07 §5.2). Null for <c>arrow inspect</c>, which uses no model.</param>
 /// <param name="PromptsSha256">sha256 of each prompt template used, keyed by its path under <c>Prompts/</c> (P02 §3.1).</param>
 /// <param name="Tools">Versions of the external tools, e.g. <c>"jacoco": "0.8.12"</c>.</param>
 /// <param name="Targets">The CUTs of the run, in the order the user gave them.</param>
@@ -24,7 +24,7 @@ public sealed record RunInfo(
     RunStatus Status,
     IReadOnlyList<string> Command,
     RunProject Project,
-    RunConfig Config,
+    RunConfig? Config,
     IReadOnlyDictionary<string, string> PromptsSha256,
     IReadOnlyDictionary<string, string> Tools,
     IReadOnlyList<RunTarget> Targets,

@@ -71,6 +71,7 @@ Gồm `run_id`, đường dẫn `work/<run_id>/`, `RunHandle` (P09 §5), `Cancel
 1. **Tìm gốc project.**
    - `Location` có file build (`pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle`, `settings.gradle.kts`): gốc là `Location`.
    - Nếu không thì đi lên các thư mục cha, tối đa 5 cấp, tìm thư mục cao nhất **liên tiếp** có file build.
+   - Vẫn không có, nhưng thư mục con (tối đa 6 cấp) có file build, ví dụ repo chỉ có `lib/pom.xml`: gốc là `Location`.
    - Không có thì `BLOCKED`, `B1_BUILD_ROOT_NOT_FOUND`.
 2. **Chép cây làm việc** vào `work/<run_id>/base`, gồm cả thay đổi chưa commit.
    - **Bỏ qua thư mục:** `.git/`, `target/`, `build/`, `out/`, `bin/` (chỉ khi nằm cạnh `src/`), `.gradle/`, `.idea/`, `.vscode/`, `node_modules/`, `.arrow-work/`.
