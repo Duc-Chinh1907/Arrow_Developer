@@ -34,8 +34,9 @@ public class ProcessRunnerTests
         Assert.Contains("removed=\n", result.Output.Replace("removed= \n", "removed=\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("to-stderr", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("\r", result.Output, StringComparison.Ordinal);
-        // stdout and stderr are different pipes: their lines may arrive in either order, so only the end of the output is checked.
-        Assert.Contains("to-stderr", result.Tail(2), StringComparison.Ordinal);
+
+        // stdout and stderr are different pipes, so their lines may arrive in either order: only the order within stdout is fixed.
+        Assert.True(result.Output.IndexOf("value=", StringComparison.Ordinal) < result.Output.IndexOf("removed=", StringComparison.Ordinal));
     }
 
     // The last lines of stdout and stderr must not be lost when the process exits at once (flaky on Linux CI before the drain).
