@@ -17,6 +17,10 @@
     <EmbeddedResource Include="$(JavaHelperJar)" LogicalName="Arrow.DataAccess.JavaHelper.java-helper.jar" Visible="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- P09 §6.1: the tool versions and sha256 of block 4, copied from ARROW_Framework without EvoSuite. -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\tools\tools.lock.json" LogicalName="Arrow.DataAccess.Tools.tools.lock.json" Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Arrow.DataAccess.Tests" />
     <InternalsVisibleTo Include="Arrow.IntegrationTests" />
   </ItemGroup>
