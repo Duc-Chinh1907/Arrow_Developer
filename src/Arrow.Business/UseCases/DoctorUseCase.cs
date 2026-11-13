@@ -65,8 +65,8 @@ public sealed class JavaHelperProbe(ArrowHome home) : IJavaHelperProbe
 }
 
 /// <summary>
-/// <see cref="IDoctorUseCase"/>. First version (GĐ2): <c>ARROW_HOME</c>, configuration, git, JDKs, Maven and Gradle, java-helper and,
-/// on Windows, long paths. The model, JaCoCo/PIT/tsDetect and Ollama checks come with GĐ3 and GĐ5.
+/// <see cref="IDoctorUseCase"/>: <c>ARROW_HOME</c>, configuration, git, JDKs, Maven and Gradle, java-helper, the default model (GĐ3) and,
+/// on Windows, long paths. The JaCoCo/PIT/tsDetect check comes with GĐ5.
 /// </summary>
 public sealed class DoctorUseCase(
     IConfigStore config,
@@ -75,7 +75,8 @@ public sealed class DoctorUseCase(
     IProcessRunner runner,
     IJavaHelperProbe javaHelper,
     Func<string, long?>? freeBytes = null,
-    Func<bool?>? longPaths = null) : IDoctorUseCase
+    Func<bool?>? longPaths = null,
+    IModelDiagnostics? models = null) : IDoctorUseCase
 {
     private const int NameWidth = 22;
 
@@ -153,7 +154,16 @@ public sealed class DoctorUseCase(
         // 6. java-helper.
         await CheckJavaHelperAsync(Add, machine, catalog, ct).ConfigureAwait(false);
 
-        // 7. Windows long paths.
+        // 7. The default model and, for Ollama, its context window (P03 §8).
+        if (models is not null)
+        {
+            foreach (var item in await models.CheckAsync(projectRoot, ct).ConfigureAwait(false))
+            {
+                Add(item.Level, item.Name, item.Detail, item.Hint);
+            }
+        }
+
+        // 8. Windows long paths.
         if ((longPaths ?? WindowsSettings.LongPathsEnabled)() == false)
         {
             Add(DoctorLevel.Warning, "Đường dẫn dài", "Windows chưa bật LongPathsEnabled", "Bật LongPathsEnabled (Local Group Policy hoặc registry), hoặc đặt ARROW_HOME ngắn như D:\\arrow.");

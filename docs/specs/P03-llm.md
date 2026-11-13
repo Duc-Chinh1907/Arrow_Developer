@@ -250,7 +250,7 @@ CLI in cả hai con số, kèm chi phí nếu có giá: `~45k token (tối đa ~
 | Lệnh | Việc |
 |---|---|
 | `arrow models` | Bảng: tên, provider, host, `model_id`, tham số, giá, khoá (`...xxxx` hoặc `không cần`), mặc định |
-| `arrow models test [<tên>]` | Gửi prompt cố định `Reply with exactly: OK`, `max_tokens = 16`. In nội dung, `model_id` trả về (`✓`/`✗` theo tiền tố), token, thời gian, chi phí. Lỗi thì in mã và gợi ý (Mục 4) |
+| `arrow models test [<tên>]` | Gửi prompt cố định `Reply with exactly: OK`, `max_tokens = 16`. In nội dung, `model_id` trả về (`✓`/`✗` theo tiền tố), token, thời gian, chi phí. Lỗi thì in mã và gợi ý (Mục 4). Gửi **một lần**, không gọi lại sau 20/60/120 s (lệnh in kết quả ngay), nên 429 hay 5xx báo `B2_LLM_UNAVAILABLE` luôn. Sai tiền tố thì mã thoát 2 |
 | `arrow models add` | Như bước 1–2 của `arrow setup` |
 | `arrow models default <tên>` | Đặt `llm.default_model` |
 

@@ -34,6 +34,13 @@ public sealed class CliApp
     /// <summary>Name shown in help and error hints.</summary>
     public const string CommandName = "arrow";
 
+    /// <summary>Environment variable with the rules file of the fake model (P11 §3.2).</summary>
+    public const string FakeLlmVariable = "ARROW_FAKE_LLM";
+
+    /// <summary>The rules file of the fake model, or null when <see cref="FakeLlmVariable"/> is not set.</summary>
+    public static string? FakeLlmRules(IReadOnlyDictionary<string, string?> environment) =>
+        environment.GetValueOrDefault(FakeLlmVariable) is { Length: > 0 } path ? Path.GetFullPath(path) : null;
+
     /// <summary>Version written into <c>run.json</c> (<c>arrow_version</c>).</summary>
     public static string Version { get; } = typeof(CliApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
@@ -86,6 +93,8 @@ public sealed class CliApp
             root.Options.Add(option);
         }
 
+        root.Subcommands.Add(SetupCommand.Build(this));
+        root.Subcommands.Add(ModelsCommand.Build(this));
         root.Subcommands.Add(InspectCommand.Build(this));
         root.Subcommands.Add(DoctorCommand.Build(this));
         root.Subcommands.Add(ConfigCommand.Build(this));
@@ -115,6 +124,12 @@ public sealed class CliApp
                 _console.Error);
             var context = new CommandContext(globals, _console, renderer, ErrorCatalog.For(language), log, services);
             log.Info("arrow " + string.Join(' ', parse.Tokens.Select(t => t.Value)));
+            if (FakeLlmRules(_console.Environment) is { } fake)
+            {
+                // P11 §3.2: a run on the fake model must never be taken for a real one.
+                renderer.Warn("FAKE LLM: các lượt gọi model đọc từ " + fake);
+            }
+
             try
             {
                 return await body(context, ct).ConfigureAwait(false);
