@@ -101,8 +101,11 @@ public sealed class ProcessRunner : IProcessRunner
         var cancelled = false;
         var started = false;
         using var process = new Process { StartInfo = start };
-        process.OutputDataReceived += (_, e) => output.AppendLine(e.Data);
-        process.ErrorDataReceived += (_, e) => output.AppendLine(e.Data);
+        // A null line is the last callback of a stream: it marks the end of that stream.
+        var stdoutEnded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stderrEnded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.OutputDataReceived += (_, e) => OnLine(output, stdoutEnded, e.Data);
+        process.ErrorDataReceived += (_, e) => OnLine(output, stderrEnded, e.Data);
         try
         {
             process.Start();
@@ -123,10 +126,10 @@ public sealed class ProcessRunner : IProcessRunner
                 await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
                 exitCode = process.ExitCode;
 
-                // WaitForExitAsync can return before the last lines of stdout or stderr reached the event handlers (seen on Linux: the
-                // last line of stderr was missing). The parameterless WaitForExit() waits for the end of both streams. A child that
-                // inherited the pipes and outlives the process must not hold us, so the wait is bounded.
-                await DrainAsync(process).ConfigureAwait(false);
+                // The process can exit before the last lines of stdout or stderr reached the event handlers (seen on Linux and on
+                // Windows CI: the last line of stderr was missing). Wait for the end of both streams. A child that inherited the
+                // pipes and outlives the process must not hold us, so the wait is bounded.
+                await DrainAsync(stdoutEnded.Task, stderrEnded.Task).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -151,21 +154,19 @@ public sealed class ProcessRunner : IProcessRunner
         return new ProcessResult(exitCode, timedOut, text, watch.Elapsed, truncated);
     }
 
-    private static async Task DrainAsync(Process process)
+    private static void OnLine(CappedOutput output, TaskCompletionSource ended, string? line)
     {
-        var drain = Task.Run(() =>
+        if (line is null)
         {
-            try
-            {
-                process.WaitForExit();
-            }
-            catch (InvalidOperationException)
-            {
-                // The process object was disposed while a child still held the pipes.
-            }
-        });
-        await Task.WhenAny(drain, Task.Delay(DrainTimeout)).ConfigureAwait(false);
+            ended.TrySetResult();
+            return;
+        }
+
+        output.AppendLine(line);
     }
+
+    private static async Task DrainAsync(Task stdoutEnded, Task stderrEnded) =>
+        await Task.WhenAny(Task.WhenAll(stdoutEnded, stderrEnded), Task.Delay(DrainTimeout)).ConfigureAwait(false);
 
     /// <summary>How long to wait for the streams to end after the process exited.</summary>
     private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);
