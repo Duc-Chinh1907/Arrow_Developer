@@ -1,0 +1,11 @@
+{
+  "rules": [
+    { "when": { "call_id": "gen/com.acme.billing.PriceCalculator" }, "respond_file": "c0_compile_missing_method.md" },
+    { "when": { "call_id": "repair/com.acme.billing.PriceCalculator/round_1" }, "respond_file": "r1_compile_constructor.md" },
+    { "when": { "call_id": "repair/com.acme.billing.PriceCalculator/round_2" }, "respond_file": "r1_compile_constructor.md" },
+    { "when": { "call_id": "repair/com.acme.billing.PriceCalculator/round_3" }, "respond_file": "r3_assertion.md" },
+    { "when": { "call_id": "repair/com.acme.billing.PriceCalculator/round_4" }, "respond_file": "r4_assertion_same_signature.md" },
+    { "when": { "call_id": "repair/com.acme.billing.PriceCalculator/round_5" }, "respond_file": "r5_valid.md" }
+  ],
+  "default": { "error": "no_rule" }
+}

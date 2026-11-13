@@ -420,7 +420,9 @@ internal sealed class FakeHelper : IJavaHelper
 
     public Task<SpliceResult> SpliceMethodsAsync(string baseCode, string response, IReadOnlyList<string> methods, CancellationToken ct) => throw new NotSupportedException();
 
-    public Task<IReadOnlyList<string>> ListTestMethodsAsync(string code, CancellationToken ct) => throw new NotSupportedException();
+    public Func<string, IReadOnlyList<string>>? TestMethods { get; init; }
+
+    public Task<IReadOnlyList<string>> ListTestMethodsAsync(string code, CancellationToken ct) => Answer(nameof(ListTestMethodsAsync), TestMethods?.Invoke(code) ?? (IReadOnlyList<string>)[]);
 
     public Task<AssertionCount> CountAssertionsAsync(string code, CancellationToken ct) => throw new NotSupportedException();
 

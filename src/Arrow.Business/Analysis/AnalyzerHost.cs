@@ -16,11 +16,17 @@ namespace Arrow.Business.Analysis;
 /// <param name="Jobs">Number of java-helper processes (<c>--jobs</c>).</param>
 public sealed record AnalyzerSetup(string JavaExecutable, string? Git, AnalysisOptions Options, ErrorCatalog Catalog, int Jobs = 1);
 
-/// <summary>A started block 1 with its java-helper processes; disposing stops them.</summary>
+/// <summary>A started block 1 with its java-helper processes, shared by blocks 2 and 3 of the run; disposing stops them.</summary>
 public interface IAnalyzerHost : IAsyncDisposable
 {
     /// <summary>Block 1.</summary>
     IProjectAnalyzer Analyzer { get; }
+
+    /// <summary>The java-helper processes of the run (P10 §5).</summary>
+    IJavaHelperProvider JavaHelpers { get; }
+
+    /// <summary>Block 3 verification on the build tools of the machine.</summary>
+    Repair.IVerifier Verifier { get; }
 }
 
 /// <summary>Creates <see cref="IAnalyzerHost"/>; use cases take this so that tests can use a fake block 1.</summary>
@@ -55,7 +61,7 @@ public sealed class AnalyzerHostFactory(ArrowHome home, IProcessRunner runner, I
                 workspaces,
                 runs,
                 setup.Catalog);
-            return new Host(analyzer, pool);
+            return new Host(analyzer, pool, new Repair.Verifier(builds, workspaces, pool));
         }
         catch
         {
@@ -64,9 +70,13 @@ public sealed class AnalyzerHostFactory(ArrowHome home, IProcessRunner runner, I
         }
     }
 
-    private sealed class Host(IProjectAnalyzer analyzer, JavaHelperPool pool) : IAnalyzerHost
+    private sealed class Host(IProjectAnalyzer analyzer, JavaHelperPool pool, Repair.IVerifier verifier) : IAnalyzerHost
     {
         public IProjectAnalyzer Analyzer { get; } = analyzer;
+
+        public IJavaHelperProvider JavaHelpers => pool;
+
+        public Repair.IVerifier Verifier { get; } = verifier;
 
         public ValueTask DisposeAsync() => pool.DisposeAsync();
     }

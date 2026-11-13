@@ -73,6 +73,10 @@ public class InspectUseCaseTests
         {
             public IProjectAnalyzer Analyzer { get; } = analyzer;
 
+            public Arrow.DataAccess.JavaHelper.IJavaHelperProvider JavaHelpers => throw new NotSupportedException("inspect does not use java-helper directly");
+
+            public Arrow.Business.Repair.IVerifier Verifier => throw new NotSupportedException("inspect does not verify");
+
             public ValueTask DisposeAsync()
             {
                 owner.Disposed = true;

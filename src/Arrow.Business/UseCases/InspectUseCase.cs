@@ -155,71 +155,20 @@ public sealed class InspectUseCase(
         }
     }
 
-    private async Task<InspectResult> InspectAsync(IProjectAnalyzer analyzer, ProjectWorkspace workspace, string query, RunContext run, ErrorCatalog catalog, IConfirmation confirm, CancellationToken ct)
+    private static async Task<InspectResult> InspectAsync(IProjectAnalyzer analyzer, ProjectWorkspace workspace, string query, RunContext run, ErrorCatalog catalog, IConfirmation confirm, CancellationToken ct)
     {
-        var located = await analyzer.LocateAsync(workspace, query, ct).ConfigureAwait(false);
-        ClassCandidate? cut = null;
-        string? warning = null;
-        switch (located)
+        var picked = await CutPicker.PickAsync(analyzer, workspace, query, catalog, confirm, ct).ConfigureAwait(false);
+        if (picked.Cut is null)
         {
-            case LocateResult.Found found:
-                (cut, warning) = (found.Class, found.Warning);
-                break;
-            case LocateResult.Ambiguous ambiguous:
-                var chosen = await confirm.ChooseOneAsync(
-                    $"Có {ambiguous.Candidates.Count} class tên {query}. Chọn một class:",
-                    ambiguous.Candidates.Select(c => $"{c.Fqn}  ({c.Path})").ToList(),
-                    ct).ConfigureAwait(false);
-                if (chosen is not { } index)
-                {
-                    return Blocked(run, catalog, ErrorCodes.B1CutAmbiguous, "Có nhiều class tên " + query + ": " + string.Join(", ", ambiguous.Candidates.Select(c => c.Fqn)), [], workspace.Warnings,
-                        new Dictionary<string, string> { ["query"] = query });
-                }
-
-                var picked = ClassLocator.Check(ambiguous.Candidates[index]);
-                if (picked is LocateResult.Failed pickedFailure)
-                {
-                    return Blocked(run, catalog, pickedFailure.Code, pickedFailure.Detail, pickedFailure.Suggestions, workspace.Warnings,
-                        new Dictionary<string, string> { ["query"] = query });
-                }
-
-                var pickedFound = (LocateResult.Found)picked;
-                (cut, warning) = (pickedFound.Class, pickedFound.Warning);
-                break;
-            case LocateResult.Failed failed:
-                return Blocked(run, catalog, failed.Code, failed.Detail, failed.Suggestions, workspace.Warnings,
-                    new Dictionary<string, string> { ["query"] = query });
+            return new InspectResult(run.RunId, run.Run.Root, picked.Blocked!, null, picked.Suggestions, workspace.Warnings);
         }
 
-        var analysis = await analyzer.AnalyzeAsync(workspace, cut!, run, ct).ConfigureAwait(false);
-        var warnings = warning is null ? analysis.Warnings : [warning, .. analysis.Warnings];
+        var analysis = await analyzer.AnalyzeAsync(workspace, picked.Cut, run, ct).ConfigureAwait(false);
+        var warnings = picked.Warning is null ? analysis.Warnings : [picked.Warning, .. analysis.Warnings];
         return new InspectResult(run.RunId, run.Run.Root, analysis.Outcome, analysis, [], warnings);
-    }
-
-    private static InspectResult Blocked(RunContext run, ErrorCatalog catalog, string code, string detail, IReadOnlyList<string> suggestions, IReadOnlyList<string> warnings, IReadOnlyDictionary<string, string> args)
-    {
-        var info = catalog.Describe(code, detail, args);
-        var outcome = new BlockOutcome(BlockOutcomeKind.Blocked, code, info.Message, info.Hint, null, null, 0);
-        return new InspectResult(run.RunId, run.Run.Root, outcome, null, suggestions, warnings);
     }
 
     private static async Task<bool> ConfirmLargeAsync(IConfirmation confirm, long bytes, CancellationToken ct) =>
         await confirm.ConfirmAsync(
             $"Project nặng {bytes / (1024 * 1024 * 1024.0):0.0} GB sau khi lọc. Vẫn chép? (không tương tác thì vẫn chép)", defaultAnswer: true, ct).ConfigureAwait(false);
-
-    /// <summary>Reports an event to the caller and appends it to <c>events.jsonl</c> (P07 §10).</summary>
-    private sealed class RunProgress(IRunStore runs, RunHandle run, IProgress<ArrowEvent>? inner) : IProgress<ArrowEvent>
-    {
-        private readonly object _gate = new();
-
-        public void Report(ArrowEvent value)
-        {
-            lock (_gate)
-            {
-                runs.AppendEvent(run, value);
-            }
-
-            inner?.Report(value);
-        }
-    }
 }
