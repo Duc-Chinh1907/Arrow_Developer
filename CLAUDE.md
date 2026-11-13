@@ -111,5 +111,8 @@ It is the product version of the team's research framework. There is **no resear
   - `ARROW_FAKE_LLM=<rules file>` makes the CLI use `FakeLlmClient` (P11 §3.1) and print `[!] FAKE LLM` first.
   - The CLI wizard asks through `IWizardPrompter` (`SpectreWizardPrompter`); tests give a scripted one and `CliRunner.Interactive = true`.
   - **Not smoke-tested with a real model yet:** `ARROW_SECRET_TEAMO` was not set on the machine. Run `arrow setup`, then `arrow models test` once.
-- **Next:** GĐ4, block 3 and milestone M1 (P04): `Verifier`, the classifiers, `AdaptiveRepairPolicy`, `RepairRunner`, and the vertical slice `arrow gen <class> --no-metrics`. Use the larger model for this phase.
+- GĐ4 (block 3 and milestone M1, P04) in 4 PRs: `gd4/classify`, `gd4/policy`, `gd4/verifier`, `gd4/gen`. Use the larger model for this phase.
+  - PR `gd4/classify` (13/11/2026): verification models in `Arrow.Common/Verification` (`VerifyResult`: a null `State` is INFRA, written `"INFRA"`), and in `Arrow.Business/Repair` `JavacErrorParser` (maven-compiler-plugin 2.x, lint warnings under `-Werror`), `TestResultClassifier`, `RegressionChecker`, `SignatureBuilder`, `BuildErrorExtractor`, `FailureDiagnoser`, `CheckpointComparer`, `LineDiff`.
+  - Where the P-spec changed the old behaviour: the project frame uses `project_structure.packages` and the CUT package, falling back to the first frame; error blocks are ≤ 60 lines and diffs ≤ 15 lines *including* the "more" line; first errors ≤ 200 characters including `…`; the REGRESSION block has a separate part for case (c); `initializationError` is not a failing method.
+  - The Verifier (PR 3) must make paths in failures relative to the project root (`JavacErrorParser.Relative`, `BuildErrorExtractor.StripRoot`): `FailureDiagnoser` does not see the workspace.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
