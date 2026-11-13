@@ -232,7 +232,12 @@ public sealed class TestWritePolicy(IProjectFileWriter writer, IVerifier verifie
         Report(context, ArrowEventTypes.ApplyRenamed, m.Cut.Fqn, $"Đã có {oldName}; đổi tên thành {simple}", ("k", next.NameIndex), ("name", simple));
         var dir = $"{ProjectAnalyzer.TargetDir(m.Cut.Fqn)}/apply";
         runs.WriteText(context.Run.Run, $"{dir}/{simple}.java", code);
-        var task = plan.Target.Task!;
+        if (plan.Target.Task is not { } task)
+        {
+            // A target kept from a resumed run has no snapshot left to verify the renamed suite on.
+            return plan with { Decided = ApplyDecision.Blocked, Error = catalog.Describe(ErrorCodes.WReverifyFailed, "không còn bản sao để xác minh lại") };
+        }
+
         var final = plan.Target.Final!;
         var result = await verifier.VerifyAsync(
             SuiteFiles.Single(next.Fqn, next.Path, code), task,

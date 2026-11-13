@@ -43,25 +43,28 @@ public sealed record LocalProjectTree(string Root, IReadOnlyList<TreeFile> Files
     /// <c>sha256:</c> of the sorted list of (relative path, size, modification time) of the files: it changes when a file is added,
     /// removed or edited, and does not depend on the order in which the folder was listed.
     /// </summary>
-    public string SourceTreeHash
+    public string SourceTreeHash => SourceTreeHashWithout(new HashSet<string>());
+
+    /// <summary>
+    /// <see cref="SourceTreeHash"/> without the files of <paramref name="excluded"/> (relative paths with <c>/</c>): resuming a run
+    /// ignores the test files that the run itself wrote into the project (P07 §5.2).
+    /// </summary>
+    public string SourceTreeHashWithout(IReadOnlySet<string> excluded)
     {
-        get
+        var text = new StringBuilder();
+        foreach (var file in Files.Where(f => !excluded.Contains(f.Path)).OrderBy(f => f.Path, StringComparer.Ordinal))
         {
-            var text = new StringBuilder();
-            foreach (var file in Files.OrderBy(f => f.Path, StringComparer.Ordinal))
-            {
-                text.Append(file.Path).Append('\t')
-                    .Append(file.Size.ToString(CultureInfo.InvariantCulture)).Append('\t')
-                    .Append(file.ModifiedUtc.Ticks.ToString(CultureInfo.InvariantCulture)).Append('\n');
-            }
-
-            foreach (var link in Links.OrderBy(l => l.Path, StringComparer.Ordinal))
-            {
-                text.Append(link.Path).Append("\t->\t").Append(link.Target).Append('\n');
-            }
-
-            return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+            text.Append(file.Path).Append('\t')
+                .Append(file.Size.ToString(CultureInfo.InvariantCulture)).Append('\t')
+                .Append(file.ModifiedUtc.Ticks.ToString(CultureInfo.InvariantCulture)).Append('\n');
         }
+
+        foreach (var link in Links.OrderBy(l => l.Path, StringComparer.Ordinal))
+        {
+            text.Append(link.Path).Append("\t->\t").Append(link.Target).Append('\n');
+        }
+
+        return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
     }
 
     /// <summary>Lists the project at <paramref name="root"/> with the filters of P01 §3.1 step 2.</summary>

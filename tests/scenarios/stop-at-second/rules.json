@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "when": { "call_id": "gen/com.acme.billing.PriceCalculator" }, "respond_file": "price_calculator.md" },
+    { "when": { "call_id": "gen/com.acme.billing.Invoice" }, "error": "401" }
+  ],
+  "default": { "error": "no_rule" }
+}
