@@ -126,7 +126,7 @@ Sai thì báo `B2_TEMPLATE_INVALID`, không chạy.
 | `test_source` | REPAIR | `request.base_code` (mã của checkpoint) |
 | `extra_context` | REPAIR mức 2, 3 | `request.extra_context`; rỗng thì điền `(none)` |
 | `failed_attempts` | REPAIR mức 2, 3 | Dựng từ `request.failed_attempts` theo Mục 3.4; rỗng thì điền `(none)` |
-| `failing_methods` | REPAIR mức 3 | `request.rewrite_methods`, mỗi dòng một tên, đầu dòng có `- ` |
+| `failing_methods` | REPAIR mức 3 | `request.rewrite_methods`, viết liền trên một dòng, mỗi tên trong dấu huyền: `` `a`, `b` `` (câu của `level3.md` là "…in these test methods: {{failing_methods}}.", nên danh sách nằm trong câu; sửa ngày 13/11/2026, trước đó spec ghi mỗi dòng một tên) |
 
 - Thiếu giá trị cho một placeholder mà template cần: báo `B2_TEMPLATE_INVALID`, không gửi.
 - Giá trị được chèn nguyên văn. Không thoát ký tự, vì template đã đặt mã trong khối ```` ```java ````.
@@ -143,8 +143,9 @@ Theo R03 §6.4:
 - **3 lần thử gần nhất** hiện đủ `signature`, `first_error`, `change`;
 - **các lần cũ hơn** chỉ hiện một dòng `round` và `signature`.
 
+Dòng tiêu đề "Approaches that already failed" đã có trong template; giá trị của `{{failed_attempts}}` chỉ gồm các mục sau:
+
 ```
-Approaches that already failed (do not repeat them):
 - Round 1 · COMPILE | cannot find symbol | method
 - Round 2 · COMPILE | cannot find symbol | method
   First error: cannot find symbol: method calcTotal(long) in class com.myshop.service.OrderService
@@ -351,7 +352,7 @@ Hope this helps.
 ````
 
 Kết quả:
-- `normalization = ["fence removed", "prose trimmed", "class: OrderServiceTest → OrderService_ArrowTest"]`;
+- `normalization = ["fence removed", "class: OrderServiceTest → OrderService_ArrowTest"]` (cả chữ ngoài fence bị bỏ cùng fence, nên không có `prose trimmed`; ví dụ cũ ghi sai);
 - `valid_output = true`, `test_method_count = 1`, `assertion_count = 1`.
 
 Import thiếu của `InMemoryRepo` (nếu có) **không** được thêm. Khối 3 sẽ báo `COMPILE` và sửa ở vòng sau.

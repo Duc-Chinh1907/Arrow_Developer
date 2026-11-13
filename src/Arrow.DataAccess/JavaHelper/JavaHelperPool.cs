@@ -7,7 +7,7 @@ namespace Arrow.DataAccess.JavaHelper;
 /// java-helper processes of one run (P10 §5, P07 §7): with <c>--jobs n</c> each running target rents its own process,
 /// at most <c>n</c> of them; processes start lazily and are reused by later targets.
 /// </summary>
-public sealed class JavaHelperPool : IAsyncDisposable
+public sealed class JavaHelperPool : IAsyncDisposable, IJavaHelperProvider
 {
     private readonly JavaHelperOptions _options;
     private readonly IAppLog? _log;
@@ -43,6 +43,8 @@ public sealed class JavaHelperPool : IAsyncDisposable
         return new Lease(this, client);
     }
 
+    async Task<IJavaHelperLease> IJavaHelperProvider.RentAsync(CancellationToken ct) => await RentAsync(ct).ConfigureAwait(false);
+
     /// <summary>Stops every process of the pool.</summary>
     public async ValueTask DisposeAsync()
     {
@@ -61,7 +63,7 @@ public sealed class JavaHelperPool : IAsyncDisposable
     }
 
     /// <summary>A process rented from the pool.</summary>
-    public sealed class Lease : IDisposable
+    public sealed class Lease : IJavaHelperLease
     {
         private readonly JavaHelperPool _pool;
         private bool _returned;
@@ -85,4 +87,18 @@ public sealed class JavaHelperPool : IAsyncDisposable
             }
         }
     }
+}
+
+/// <summary>A java-helper process borrowed for a few calls; dispose it to give it back.</summary>
+public interface IJavaHelperLease : IDisposable
+{
+    /// <summary>The commands of java-helper (P10 §4).</summary>
+    IJavaHelper Helper { get; }
+}
+
+/// <summary>Where a use case gets a java-helper process; tests give a fake one.</summary>
+public interface IJavaHelperProvider
+{
+    /// <summary>Waits for a free process.</summary>
+    Task<IJavaHelperLease> RentAsync(CancellationToken ct);
 }
