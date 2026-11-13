@@ -118,7 +118,10 @@ public class LocalProjectTreeTests
         Assert.Equal(P("multi"), ProjectRootFinder.Find(P("multi/core/src/main/java")));
         // A folder that has a build file is the root itself.
         Assert.Equal(P("multi/core"), ProjectRootFinder.Find(P("multi/core")));
-        Assert.Null(ProjectRootFinder.Find(P("repo")));
+        // No build file at or above it, but one in lib/: the folder itself is the root (maven-subdir-junit4).
+        Assert.Equal(P("repo"), ProjectRootFinder.Find(P("repo")));
+        Directory.CreateDirectory(P("empty/a"));
+        Assert.Null(ProjectRootFinder.Find(P("empty/a")));
         Assert.Null(ProjectRootFinder.Find(P("missing")));
     }
 }

@@ -152,7 +152,7 @@ public class JsonConventionsTests
         Assert.Equal(new DateTimeOffset(2026, 11, 10, 7, 41, 2, TimeSpan.Zero), run.FinishedAt);
         Assert.Equal(ProjectSourceKind.LocalDirectory, run.Project.Kind);
         Assert.Equal("D:/src/MyShop", run.Project.Root);
-        Assert.Equal(3, run.Config.EarlyStopP);
+        Assert.Equal(3, run.Config!.EarlyStopP);
         Assert.Equal(TargetState.Done, Assert.Single(run.Targets).State);
         Assert.Equal(24310, run.Totals.TokensIn);
 

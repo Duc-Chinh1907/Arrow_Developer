@@ -160,7 +160,8 @@ public static class ProjectRootFinder
 
     /// <summary>
     /// <paramref name="location"/> when it has a build file; otherwise the highest folder of the first run of consecutive folders with
-    /// a build file found within <see cref="MaxLevels"/> levels above it. Null when there is none (<c>B1_BUILD_ROOT_NOT_FOUND</c>).
+    /// a build file found within <see cref="MaxLevels"/> levels above it; otherwise <paramref name="location"/> again when a sub-folder has
+    /// a build file (a repository whose build lives in <c>lib/</c>). Null when there is none (<c>B1_BUILD_ROOT_NOT_FOUND</c>).
     /// </summary>
     public static string? Find(string location)
     {
@@ -187,6 +188,11 @@ public static class ProjectRootFinder
             {
                 break;
             }
+        }
+
+        if (found is null && Build.BuildLayout.Scan(dir.FullName).Dirs.Count > 0)
+        {
+            return dir.FullName;
         }
 
         return found;
