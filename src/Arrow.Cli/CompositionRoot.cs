@@ -1,10 +1,12 @@
 using Arrow.Business;
 using Arrow.Business.Analysis;
 using Arrow.Business.Environment;
+using Arrow.Business.Llm;
 using Arrow.Business.UseCases;
 using Arrow.Cli.Prompts;
 using Arrow.Common.Logging;
 using Arrow.DataAccess.Config;
+using Arrow.DataAccess.Llm;
 using Arrow.DataAccess.Logging;
 using Arrow.DataAccess.Processes;
 using Arrow.DataAccess.Security;
@@ -49,8 +51,18 @@ internal static class CompositionRoot
         services.AddSingleton<IInspectUseCase>(sp => new InspectUseCase(
             sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IRunStore>(),
             sp.GetRequiredService<IAnalyzerHostFactory>(), CliApp.Version));
+        services.AddSingleton(_ => new OllamaClient(new HttpClient { Timeout = TimeSpan.FromSeconds(15) }));
+        services.AddSingleton<ILlmClientFactory>(sp => new LlmClientFactory(
+            sp.GetRequiredService<ISecretStore>(), sp.GetRequiredService<IRunStore>(), "arrow-cli/" + CliApp.Version, sp.GetRequiredService<IAppLog>(),
+            fakeRulesFile: CliApp.FakeLlmRules(env)));
+        services.AddSingleton(sp => new ModelsUseCase(
+            sp.GetRequiredService<IConfigStore>(), sp.GetRequiredService<ISecretStore>(), sp.GetRequiredService<ILlmClientFactory>(), sp.GetRequiredService<OllamaClient>()));
+        services.AddSingleton<IModelsUseCase>(sp => sp.GetRequiredService<ModelsUseCase>());
+        services.AddSingleton<IModelDiagnostics>(sp => sp.GetRequiredService<ModelsUseCase>());
+        services.AddSingleton<IWizardPrompter, SpectreWizardPrompter>();
         services.AddSingleton<IDoctorUseCase>(sp => new DoctorUseCase(
-            sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IProcessRunner>(), new JavaHelperProbe(home)));
+            sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IProcessRunner>(), new JavaHelperProbe(home),
+            models: sp.GetRequiredService<IModelDiagnostics>()));
         services.AddSingleton<ConfigUseCase>();
         services.AddSingleton<SecretsUseCase>();
         configure?.Invoke(services);

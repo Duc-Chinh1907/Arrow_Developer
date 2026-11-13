@@ -24,6 +24,9 @@ public sealed class CliRunner : IDisposable
     /// <summary>Replaces services after the real ones are registered, e.g. use cases with fakes; null keeps the real ones.</summary>
     public Action<IServiceCollection>? Services { get; set; }
 
+    /// <summary>True gives the CLI a keyboard (stdin is not redirected), for the commands that ask questions; the answers come from a scripted prompter.</summary>
+    public bool Interactive { get; set; }
+
     /// <summary>The current folder of the CLI, standing for a user project.</summary>
     public string Project { get; }
 
@@ -37,7 +40,7 @@ public sealed class CliRunner : IDisposable
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
-        var console = new CliConsole(new StringReader(stdin), output, error, IsInputRedirected: true, IsOutputRedirected: true, Environment, Project);
+        var console = new CliConsole(new StringReader(stdin), output, error, IsInputRedirected: !Interactive, IsOutputRedirected: true, Environment, Project);
         var exit = await new CliApp(console, (c, g) => CompositionRoot.Build(c, g, Services)).RunAsync([.. args, "--home", Home], TestContext.Current.CancellationToken);
         return new CliRun(exit, output.ToString(), error.ToString());
     }

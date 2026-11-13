@@ -105,5 +105,11 @@ It is the product version of the team's research framework. There is **no resear
   - Real-repo trials (`arrow inspect … --repo <url> --ref <full sha>`; the ref must be a full SHA, a short one is refused): `gephi/graphstore` (Maven, TestNG, 1,841 tests, block 1 in 76 s), `intendia-oss/qualifier` (multi-module Maven, JDK 8, 12 s), `tolpp/memguard` (Gradle with a 2017 wrapper; see the PR).
   - Java allows a top-level class in a file with another name, so the source root comes from the package, not from the class name.
   - Run `arrow` from the build output: `dotnet src/Arrow.Cli/bin/Debug/net10.0/Arrow.Cli.dll <command> --home <short ascii folder>`.
-- **Next:** GĐ3, LLM and block 2 (P02, P03): `OpenAiCompatibleClient`, `AnthropicClient`, `LlmGateway`, `ReplayingLlmClient`, `FakeLlmClient`, prompt templates, candidate extraction.
+- GĐ3 (LLM and block 2) in 3 PRs (13/11/2026): #12 the LLM layer (`Arrow.DataAccess/Llm`, `Arrow.Business/Llm`), #13 block 2 (`Arrow.Business/Generation`: `PromptTemplateStore`, `PromptBuilder`, `CodeExtractor`, `TestGenerator`), and the PR with `arrow setup`, `arrow models` and the model lines of `doctor`.
+  - The chain for a run is `ReplayingLlmClient` → `LlmGateway` → provider client, built by `ILlmClientFactory.Create`; `CreateProvider` gives the bare client for `models test` and `doctor` (one send, no 20/60/120 s retries).
+  - Tests of HTTP use `FakeHttp` and `FakeTimeProvider` (`Microsoft.Extensions.TimeProvider.Testing`), so no test waits for a retry.
+  - `ARROW_FAKE_LLM=<rules file>` makes the CLI use `FakeLlmClient` (P11 §3.1) and print `[!] FAKE LLM` first.
+  - The CLI wizard asks through `IWizardPrompter` (`SpectreWizardPrompter`); tests give a scripted one and `CliRunner.Interactive = true`.
+  - **Not smoke-tested with a real model yet:** `ARROW_SECRET_TEAMO` was not set on the machine. Run `arrow setup`, then `arrow models test` once.
+- **Next:** GĐ4, block 3 and milestone M1 (P04): `Verifier`, the classifiers, `AdaptiveRepairPolicy`, `RepairRunner`, and the vertical slice `arrow gen <class> --no-metrics`. Use the larger model for this phase.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

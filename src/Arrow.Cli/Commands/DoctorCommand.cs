@@ -15,7 +15,7 @@ internal static class DoctorCommand
         return command;
     }
 
-    private static async Task<int> RunAsync(CommandContext context, CancellationToken ct)
+    internal static async Task<int> RunAsync(CommandContext context, CancellationToken ct)
     {
         var json = context.Renderer.Mode == Rendering.RenderMode.Json;
         if (!json)

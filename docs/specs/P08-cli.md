@@ -114,6 +114,8 @@ Gồm 5 bước. Mỗi bước in một dòng "Bước này làm gì", rồi h�
 
 Cuối cùng: in bảng xem lại, hỏi `Lưu?`, ghi `config.json` và khoá, rồi tự chạy `arrow doctor`.
 
+**Trạng thái (13/11/2026, GĐ3):** bước 1–3 và phần cuối đã làm. Bước 4 (Java và build) chỉ in lời nhắc, vì `doctor` đã cho thấy JDK, Maven và Gradle tìm được; bước 5 (công cụ đo) làm ở GĐ5 và GĐ8, khi có `arrow tools install`. Bước 2 gọi thử model **trước** khi lưu (khoá còn trong bộ nhớ), nên cấu hình sai không để lại gì trong `ARROW_HOME`.
+
 - **Không có bàn phím** (stdin không phải terminal): `setup` báo lỗi và hướng dẫn dùng `arrow config set` và `arrow secrets set --stdin`.
 - **Lần đầu chạy `arrow` hay `arrow gen`** mà chưa có `config.json`: hỏi `Chưa thiết lập. Chạy arrow setup ngay? (Y/n)`.
 

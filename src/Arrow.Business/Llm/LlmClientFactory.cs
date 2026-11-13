@@ -19,6 +19,17 @@ public interface ILlmClientFactory
     /// and none is found. The gateway is created here, so its limits and budget are shared by every call of the run.
     /// </summary>
     ILlmClient Create(ResolvedModel model, RunHandle run, LlmLimits limits, IProgress<ArrowEvent>? progress = null);
+
+    /// <summary>
+    /// The bare client of the provider, with no cache, limits or model check: what <c>arrow models test</c> and <c>arrow doctor</c> use, so that
+    /// a wrong model is reported to the user and not raised as an error that stops a run. Raises <c>CFG_SECRET_MISSING</c> without a key.
+    /// </summary>
+    /// <param name="model">The model to call.</param>
+    /// <param name="limits">Limits of the run; only the request timeout is used.</param>
+    /// <param name="progress">Receives <c>LLM.Retry</c> events.</param>
+    /// <param name="retry">False sends once and does not wait 20/60/120 s: a command that shows its result at once cannot wait 200 s on a dead network.</param>
+    /// <param name="key">The key to use instead of the stored one: the setup tries a model before it saves the key.</param>
+    ILlmClient CreateProvider(ResolvedModel model, LlmLimits limits, IProgress<ArrowEvent>? progress = null, bool retry = true, SecretValue? key = null);
 }
 
 /// <summary><see cref="ILlmClientFactory"/> with the real HTTP clients, or a fake model when one is given.</summary>
@@ -38,6 +49,12 @@ public sealed class LlmClientFactory(ISecretStore secrets, IRunStore runs, strin
 
     public ILlmClient Create(ResolvedModel model, RunHandle run, LlmLimits limits, IProgress<ArrowEvent>? progress = null)
     {
+        var gateway = new LlmGateway(CreateProvider(model, limits, progress), model, limits, time, progress);
+        return new ReplayingLlmClient(gateway, model, runs, run, progress, time);
+    }
+
+    public ILlmClient CreateProvider(ResolvedModel model, LlmLimits limits, IProgress<ArrowEvent>? progress = null, bool retry = true, SecretValue? key = null)
+    {
         void OnRetry(LlmRetry retry) =>
             progress?.Report(new ArrowEvent(
                 (time ?? TimeProvider.System).GetUtcNow(),
@@ -49,23 +66,16 @@ public sealed class LlmClientFactory(ISecretStore secrets, IRunStore runs, strin
                 $"gọi lại sau {retry.Wait.TotalSeconds:0} s ({retry.Reason})",
                 new Dictionary<string, object?> { ["call_id"] = retry.CallId, ["attempt"] = retry.Attempt, ["wait_seconds"] = retry.Wait.TotalSeconds, ["reason"] = retry.Reason }));
 
-        ILlmClient provider;
         if (fakeRulesFile is not null)
         {
-            provider = new FakeLlmClient(fakeRulesFile, model.ModelId, OnRetry);
-        }
-        else
-        {
-            var key = Key(model);
-            var endpoint = new LlmEndpoint(model.BaseUrl, model.ModelId, key, model.SecretRef);
-            var options = new LlmHttpOptions { RequestTimeout = limits.RequestTimeout, UserAgent = userAgent };
-            provider = model.Kind == ProviderKind.Anthropic
-                ? new AnthropicClient(_http.Value, endpoint, options, time, log, OnRetry)
-                : new OpenAiCompatibleClient(_http.Value, endpoint, options, time, log, OnRetry);
+            return new FakeLlmClient(fakeRulesFile, model.ModelId, OnRetry);
         }
 
-        var gateway = new LlmGateway(provider, model, limits, time, progress);
-        return new ReplayingLlmClient(gateway, model, runs, run, progress, time);
+        var endpoint = new LlmEndpoint(model.BaseUrl, model.ModelId, key ?? Key(model), model.SecretRef);
+        var options = new LlmHttpOptions { RequestTimeout = limits.RequestTimeout, UserAgent = userAgent, RetryDelays = retry ? new LlmHttpOptions().RetryDelays : [] };
+        return model.Kind == ProviderKind.Anthropic
+            ? new AnthropicClient(_http.Value, endpoint, options, time, log, OnRetry)
+            : new OpenAiCompatibleClient(_http.Value, endpoint, options, time, log, OnRetry);
     }
 
     /// <summary>The key of the provider of <paramref name="model"/>; null when it needs none. Raises <c>CFG_SECRET_MISSING</c> when it is not found.</summary>

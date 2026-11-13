@@ -55,6 +55,37 @@ public sealed class CliExecutableTests : IDisposable
         Assert.NotEmpty(Directory.GetFiles(Path.Combine(_home, "logs"), "arrow-*.log"));
     }
 
+    /// <summary>
+    /// GĐ3 "xong khi", with the fake model instead of a real one: a model is configured through <c>config set</c> and <c>secrets set</c>,
+    /// <c>models test</c> answers, and the fake key is in no file under ARROW_HOME except the secret store.
+    /// </summary>
+    [Fact]
+    public async Task ModelsTestWorksEndToEndAndTheKeyStaysInTheSecretStore()
+    {
+        var rules = Path.Combine(_home, "rules.json");
+        File.WriteAllText(rules, """{ "rules": [ { "when": { "call_id_prefix": "models-test/" }, "respond_text": "OK", "usage": { "prompt_tokens": 12, "completion_tokens": 1 } } ] }""");
+        Assert.Equal(0, (await Arrow(FakeKey + "\n", "secrets", "set", "teamo", "--stdin")).ExitCode);
+        Assert.Equal(0, (await Arrow("", "config", "set", "llm.providers.teamo", """{"kind":"openai-compatible","base_url":"https://api.teamorouter.com/v1","secret_ref":"teamo"}""")).ExitCode);
+        Assert.Equal(0, (await Arrow("", "config", "set", "llm.models.gpt-x", """{"provider":"teamo","model_id":"gpt-4.1-mini","expected_model_id_prefix":"gpt-4.1-mini"}""")).ExitCode);
+        Assert.Equal(0, (await Arrow("", "models", "default", "gpt-x")).ExitCode);
+
+        var list = await Arrow("", "models");
+        Assert.Contains("gpt-x", list.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain(FakeKey, list.Output, StringComparison.Ordinal);
+
+        var test = await ArrowWithEnvironment(new Dictionary<string, string?> { ["ARROW_FAKE_LLM"] = rules }, "models", "test");
+        Assert.Equal(0, test.ExitCode);
+        Assert.StartsWith("[!] FAKE LLM", test.Output, StringComparison.Ordinal);
+        Assert.Contains("[OK] model id trả về: gpt-4.1-mini", test.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain(FakeKey, test.Output, StringComparison.Ordinal);
+
+        var leaking = Directory.GetFiles(_home, "*", SearchOption.AllDirectories)
+            .Where(f => !f.Contains(Path.DirectorySeparatorChar + "secrets" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .Where(f => File.ReadAllText(f).Contains(FakeKey, StringComparison.Ordinal))
+            .ToList();
+        Assert.Empty(leaking);
+    }
+
     /// <summary>P08 §2.6: the machine of the tests (CI runners, a developer machine) is ready.</summary>
     [Fact]
     public async Task DoctorReportsAReadyMachine()
@@ -108,6 +139,14 @@ public sealed class CliExecutableTests : IDisposable
         var first = Array.IndexOf(lines, "{");
         var last = Array.LastIndexOf(lines, "}");
         return string.Join('\n', lines[first..(last + 1)]);
+    }
+
+    private async Task<ProcessResult> ArrowWithEnvironment(Dictionary<string, string?> environment, params string[] args)
+    {
+        var dll = Path.Combine(AppContext.BaseDirectory, "Arrow.Cli.dll");
+        environment["NO_COLOR"] = "1";
+        var spec = new ProcessSpec("dotnet", [dll, .. args, "--home", _home], _home, Environment: environment, Timeout: TimeSpan.FromMinutes(1));
+        return await new ProcessRunner().RunAsync(spec, TestContext.Current.CancellationToken);
     }
 
     private Task<ProcessResult> Arrow(string stdin, params string[] args) => Arrow(stdin, TimeSpan.FromMinutes(1), args);
