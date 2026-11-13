@@ -145,6 +145,12 @@ public sealed record LlmResponse(
 - **Huỷ:** `CancellationToken` huỷ yêu cầu HTTP ngay lập tức.
 - **Kết nối:** `HttpClient` dùng chung trong run (`SocketsHttpHandler`, `PooledConnectionLifetime` 2 phút). Proxy hệ thống được dùng mặc định (`HTTPS_PROXY`).
 
+**Khác với bản đầu của spec (ghi ngày 13/11/2026, khi viết code):**
+- `LlmResponse` có thêm `UsageEstimated` (cho `usage_estimated`) và `CostUsd` (do `LlmGateway` điền, để cache giữ nguyên chi phí của lần gọi thật).
+- `ILlmClientFactory.Create` nhận thêm `IProgress<ArrowEvent>?` để phát `LLM.Retry`, `LLM.Replayed`, `LLM.BudgetWarning`.
+- Thông điệp lỗi của client đã gồm gợi ý của từng loại lỗi (bảng Mục 4), vì `ErrorCatalog` chỉ có một gợi ý chung cho `B2_LLM_CONFIG`.
+- Các mã 4xx khác ngoài 408 và 429 (ví dụ 413, 422) cũng là lỗi cấu hình, không gọi lại.
+
 ## 4. Phân loại lỗi và gọi lại
 
 | Tình huống | Loại | Xử lý |
@@ -152,7 +158,7 @@ public sealed record LlmResponse(
 | HTTP 429, 500, 502, 503, 504, 529; lỗi mạng; timeout | Tạm thời | Gọi lại tối đa **3 lần** (tổng 4 lần gửi), chờ **20 s, 60 s, 120 s**. Có header `Retry-After` (≤ 300 s) thì chờ theo header. Hết lượt thì `B2_LLM_UNAVAILABLE`: P07 đánh dấu CUT đó là `INFRA` |
 | HTTP 400 (sai tham số, sai model, prompt quá dài) | Cấu hình | Không gọi lại. `B2_LLM_CONFIG` kèm thông điệp của provider. Dừng run |
 | HTTP 401, 403 | Cấu hình | `B2_LLM_CONFIG`, gợi ý `Khoá API sai hoặc hết hạn: arrow secrets set <ref>`. Dừng run |
-| HTTP 402 hoặc thông điệp có `insufficient_quota`, `billing` | Cấu hình | `B2_LLM_CONFIG`, gợi ý `Tài khoản hết tiền hoặc hết hạn mức`. Dừng run |
+| HTTP 402 hoặc thông điệp có `insufficient_quota`, `billing` (với **mọi** mã HTTP, kể cả 429: OpenAI báo hết hạn mức bằng 429) | Cấu hình | `B2_LLM_CONFIG`, gợi ý `Tài khoản hết tiền hoặc hết hạn mức`. Dừng run |
 | HTTP 404 | Cấu hình | `B2_LLM_CONFIG`, gợi ý kiểm tra `base_url` và `model_id`. Dừng run |
 | Body không phải JSON hoặc thiếu trường bắt buộc | Tạm thời | Gọi lại như hàng đầu tiên. Hết lượt thì `B2_LLM_UNAVAILABLE` |
 

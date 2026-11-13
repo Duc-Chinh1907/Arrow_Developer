@@ -38,6 +38,23 @@ public class ProcessRunnerTests
         Assert.Contains("to-stderr", result.Tail(2), StringComparison.Ordinal);
     }
 
+    // The last lines of stdout and stderr must not be lost when the process exits at once (flaky on Linux CI before the drain).
+    [Fact]
+    public async Task NoOutputIsLostWhenTheProcessExitsAtOnce()
+    {
+        using var temp = new TempDir();
+        var spec = Script(temp, OperatingSystem.IsWindows()
+            ? "@echo off\r\necho first\r\necho to-stderr 1>&2\r\necho last\r\n"
+            : "echo first\necho to-stderr 1>&2\necho last\n");
+        for (var i = 0; i < 40; i++)
+        {
+            var result = await new ProcessRunner().RunAsync(spec, None);
+            Assert.Contains("first", result.Output, StringComparison.Ordinal);
+            Assert.Contains("to-stderr", result.Output, StringComparison.Ordinal);
+            Assert.Contains("last", result.Output, StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>Parity: <c>ProcessRunnerTests.TimeoutKillsProcess</c>.</summary>
     [Fact]
     public async Task TimeoutKillsProcess()

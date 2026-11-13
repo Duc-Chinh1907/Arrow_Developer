@@ -120,9 +120,13 @@ public sealed class ProcessRunner : IProcessRunner
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
             try
             {
-                // Also waits for the end of stdout and stderr, so no output is lost.
                 await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
                 exitCode = process.ExitCode;
+
+                // WaitForExitAsync can return before the last lines of stdout or stderr reached the event handlers (seen on Linux: the
+                // last line of stderr was missing). The parameterless WaitForExit() waits for the end of both streams. A child that
+                // inherited the pipes and outlives the process must not hold us, so the wait is bounded.
+                await DrainAsync(process).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -146,6 +150,25 @@ public sealed class ProcessRunner : IProcessRunner
         var (text, truncated) = output.Snapshot();
         return new ProcessResult(exitCode, timedOut, text, watch.Elapsed, truncated);
     }
+
+    private static async Task DrainAsync(Process process)
+    {
+        var drain = Task.Run(() =>
+        {
+            try
+            {
+                process.WaitForExit();
+            }
+            catch (InvalidOperationException)
+            {
+                // The process object was disposed while a child still held the pipes.
+            }
+        });
+        await Task.WhenAny(drain, Task.Delay(DrainTimeout)).ConfigureAwait(false);
+    }
+
+    /// <summary>How long to wait for the streams to end after the process exited.</summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);
 
     private static void KillTree(Process process)
     {
