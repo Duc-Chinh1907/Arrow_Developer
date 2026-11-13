@@ -88,5 +88,9 @@ It is the product version of the team's research framework. There is **no resear
   - `cmd.exe` prints in the console code page, not UTF-8: keep non-ASCII text out of `.cmd` test scripts.
 - GĐ0 step 6 done (13/11/2026), PR `gd0/cli`: `CliApp` (System.CommandLine 2.0.14; root is a plain `Command` named `CliApp.CommandName = "arrow"` so help does not show the assembly name, which stays `Arrow.Cli` until the team decides the name), `Renderer` (rich/plain/json), `ExitCodes`, `config` and `secrets` commands, `ConfigUseCase`/`SecretsUseCase` in Business, `FileAppLog` (P09 §7). 139 tests pass, including E2E on the real executable.
   - Tests run the CLI in-process through `CliRunner` (`--home` temp folder, fake streams, empty environment); use `RunWithInputAsync` to pass stdin.
-- **Next:** GĐ0 step 7, the 4 new fixtures (`maven-no-tests`, `maven-testng`, `maven-wrapper-junit5`, `maven-existing-arrowtest`, P11 §2); then step 8, `ci.yml`.
+- GĐ0 step 7 done (13/11/2026), PR `gd0/fixtures`: `maven-no-tests` (Java 8, JUnit 5, no test), `maven-testng` (Java 11, TestNG 7.10), `maven-wrapper-junit5` (Java 11, `mvnw` → Maven 3.9.9), `maven-existing-arrowtest` (Java 8, JUnit 4, `_ArrowTest` exists → `_Arrow2Test`), each with README and `.arrow-sample/`; `NewFixtureTests` builds them on temp copies. 144 tests pass.
+  - The 5 copied fixtures still lack `.arrow-sample/` and the README fields of P11 §2; add them in GĐ5, when block 4 needs them.
+  - **Windows:** start Maven by its absolute path (`…\bin\mvn.cmd`). Starting `"mvn.cmd"` by name from .NET exits 1 with no output. Block 1 (GĐ2) must resolve build tools to absolute paths.
+  - **TestNG + Surefire:** several classes are reported together in `TEST-TestSuite.xml`, and reports of an earlier run stay in `surefire-reports/` until `clean`; `junitreports/` holds duplicates. The report reader of GĐ2 must not count them twice.
+- **Next:** GĐ0 step 8, `.github/workflows/ci.yml` on `windows-latest` and `ubuntu-latest` with JDK 8, 11, 17, 21, Maven and Gradle; then turn on branch protection for `main`.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
