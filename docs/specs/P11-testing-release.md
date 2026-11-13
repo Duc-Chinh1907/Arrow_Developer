@@ -70,6 +70,8 @@ Nằm ở `tests/fixtures/`. Mỗi fixture có `README.md` ghi:
 - Luật khớp đầu tiên thắng.
 - `respond_text` thay được cho `respond_file`.
 - `error` giả lập lỗi HTTP: `429`, `401`, `500`, `timeout`.
+  - `401` là `B2_LLM_CONFIG`. Các lỗi còn lại là lỗi tạm thời: `FakeLlmClient` tự "gọi lại" trong một lượt (phát sự kiện `LLM.Retry`, không chờ thật), giống client thật.
+  - `"times": n` đi kèm: n lần gửi đầu lỗi, rồi mới trả lời (`attempts = n + 1`). Không có `times`, hoặc `times` ≥ 4, thì hết 3 lần gọi lại và báo `B2_LLM_UNAVAILABLE`.
 - Không có luật nào khớp thì test fail và in rõ `call_id` cùng 200 ký tự đầu của prompt.
 
 ### 3.2 Bật
