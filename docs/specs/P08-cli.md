@@ -76,10 +76,10 @@ arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <
 Lỗi tham số in ngắn kèm `Gõ arrow gen --help để xem cách dùng`, mã thoát 2.
 
 **Trạng thái (14/11/2026, GĐ4, mốc M1):** đã có bản tối thiểu:
-- **Tuỳ chọn có:** một class mỗi lần, `--project`/`--repo`/`--ref`, `--model`, `--rounds`, `--no-repair`, `--no-metrics`, `--yes`, `--dry-run`, `--max-tokens`.
+- **Tuỳ chọn có:** nhiều class và `--package` (từ GĐ6, 14/11/2026), `--jobs`, `--project`/`--repo`/`--ref`, `--model`, `--rounds`, `--no-repair`, `--no-metrics`, `--yes`, `--dry-run`, `--max-tokens`; ước tính chi phí và câu hỏi của P07 §4; bảng tổng khi có nhiều class.
 - **Khối 4:** có từ GĐ5 (14/11/2026). Bộ cuối VALID được đo bằng JaCoCo, PIT và tsDetect, rồi in dòng `Chất lượng: line … · mutation … · smell …`. `--no-metrics` hoặc `quality.enabled = false` thì không đo.
 - **Ghi file:** chỉ ghi bộ VALID, không ghi đè, chặn đường dẫn ra ngoài project.
-- **Để GĐ6:** nhiều class, `--package`, `--jobs`, `--resume`, câu hỏi chi phí, đổi tên rồi xác minh lại khi tên vừa xuất hiện.
+- **Còn lại của GĐ6:** `--resume`, câu hỏi ghi file một lần cho nhiều class, đổi tên rồi xác minh lại khi tên vừa xuất hiện, hiển thị theo khối bằng Spectre `Live`.
 
 ### 2.3 `arrow inspect`
 

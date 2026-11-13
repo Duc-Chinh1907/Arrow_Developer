@@ -42,6 +42,18 @@ public sealed class GenExecutableTests : IDisposable
         Assert.Equal(0, (await Arrow(null, null, "config", "set", "llm.providers.local", """{"kind":"openai-compatible","base_url":"http://localhost:9/v1","secret_ref":null}""")).ExitCode);
         Assert.Equal(0, (await Arrow(null, null, "config", "set", "llm.models.fake", """{"provider":"local","model_id":"fake-model"}""")).ExitCode);
         Assert.Equal(0, (await Arrow(null, null, "models", "default", "fake")).ExitCode);
+
+        // Tools already downloaded by other tests are copied in, so that Maven Central is not asked again (it answers 429).
+        var cache = Path.Combine(Path.GetTempPath(), "arrow-quality-tools", "tools");
+        if (Directory.Exists(cache))
+        {
+            foreach (var file in Directory.GetFiles(cache, "*.jar", SearchOption.AllDirectories))
+            {
+                var target = Path.Combine(_home, "tools", Path.GetRelativePath(cache, file));
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(file, target, overwrite: true);
+            }
+        }
     }
 
     private async Task<ProcessResult> Gen(string scenario, string? stdin, params string[] extra) =>
@@ -137,6 +149,42 @@ public sealed class GenExecutableTests : IDisposable
         Assert.Equal(("OK", "OK", "OK"), (tools.GetProperty("jacoco").GetString(), tools.GetProperty("pit").GetString(), tools.GetProperty("tsdetect").GetString()));
         Assert.True(result.RootElement.GetProperty("metrics").GetProperty("line").GetDouble() > 0);
         Assert.True(File.Exists(TargetFile(RunDir(run), "block4/pit.json")));
+    }
+
+    // P07 §7, §13: two classes of one module with --jobs 2; block 1 runs once for the module, both files are written.
+    [Fact]
+    public async Task TwoClassesOfOneModuleShareBlockOne()
+    {
+        await ConfigureAsync();
+        var run = await Arrow(Scenario("two-classes"), null, "gen", "PriceCalculator", "Invoice", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--jobs", "2");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Contains("2/2 class VALID", run.Output, StringComparison.Ordinal);
+        Assert.Equal(["Invoice_ArrowTest.java", "PriceCalculatorTest.java", "PriceCalculator_ArrowTest.java", "TotalsTest.java"], Files());
+
+        var dir = RunDir(run);
+        var targets = Path.Combine(dir, "targets");
+        Assert.True(File.Exists(Path.Combine(targets, "com.acme.billing.PriceCalculator", "result.json")));
+        Assert.True(File.Exists(Path.Combine(targets, "com.acme.billing.Invoice", "result.json")));
+
+        // One CUT has the baseline; the other names it in shared_from.txt.
+        var baselines = Directory.GetFiles(targets, "baseline.json", SearchOption.AllDirectories);
+        var shared = Directory.GetFiles(targets, "shared_from.txt", SearchOption.AllDirectories);
+        Assert.Equal((1, 1), (baselines.Length, shared.Length));
+
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "run.json"), TestContext.Current.CancellationToken));
+        Assert.Equal("COMPLETED", runJson.RootElement.GetProperty("status").GetString());
+        Assert.All(runJson.RootElement.GetProperty("targets").EnumerateArray(), t => Assert.Equal("DONE", t.GetProperty("state").GetString()));
+    }
+
+    // P07 §3 step 5: a query without a class is BLOCKED; the other class still runs, and the exit code is 1.
+    [Fact]
+    public async Task AMissingClassDoesNotStopTheOthers()
+    {
+        await ConfigureAsync();
+        var run = await Arrow(Scenario("valid-at-c0"), null, "gen", "PriceCalculator", "NoSuchClass", "--project", _project.Root, "--no-metrics", "--plain", "--yes");
+        Assert.Equal(1, run.ExitCode);
+        Assert.Contains("B1_CUT_MISSING", run.Output, StringComparison.Ordinal);
+        Assert.Contains("1/2 class VALID", run.Output, StringComparison.Ordinal);
     }
 
     // P06 §9: without a keyboard and without --yes nothing is written; --dry-run never writes.

@@ -42,6 +42,9 @@ public sealed class ToolStoreTests : IDisposable
 
         public Exception? Failure { get; set; }
 
+        /// <summary>Statuses answered first, before the files are served.</summary>
+        public Queue<HttpStatusCode> Busy { get; } = new();
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri!.AbsoluteUri;
@@ -49,6 +52,11 @@ public sealed class ToolStoreTests : IDisposable
             if (Failure is not null)
             {
                 return Task.FromException<HttpResponseMessage>(Failure);
+            }
+
+            if (Busy.TryDequeue(out var status))
+            {
+                return Task.FromResult(new HttpResponseMessage(status));
             }
 
             return Task.FromResult(Files.TryGetValue(url, out var bytes)
@@ -66,8 +74,51 @@ public sealed class ToolStoreTests : IDisposable
 
     private const string AgentUrl = "https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar";
 
+    private readonly ImmediateTime _time = new();
+
     private ToolStore Store(FakeServer server, ToolLock? lockFile = null, string? mirror = null) =>
-        new(_home, new HttpClient(server), name => name == ToolStore.MirrorVariable ? mirror : null, lockFile ?? Lock());
+        new(_home, new HttpClient(server), name => name == ToolStore.MirrorVariable ? mirror : null, lockFile ?? Lock(), _time);
+
+    /// <summary>Fires every timer at once and records the waits.</summary>
+    private sealed class ImmediateTime : TimeProvider
+    {
+        public List<TimeSpan> Delays { get; } = [];
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            if (dueTime != Timeout.InfiniteTimeSpan)
+            {
+                Delays.Add(dueTime);
+                callback(state);
+            }
+
+            return new NoTimer();
+        }
+
+        private sealed class NoTimer : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
+
+    // Maven Central answers 429 when it is busy: the download waits and tries again.
+    [Fact]
+    public async Task BusyServersAreTriedAgain()
+    {
+        var server = new FakeServer { Files = { [AgentUrl] = Jar } };
+        server.Busy.Enqueue(HttpStatusCode.TooManyRequests);
+        server.Busy.Enqueue(HttpStatusCode.BadGateway);
+        var path = await Store(server).EnsureAsync("jacoco-agent", null, TestContext.Current.CancellationToken);
+        Assert.True(File.Exists(path));
+        Assert.Equal(3, server.Requested.Count);
+        Assert.Equal([TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)], _time.Delays);
+    }
 
     [Fact]
     public async Task DownloadsChecksAndRecordsATool()
@@ -134,6 +185,7 @@ public sealed class ToolStoreTests : IDisposable
         var error = await Assert.ThrowsAsync<ArrowException>(() => store.EnsureAsync("jacoco-agent", null, TestContext.Current.CancellationToken));
         Assert.Equal(ErrorCodes.CfgToolMissing, error.Code);
         Assert.Contains("No such host", error.Message, StringComparison.Ordinal);
+        Assert.Equal(ToolStore.RetryDelays, _time.Delays); // tried 4 times
 
         var missing = await Assert.ThrowsAsync<ArrowException>(() => Store(new FakeServer()).EnsureAsync("jacoco-agent", null, TestContext.Current.CancellationToken));
         Assert.Contains("404", missing.Message, StringComparison.Ordinal);
