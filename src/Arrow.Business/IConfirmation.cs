@@ -14,6 +14,12 @@ public interface IConfirmation
 
     /// <summary>Lets the user pick one option; returns its index, or null when the user cannot be asked or gave up.</summary>
     Task<int?> ChooseOneAsync(string question, IReadOnlyList<string> options, CancellationToken ct);
+
+    /// <summary>
+    /// Lets the user pick several options, <paramref name="preselected"/> ticked first (P06 §4.3); returns the chosen indexes, or null
+    /// when the user cannot be asked.
+    /// </summary>
+    Task<IReadOnlyList<int>?> ChooseManyAsync(string question, IReadOnlyList<string> options, IReadOnlyList<bool> preselected, CancellationToken ct);
 }
 
 /// <summary>Answers without asking: defaults for yes/no, no choice. Used without a keyboard, and by tests.</summary>
@@ -24,4 +30,7 @@ public sealed class NoConfirmation(bool yes = false) : IConfirmation
     public Task<bool> ConfirmAsync(string question, bool defaultAnswer, CancellationToken ct) => Task.FromResult(yes || defaultAnswer);
 
     public Task<int?> ChooseOneAsync(string question, IReadOnlyList<string> options, CancellationToken ct) => Task.FromResult<int?>(null);
+
+    public Task<IReadOnlyList<int>?> ChooseManyAsync(string question, IReadOnlyList<string> options, IReadOnlyList<bool> preselected, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<int>?>(null);
 }

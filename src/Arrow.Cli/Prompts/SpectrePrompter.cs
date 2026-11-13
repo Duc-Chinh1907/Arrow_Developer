@@ -19,4 +19,23 @@ internal sealed class SpectrePrompter : IConfirmation
         var chosen = AnsiConsole.Prompt(new SelectionPrompt<string>().Title(Markup.Escape(question)).AddChoices(options));
         return Task.FromResult<int?>(options.ToList().IndexOf(chosen));
     }
+
+    public Task<IReadOnlyList<int>?> ChooseManyAsync(string question, IReadOnlyList<string> options, IReadOnlyList<bool> preselected, CancellationToken ct)
+    {
+        var prompt = new MultiSelectionPrompt<string>()
+            .Title(Markup.Escape(question))
+            .NotRequired()
+            .InstructionsText("[grey](phím cách để chọn, Enter để xác nhận)[/]")
+            .AddChoices(options);
+        for (var i = 0; i < options.Count; i++)
+        {
+            if (preselected[i])
+            {
+                prompt.Select(options[i]);
+            }
+        }
+
+        var chosen = AnsiConsole.Prompt(prompt);
+        return Task.FromResult<IReadOnlyList<int>?>(chosen.Select(c => options.ToList().IndexOf(c)).Order().ToList());
+    }
 }

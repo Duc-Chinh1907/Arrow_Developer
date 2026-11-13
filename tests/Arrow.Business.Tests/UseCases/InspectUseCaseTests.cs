@@ -97,6 +97,9 @@ public class InspectUseCaseTests
 
         public Task<bool> ConfirmAsync(string question, bool defaultAnswer, CancellationToken ct) => Task.FromResult(defaultAnswer);
 
+        public Task<IReadOnlyList<int>?> ChooseManyAsync(string question, IReadOnlyList<string> options, IReadOnlyList<bool> preselected, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<int>?>(null);
+
         public Task<int?> ChooseOneAsync(string question, IReadOnlyList<string> options, CancellationToken ct)
         {
             Asked.Add(options);

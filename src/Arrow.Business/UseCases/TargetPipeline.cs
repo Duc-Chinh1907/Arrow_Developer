@@ -25,7 +25,8 @@ namespace Arrow.Business.UseCases;
 /// <param name="Final">The final suite; null when block 3 did not finish.</param>
 /// <param name="Metadata">M; null when block 1 did not give it.</param>
 /// <param name="Warnings">Warnings of this target.</param>
-public sealed record TargetRun(TargetResult Result, FinalTestSuite? Final, RepositoryMetadata? Metadata, IReadOnlyList<string> Warnings);
+/// <param name="Task">Block 3 context, for a verification after renaming (P04 §8); null when block 1 did not finish.</param>
+public sealed record TargetRun(TargetResult Result, FinalTestSuite? Final, RepositoryMetadata? Metadata, IReadOnlyList<string> Warnings, TaskContext? Task = null);
 
 /// <summary>What every target of a run shares (P07 §7).</summary>
 /// <param name="Host">Block 1, java-helper, the verifier and the build tools.</param>
@@ -90,7 +91,7 @@ public static class TargetPipeline
         var generator = new TestGenerator(shared.Llm, shared.Host.JavaHelpers, shared.Templates, runs);
 
         TargetRun Done(TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error, double? block2, double? block3, Usage? usage = null, QualityResult? quality = null, double? block4 = null) =>
-            new(Result(m, outcome, c0State, final, error, block1, block2, block3, total, shared.Measure is null, usage, quality, block4), final, m, warnings);
+            new(Result(m, outcome, c0State, final, error, block1, block2, block3, total, shared.Measure is null, usage, quality, block4), final, m, warnings, task);
 
         // Block 2: c0.
         var watch = Stopwatch.StartNew();

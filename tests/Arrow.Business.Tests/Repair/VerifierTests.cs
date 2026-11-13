@@ -412,7 +412,11 @@ internal sealed class FakeHelper : IJavaHelper
 
     public Task<JavaParseResult> ParseAsync(string code, CancellationToken ct) => throw new NotSupportedException();
 
-    public Task<RenameResult> RenameClassAsync(string code, string newName, string? package, CancellationToken ct) => throw new NotSupportedException();
+    public Task<RenameResult> RenameClassAsync(string code, string newName, string? package, CancellationToken ct)
+    {
+        var old = System.Text.RegularExpressions.Regex.Match(code, @"class\s+(\w+)").Groups[1].Value;
+        return Answer(nameof(RenameClassAsync), new RenameResult(code.Replace(old, newName, StringComparison.Ordinal), old, ["renamed"]));
+    }
 
     public Task<HashResult> StripCommentsHashAsync(string code, CancellationToken ct) => throw new NotSupportedException();
 
