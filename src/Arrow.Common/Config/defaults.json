@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "llm": {
+    "default_model": null,
+    "models": {},
+    "providers": {},
+    "max_concurrent": 2,
+    "rpm_limit": 60,
+    "request_timeout_seconds": 300
+  },
+  "java": {
+    "jdk_homes": {},
+    "maven_path": null,
+    "gradle_path": null,
+    "git_path": null
+  },
+  "repair": { "enabled": true, "rounds": 5, "early_stop_p": 3 },
+  "verification": { "baseline_runs": 2, "step_timeout_seconds": 900, "infra_attempts": 3, "infra_wait_seconds": 30 },
+  "quality": { "enabled": true, "tools": ["jacoco", "pit", "tsdetect"], "pit_timeout_seconds": 1800, "tsdetect_timeout_seconds": 300 },
+  "apply": { "confirm": true },
+  "run": { "jobs": 1, "max_tokens": null, "confirm_cost_from_classes": 5, "keep_workspaces": false },
+  "ui": { "color": "auto", "language": "vi" },
+  "prompts": { "override_dir": null }
+}

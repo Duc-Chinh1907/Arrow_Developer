@@ -3,6 +3,7 @@
   <ItemGroup>
     <!-- WithCulture=false: ".vi." / ".en." in the name must not turn these into satellite-assembly resources. -->
     <EmbeddedResource Include="Errors\ErrorCatalog.*.json" LogicalName="Arrow.Common.Errors.%(Filename)%(Extension)" WithCulture="false" />
+    <EmbeddedResource Include="Config\defaults.json" LogicalName="Arrow.Common.Config.defaults.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Arrow.Business.Tests" />

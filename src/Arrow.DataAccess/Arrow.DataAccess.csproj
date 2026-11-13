@@ -4,6 +4,9 @@
     <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Arrow.DataAccess.Tests" />
     <InternalsVisibleTo Include="Arrow.IntegrationTests" />
   </ItemGroup>
