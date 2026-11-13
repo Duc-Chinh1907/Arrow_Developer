@@ -28,8 +28,9 @@ public class JavaHelperProcessTests
     [Fact]
     public async Task TimeoutRestartsOnceThenReportsJhTimeoutAndTheClientRecovers()
     {
-        // ListClassesTimeout of 1 ms: both attempts time out; other commands keep their own timeout.
-        var options = JavaHelperEnvironment.Options() with { ListClassesTimeout = TimeSpan.FromMilliseconds(1) };
+        // A zero ListClassesTimeout cancels at once, so both attempts time out on any machine (a 1 ms timeout was flaky:
+        // a fast runner answered within the ~15 ms timer resolution of Windows). Other commands keep their own timeout.
+        var options = JavaHelperEnvironment.Options() with { ListClassesTimeout = TimeSpan.Zero };
         await using var client = new JavaHelperClient(options);
         await client.PingAsync(Ct);
 
