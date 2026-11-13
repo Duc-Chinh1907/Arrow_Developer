@@ -64,7 +64,10 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 | 5 | Dòng lệnh | `--rounds 3`, `--model x`, … | Người dùng |
 
 - Tầng 3 **không được** chứa `llm.providers.*.api_key`. Gặp thì báo lỗi `CFG_SECRET_IN_PROJECT`, không đọc khoá đó.
-- Đường dẫn tương đối ở tầng 2 tính từ `ARROW_HOME`; ở tầng 3 tính từ gốc project.
+- Đường dẫn tương đối ở tầng 2 tính từ `ARROW_HOME`; ở tầng 3 tính từ gốc project. Các khoá đường dẫn: `java.jdk_homes.*`, `java.maven_path`, `java.gradle_path`, `java.git_path`, `prompts.override_dir`.
+- **Khoá phải có trong bảng Mục 3.2**, hoặc nằm trong một map do người dùng đặt tên (`llm.models.*`, `llm.providers.*`, `java.jdk_homes.*`). Khoá lạ ở bất kỳ tầng nào đều là `CFG_INVALID`, để lỗi gõ sai tên khoá không bị bỏ qua.
+- **Tầng 4:** chỉ đọc các biến `ARROW_*` có `__`; `ARROW_HOME`, `ARROW_SECRET_*`, `ARROW_MAVEN_MIRROR` không phải khoá cấu hình.
+- **Giá trị dạng chuỗi** (tầng 4, tầng 5, `config set`) được đọc theo kiểu của khoá trong bảng mặc định: `null` luôn là null; `true`/`false`; số; danh sách nhận JSON (`["jacoco"]`) hoặc `jacoco,pit`; đối tượng phải là JSON. Khoá có mặc định `null` và khoá trong map nhận số hoặc `true`/`false` nếu chuỗi là giá trị JSON đó, còn lại là chuỗi.
 
 ### 3.2 Các khoá
 
@@ -137,9 +140,9 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 2. **Kiểm tra:**
    - kiểu và khoảng giá trị;
    - provider được tham chiếu có tồn tại;
-   - `secret_ref` có khoá trong `secrets/` hoặc trong biến môi trường (Mục 4.3).
+   - `secret_ref` có khoá trong `secrets/` hoặc trong biến môi trường (Mục 4.3). Việc này **không** làm ở bước đọc cấu hình mà ở P07 §2 bước 3, và chỉ cho provider của model đang dùng, với mã `CFG_SECRET_MISSING`; nhờ vậy một provider không dùng tới mà thiếu khoá không chặn mọi lệnh.
 
-   Lỗi thì báo `CFG_INVALID` kèm khoá và nguồn; với `gen` thì dừng trước khi làm gì khác.
+   Lỗi thì báo `CFG_INVALID` kèm khoá và nguồn; với `gen` thì dừng trước khi làm gì khác. Kiểm tra kiểu nằm trong `UserConfigStore` (DataAccess), kiểm tra khoảng giá trị và tham chiếu nằm trong `ConfigValidator` (Business).
 3. **`schema_version` lớn hơn bản đang chạy:** báo `CFG_NEWER_SCHEMA`, không ghi đè. **Nhỏ hơn:** tự nâng cấp trong bộ nhớ, chỉ ghi lại khi người dùng chạy `config set` hoặc `setup`.
 4. **File JSON hỏng:** báo `CFG_PARSE` kèm dòng và cột. Không bao giờ tự xoá file của người dùng.
 
@@ -164,6 +167,8 @@ Ghi file theo kiểu nguyên tử (P00 §5), giữ nguyên các khoá khác và 
 | Windows | `secrets/<ref>.bin` = DPAPI `ProtectedData.Protect` (phạm vi `CurrentUser`, entropy cố định của ARROW) |
 | Linux, macOS | `secrets/<ref>.key`, quyền `600`; thư mục `secrets/` quyền `700`. v1 không mã hoá thêm. Sau v1 có thể dùng Keychain hoặc libsecret |
 
+Tên `ref` chỉ gồm `a-z`, `0-9` và `-` (tối đa 64 ký tự), để nó là tên file an toàn và chuyển một-một sang biến môi trường (`my-proxy` ↔ `ARROW_SECRET_MY_PROXY`).
+
 ### 4.2 Nhập
 
 - Khoá được nhập trong `arrow setup` hoặc bằng `arrow secrets set <ref>`, **ẩn ký tự khi gõ** (P08 §6).
@@ -186,7 +191,8 @@ Thứ tự ưu tiên:
 
 - `SecretValue` là kiểu riêng, `ToString()` trả `***`.
 - Chỉ `ILlmClient` được gọi `Reveal()`.
-- **`Redactor`** lọc mọi chuỗi trước khi ghi log hay file kết quả: thay mọi khoá đang nạp thành `***`, và che giá trị của header `Authorization`, `x-api-key`.
+- **`Redactor`** lọc mọi chuỗi trước khi ghi log hay file kết quả: thay mọi khoá đang nạp thành `***`, và che giá trị của header `Authorization`, `x-api-key`. Nó cũng che các giá trị trông giống khoá dù chưa nạp: `sk-…`, `Bearer …`, `api_key: …`.
+- Khi **hiển thị** (`secrets list`, `config list`): `...` cộng 4 ký tự cuối; khoá dài không quá 8 ký tự thì chỉ hiện `***`.
 
 ## 5. Kết quả của một lần chạy
 

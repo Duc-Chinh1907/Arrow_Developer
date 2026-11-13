@@ -2,6 +2,10 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+  <ItemGroup Label="Product">
+    <!-- DPAPI for API keys on Windows (P09 §4.1); version matches the .NET 10 runtime. -->
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+  </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="NetArchTest.eNhancedEdition" Version="1.4.5" />
