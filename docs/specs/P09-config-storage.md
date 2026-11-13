@@ -212,6 +212,7 @@ runs/<run_id>/
               dependencies_resolved.txt  test_classpath.txt  outcome.json  logs/
     block2/   prompt.json  response.json  usage.json  candidate.java  candidate.json
     block3/   verify_c0.json
+              c0/  logs/  reports/                      log và báo cáo của lần xác minh c0
               round_<k>/  request.json  prompt.json  response.json  usage.json  candidate.java  candidate.json  verify.json  decision.json  logs/
               final.json  final.java
     block4/   jacoco.json  pit.json  tsdetect.json  outcome.json  logs/

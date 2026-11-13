@@ -1,0 +1,6 @@
+{
+  "rules": [
+    { "when": { "call_id": "gen/com.acme.billing.PriceCalculator" }, "respond_file": "c0_valid.md", "usage": { "prompt_tokens": 1800, "completion_tokens": 400 } }
+  ],
+  "default": { "error": "no_rule" }
+}

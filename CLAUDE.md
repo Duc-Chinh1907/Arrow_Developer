@@ -120,4 +120,14 @@ It is the product version of the team's research framework. There is **no resear
     - Logs go to `<OutputDir>/logs/<step>[-try<k>].log` and reports to `<OutputDir>/reports/<step>/`. The runner (PR 4) writes `verify.json`. c0 needs an output folder (e.g. `block3/c0/`) that P09 §5.2 does not list.
     - `extra_context` warnings come from java-helper failures; they never stop the round.
     - Unit tests use a fake `IBuildExecutor` and `FakeHelper` (`tests/Arrow.Business.Tests/Repair/VerifierTests.cs`). `VerifierIntegrationTests` run block 1 and then the verifier on the fixtures (about 4 min, including a 3 × 20 s timeout).
+    - `ProcessRunnerTests` once asserted that stderr comes after stdout. Two pipes have no fixed order, so that assertion was wrong. `ProcessRunner` now waits for the null line of each stream.
+  - PR `gd4/gen` (14/11/2026), **milestone M1**:
+    - `RepairRunner` (`IRepairRunner`, `RepairOptions`, `FinalTestSuite` = `final.json`).
+    - `GenerateTestsUseCase` (minimal: one class, blocks 1–3, `result.json`, `apply.json`, history line), `CutPicker` (shared with inspect), `RunProgress`.
+    - `ProjectFileWriter` in `Arrow.DataAccess/Apply`, and `arrow gen`.
+    - `IAnalyzerHost` also gives `JavaHelpers` and `Verifier`, so one java-helper pool serves blocks 1–3.
+    - Scenarios: `tests/scenarios/valid-at-c0` and `o8-o3-o4-o7-o1`, for `maven-verify-junit4`/`PriceCalculator`. `GenExecutableTests` (E2E) run the executable with `ARROW_FAKE_LLM`.
+    - Manual check: `arrow config set llm.providers.local '{"kind":"openai-compatible","base_url":"http://localhost:9/v1","secret_ref":null}'`, `arrow config set llm.models.fake '{"provider":"local","model_id":"fake-model"}'`, `arrow models default fake`, then `ARROW_FAKE_LLM=<rules.json> arrow gen PriceCalculator --project <copy> --no-metrics --yes`.
+    - Still to do for GĐ4 "xong khi": `arrow gen` with a real model on a fixture (needs `ARROW_SECRET_TEAMO` or another key).
+- **Next:** GĐ5, block 4 (P05: JaCoCo, PIT, tsDetect).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

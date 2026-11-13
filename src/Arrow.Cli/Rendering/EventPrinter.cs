@@ -12,6 +12,12 @@ internal sealed class EventPrinter(IRenderer renderer, bool verbose) : IProgress
 {
     private readonly object _gate = new();
 
+    /// <summary>Steps inside a block, shown only with <c>--verbose</c>; the block results are always shown.</summary>
+    private static readonly HashSet<string> DetailTypes = new(StringComparer.Ordinal)
+    {
+        ArrowEventTypes.B2Prompt, ArrowEventTypes.B2Calling, ArrowEventTypes.B3VerifyStep, ArrowEventTypes.ApplyWritten, ArrowEventTypes.ApplySkipped,
+    };
+
     public void Report(ArrowEvent value)
     {
         // The command prints its own summary after B1.Done; run-level events are written to events.jsonl but shown only with --verbose.
@@ -20,7 +26,9 @@ internal sealed class EventPrinter(IRenderer renderer, bool verbose) : IProgress
             return;
         }
 
-        if (value.Level == EventLevel.Info && value.Type.StartsWith("RUN.", StringComparison.Ordinal) && !verbose)
+        // A repair round prints one B3.Round line; its B3.Verified line (shown for c0) would repeat it.
+        var repeatsRound = value.Type == ArrowEventTypes.B3Verified && value.Data.TryGetValue("round", out var round) && round is int r && r > 0;
+        if (value.Level == EventLevel.Info && !verbose && (value.Type.StartsWith("RUN.", StringComparison.Ordinal) || DetailTypes.Contains(value.Type) || repeatsRound))
         {
             return;
         }
