@@ -132,4 +132,12 @@ It is the product version of the team's research framework. There is **no resear
 - GĐ5 (block 4, P05) in 3 PRs: `gd5/tools`, `gd5/parsers`, `gd5/quality`.
   - PR `gd5/tools` (14/11/2026): `ToolStore`/`ToolLock` in `Arrow.DataAccess/Tools` (`tools/tools.lock.json` embedded as `Arrow.DataAccess.Tools.tools.lock.json`; HTTPS from Maven Central or `ARROW_MAVEN_MIRROR`; sha256 check, `.part` then rename, `tools/tools.installed.json`; `EnsureMavenArtifactAsync` checks the `.sha1` of Maven Central), `ToolsUseCase`, `arrow tools list|install`. A real `arrow tools install` downloads the 12 tools in about 5 s and every sha256 matches.
   - PR `gd5/parsers` (14/11/2026): `Arrow.Common/Quality` (`CoverageResult`, `MutationResult` with `survivors_sample`, `SmellResult`, `ToolOutcome`, `QualityResult`), and in `Arrow.Business/Quality` `ResultParsers` (JaCoCo CSV, `mutations.xml`, tsDetect CSV), `PitSetup` (JDK, classpath, launch classpath, arguments) and `JacocoSetup` (agent option).
+  - PR `gd5/quality` (14/11/2026):
+    - `SuitePreparer`, `JacocoTool`, `PitTool`, `TsDetectTool`, `JavaRunner`, `QualityService` (`QualityTools.cs`), wired into `arrow gen` when the final suite is VALID and measuring is on.
+    - `IBuildExecutor.RunAsync` takes `extraJavaToolOptions` (the JaCoCo agent). `IAnalyzerHost` also gives `Builds` and `Workspaces`.
+    - Copies are `work/<run>/q-<tool>-<6 hex>` and `ts-<6 hex>`; files go to `targets/<cut>/block4/` (`jacoco.json`, `pit.json`, `tsdetect.json`, `outcome.json`, the raw CSV/XML and `logs/`).
+    - `.arrow-sample/` added to `maven-verify-junit4`, `maven-multi-junit5`, `gradle-junit5`; READMEs give the measured values. The `maven-testng` README said 100% line and branch; the measurement gives 90% and 86%, since its sample never adds a positive amount.
+    - `QualityIntegrationTests` measure the 4 fixtures (about 3 min; tools downloaded once into `%TEMP%/arrow-quality-tools`).
+- **GĐ5 is complete** when PR `gd5/quality` is merged.
+- **Next:** GĐ6, the full `arrow gen` and the interactive session (P06, P07, P08).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

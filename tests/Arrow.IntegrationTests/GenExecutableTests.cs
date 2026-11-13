@@ -124,6 +124,21 @@ public sealed class GenExecutableTests : IDisposable
         Assert.Equal((5, "valid", "COMPILE"), (final.RootElement.GetProperty("success_round").GetInt32(), final.RootElement.GetProperty("stop_reason").GetString(), final.RootElement.GetProperty("c0_state").GetString()));
     }
 
+    // P05 §10 "nghiệm thu": without --no-metrics, gen measures the VALID suite and prints line, branch, mutation and smell.
+    [Fact]
+    public async Task GenMeasuresTheValidSuite()
+    {
+        await ConfigureAsync();
+        var run = await Arrow(Scenario("valid-at-c0"), null, "gen", "PriceCalculator", "--project", _project.Root, "--plain", "--yes");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Matches(@"Chất lượng: line \d+% · branch \d+% · method \d+% · mutation \d+% · test strength \d+% · smell \d", run.Output);
+        using var result = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(RunDir(run), "result.json"), TestContext.Current.CancellationToken));
+        var tools = result.RootElement.GetProperty("tools");
+        Assert.Equal(("OK", "OK", "OK"), (tools.GetProperty("jacoco").GetString(), tools.GetProperty("pit").GetString(), tools.GetProperty("tsdetect").GetString()));
+        Assert.True(result.RootElement.GetProperty("metrics").GetProperty("line").GetDouble() > 0);
+        Assert.True(File.Exists(TargetFile(RunDir(run), "block4/pit.json")));
+    }
+
     // P06 §9: without a keyboard and without --yes nothing is written; --dry-run never writes.
     [Fact]
     public async Task NothingIsWrittenWithoutYesOrWithDryRun()

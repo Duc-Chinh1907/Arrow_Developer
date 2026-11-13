@@ -27,6 +27,12 @@ public interface IAnalyzerHost : IAsyncDisposable
 
     /// <summary>Block 3 verification on the build tools of the machine.</summary>
     Repair.IVerifier Verifier { get; }
+
+    /// <summary>The build tools, for block 4.</summary>
+    IBuildExecutor Builds { get; }
+
+    /// <summary>Copies of the snapshot, for block 4.</summary>
+    IWorkspaceManager Workspaces { get; }
 }
 
 /// <summary>Creates <see cref="IAnalyzerHost"/>; use cases take this so that tests can use a fake block 1.</summary>
@@ -61,7 +67,7 @@ public sealed class AnalyzerHostFactory(ArrowHome home, IProcessRunner runner, I
                 workspaces,
                 runs,
                 setup.Catalog);
-            return new Host(analyzer, pool, new Repair.Verifier(builds, workspaces, pool));
+            return new Host(analyzer, pool, new Repair.Verifier(builds, workspaces, pool), builds, workspaces);
         }
         catch
         {
@@ -70,8 +76,12 @@ public sealed class AnalyzerHostFactory(ArrowHome home, IProcessRunner runner, I
         }
     }
 
-    private sealed class Host(IProjectAnalyzer analyzer, JavaHelperPool pool, Repair.IVerifier verifier) : IAnalyzerHost
+    private sealed class Host(IProjectAnalyzer analyzer, JavaHelperPool pool, Repair.IVerifier verifier, IBuildExecutor builds, IWorkspaceManager workspaces) : IAnalyzerHost
     {
+        public IBuildExecutor Builds { get; } = builds;
+
+        public IWorkspaceManager Workspaces { get; } = workspaces;
+
         public IProjectAnalyzer Analyzer { get; } = analyzer;
 
         public IJavaHelperProvider JavaHelpers => pool;

@@ -16,6 +16,9 @@ using Arrow.Common.Verification;
 using Arrow.DataAccess.Apply;
 using Arrow.DataAccess.Config;
 using Arrow.DataAccess.JavaHelper;
+using Arrow.Business.Quality;
+using Arrow.Common.Quality;
+using Arrow.DataAccess.Processes;
 using Arrow.DataAccess.Source;
 using Arrow.DataAccess.Storage;
 using Arrow.DataAccess.Tools;
@@ -66,6 +69,8 @@ public sealed class GenerateTestsUseCase(
     IAnalyzerHostFactory hosts,
     ILlmClientFactory llms,
     IProjectFileWriter writer,
+    IToolStore toolStore,
+    IProcessRunner processes,
     string arrowVersion,
     Func<string, long?>? freeBytes = null) : IGenerateTestsUseCase
 {
@@ -79,6 +84,10 @@ public sealed class GenerateTestsUseCase(
     private ILlmClientFactory Llms => llms;
 
     private IProjectFileWriter Writer => writer;
+
+    private IToolStore ToolStore => toolStore;
+
+    private IProcessRunner Processes => processes;
 
     public async Task<GenerateResult> RunAsync(ProjectTarget target, GenerateOptions options, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct)
     {
@@ -166,7 +175,12 @@ public sealed class GenerateTestsUseCase(
             info = info with { Targets = [new RunTarget(cutFqn, TargetState.Running)] };
             runs.Update(handle, info);
 
-            var pipeline = new Pipeline(this, host, run, settings, model, limits, templates, catalog, options, repair, confirm, workspace, warnings);
+            var measure = !options.NoMetrics && settings.Quality.Enabled
+                ? new QualityOptions(settings.Quality.Tools, machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
+                    TimeSpan.FromSeconds(settings.Quality.PitTimeoutSeconds), TimeSpan.FromSeconds(settings.Quality.TsdetectTimeoutSeconds),
+                    settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces)
+                : null;
+            var pipeline = new Pipeline(this, host, run, settings, model, limits, templates, catalog, options, repair, confirm, workspace, warnings, measure);
             var result = picked.Cut is null
                 ? Blocked(cutFqn, picked.Blocked!, 0)
                 : await pipeline.RunAsync(picked.Cut, ct).ConfigureAwait(false);
@@ -244,7 +258,8 @@ public sealed class GenerateTestsUseCase(
         RepairSettings repair,
         IConfirmation confirm,
         ProjectWorkspace workspace,
-        List<string> warnings)
+        List<string> warnings,
+        QualityOptions? measure)
     {
         public async Task<TargetResult> RunAsync(ClassCandidate cut, CancellationToken ct)
         {
@@ -327,38 +342,61 @@ public sealed class GenerateTestsUseCase(
                 ct.ThrowIfCancellationRequested();
             }
 
+            // Block 4: only the final VALID suite, when measuring is on (P05 §2).
+            QualityResult? quality = null;
+            double? block4 = null;
+            if (measure is not null && final.Success)
+            {
+                watch.Restart();
+                var suite = new SuiteToMeasure(final.Candidate.TestFqn, final.Candidate.TestPath, final.Candidate.Code!);
+                quality = await QualityServiceOf().MeasureAsync(suite, task, measure, ct).ConfigureAwait(false);
+                block4 = watch.Elapsed.TotalSeconds;
+                foreach (var (tool, state) in quality.Tools.Where(t => t.Value.Status != ToolStatus.Ok))
+                {
+                    warnings.Add($"Chưa đo được {tool} ({state.Code}); xem {Path.Combine(run.Run.Root, "targets", m.Cut.Fqn, "block4", "logs")}");
+                }
+            }
+
             ApplySummary? apply = null;
             if (outcome != TargetOutcome.Cancelled || final.Error is not null)
             {
                 apply = await ApplyAsync(m, final, ct).ConfigureAwait(false);
             }
 
-            return Result(m, outcome, v0.State, final, final.Error, block1, block2, block3, total, calls) with { Apply = apply };
+            return Result(m, outcome, v0.State, final, final.Error, block1, block2, block3, total, calls, quality, block4) with { Apply = apply };
         }
 
         private TargetResult Result(
             RepositoryMetadata m, TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error,
-            double block1, double? block2, double? block3, Stopwatch total, Usage? usage = null)
+            double block1, double? block2, double? block3, Stopwatch total, Usage? usage = null, QualityResult? quality = null, double? block4 = null)
         {
-            var metricsSkipped = options.NoMetrics ? "disabled" : "not_available";
-            if (!options.NoMetrics && outcome == TargetOutcome.Valid)
-            {
-                warnings.Add("Bản này chưa có khối 4 (JaCoCo, PIT, tsDetect): chưa đo chất lượng. Dùng --no-metrics để ẩn cảnh báo này.");
-            }
+            var metricsSkipped = measure is null ? "disabled" : null;
 
             return new TargetResult(
                 m.Cut.Fqn, outcome, c0State, final?.RoundsRun ?? 0, final?.SuccessRound, final?.StopReason,
                 final?.Candidate.TestFqn ?? m.Paths.GeneratedTestFqn, final?.Candidate.TestPath ?? m.Paths.GeneratedTestPath,
                 final is null ? null : "block3/final.java",
-                null, metricsSkipped, null,
+                quality?.Metrics, metricsSkipped, quality?.Tools.ToDictionary(t => t.Key, t => t.Value.Status),
                 usage?.Tokens ?? TokenUsage.Zero, usage?.Cost, usage?.Calls ?? 0,
-                new BlockSeconds(Round(block1), Round(block2), Round(block3), null, Math.Round(total.Elapsed.TotalSeconds, 1)),
+                new BlockSeconds(Round(block1), Round(block2), Round(block3), Round(block4), Math.Round(total.Elapsed.TotalSeconds, 1)),
                 error,
                 final?.DroppedMethods.Count > 0 ? [$"dropped_methods: {final.DroppedMethods.Count}"] : [],
                 null);
         }
 
         private static double? Round(double? seconds) => seconds is { } s ? Math.Round(s, 1) : null;
+
+        private QualityService QualityServiceOf()
+        {
+            var java = new JavaRunner(owner.Processes);
+            var preparer = new SuitePreparer(host.Builds, host.Workspaces);
+            return new QualityService(
+            [
+                new JacocoTool(preparer, host.Builds, owner.ToolStore, java, host.Workspaces, owner.Runs),
+                new PitTool(preparer, owner.ToolStore, java, host.Workspaces, owner.Runs),
+                new TsDetectTool(owner.ToolStore, host.JavaHelpers, java, host.Workspaces, owner.Runs),
+            ], owner.Runs, catalog);
+        }
 
         /// <summary>The simple writer of M1 (P06 §3, §4.1, §5): VALID only, a local project, the CUT unchanged, never overwrite.</summary>
         private async Task<ApplySummary> ApplyAsync(RepositoryMetadata m, FinalTestSuite final, CancellationToken ct)

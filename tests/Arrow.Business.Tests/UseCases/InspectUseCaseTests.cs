@@ -77,6 +77,10 @@ public class InspectUseCaseTests
 
             public Arrow.Business.Repair.IVerifier Verifier => throw new NotSupportedException("inspect does not verify");
 
+            public Arrow.DataAccess.Build.IBuildExecutor Builds => throw new NotSupportedException("inspect does not measure");
+
+            public Arrow.DataAccess.Source.IWorkspaceManager Workspaces => throw new NotSupportedException("inspect does not measure");
+
             public ValueTask DisposeAsync()
             {
                 owner.Disposed = true;

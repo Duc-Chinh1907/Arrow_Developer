@@ -16,8 +16,9 @@ public interface IBuildExecutor
     /// <summary>
     /// Runs <paramref name="arguments"/> for <paramref name="setup"/> on the copy of the project at <paramref name="projectRoot"/>,
     /// with the JDK at <paramref name="jdkHome"/>. Writes the P00 §5 log to <paramref name="logFile"/> when given.
+    /// <paramref name="extraJavaToolOptions"/> is added to the fixed <c>JAVA_TOOL_OPTIONS</c> (the JaCoCo agent of P05 §4).
     /// </summary>
-    Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct);
+    Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct, string? extraJavaToolOptions = null);
 }
 
 /// <summary>
@@ -30,12 +31,18 @@ public interface IBuildExecutor
 /// <param name="buildCaches">Folders where corrupt jars may be deleted, normally <see cref="BuildFailureClassifier.UserCaches"/>.</param>
 public sealed class BuildExecutor(IProcessRunner runner, Func<string, string?> getEnvironment, IReadOnlyList<string> buildCaches) : IBuildExecutor
 {
-    public async Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct)
+    public async Task<BuildResult> RunAsync(BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, string jdkHome, TimeSpan timeout, string? logFile, CancellationToken ct, string? extraJavaToolOptions = null)
     {
         var command = BuildCommands.Command(setup, projectRoot, arguments);
         var workingDirectory = setup.WorkingDirectory(projectRoot);
+        var environment = new Dictionary<string, string?>(Environment(jdkHome));
+        if (extraJavaToolOptions is { Length: > 0 })
+        {
+            environment["JAVA_TOOL_OPTIONS"] = BuildCommands.JavaToolOptions + " " + extraJavaToolOptions;
+        }
+
         var result = await runner.RunAsync(
-            new ProcessSpec(command[0], command.Skip(1).ToList(), workingDirectory, Environment(jdkHome), timeout, LogFile: logFile),
+            new ProcessSpec(command[0], command.Skip(1).ToList(), workingDirectory, environment, timeout, LogFile: logFile),
             ct).ConfigureAwait(false);
 
         var failure = BuildFailureClassifier.Classify(result);
