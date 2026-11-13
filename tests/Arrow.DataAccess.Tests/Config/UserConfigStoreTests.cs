@@ -134,14 +134,16 @@ public class UserConfigStoreTests
 
         store.Set(ConfigScope.User, "repair.rounds", "3", null);
         store.Set(ConfigScope.User, "run.max_tokens", "200000", null);
-        store.Set(ConfigScope.User, "java.jdk_homes.17", "D:/jdk-17", null);
+        // An absolute path on every OS ("D:/jdk-17" is relative on Linux and would be resolved from ARROW_HOME).
+        var jdk = temp.PathOf("jdk-17");
+        store.Set(ConfigScope.User, "java.jdk_homes.17", jdk, null);
 
         var text = File.ReadAllText(file);
         Assert.True(text.IndexOf("\"ui\"", StringComparison.Ordinal) < text.IndexOf("\"repair\"", StringComparison.Ordinal));
         var config = store.Load(null, NoOverrides).Config;
         Assert.Equal(("en", false, 3), (config.Ui.Language, config.Repair.Enabled, config.Repair.Rounds));
         Assert.Equal(200000, config.Run.MaxTokens);
-        Assert.Equal("D:/jdk-17", config.Java.JdkHomes["17"]);
+        Assert.Equal(jdk, config.Java.JdkHomes["17"]);
 
         Assert.True(store.Unset(ConfigScope.User, "repair.rounds", null));
         Assert.False(store.Unset(ConfigScope.User, "repair.rounds", null));

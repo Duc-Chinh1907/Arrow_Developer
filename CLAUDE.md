@@ -92,5 +92,9 @@ It is the product version of the team's research framework. There is **no resear
   - The 5 copied fixtures still lack `.arrow-sample/` and the README fields of P11 §2; add them in GĐ5, when block 4 needs them.
   - **Windows:** start Maven by its absolute path (`…\bin\mvn.cmd`). Starting `"mvn.cmd"` by name from .NET exits 1 with no output. Block 1 (GĐ2) must resolve build tools to absolute paths.
   - **TestNG + Surefire:** several classes are reported together in `TEST-TestSuite.xml`, and reports of an earlier run stay in `surefire-reports/` until `clean`; `junitreports/` holds duplicates. The report reader of GĐ2 must not count them twice.
-- **Next:** GĐ0 step 8, `.github/workflows/ci.yml` on `windows-latest` and `ubuntu-latest` with JDK 8, 11, 17, 21, Maven and Gradle; then turn on branch protection for `main`.
+- GĐ0 step 8 done (13/11/2026), PR `gd0/ci`: `.github/workflows/ci.yml` (P11 §5.1) on `windows-latest` and `ubuntu-latest`, green with 0 skipped tests. Test steps filter by xUnit trait: `--filter-not-trait "Category=Integration" --filter-not-trait "Category=E2E"`, `--filter-trait "Category=Integration"`, `--filter-trait "Category=E2E"` (Ubuntu only), each with `--ignore-exit-code 8`. Mark new integration tests `[Trait("Category", "Integration")]` or `"E2E"`, otherwise they run as unit tests.
+  - Steps still to add: `mvn verify` of `tools/java-helper` (GĐ1), `ARROW_HOME/config.json` pointing to the JDKs (GĐ2).
+  - Write paths in tests with `Path.Combine`/temp folders: `D:/x` is a relative path on Linux.
+- **GĐ0 is complete** except branch protection on `main` (required checks `build-test (windows-latest)` and `build-test (ubuntu-latest)`), which needs Chính's go-ahead because it changes the GitHub repo settings.
+- **Next:** GĐ1, java-helper (P10): copy `tools/java-helper` verbatim in its own commit, `mvn verify`, add `list_classes`, extend `count_assertions` (R03 §3.6), new `JavaHelperClient` in DataAccess, GĐ1 parity tests (`docs/baseline-arrow-framework.md` §5.2).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
