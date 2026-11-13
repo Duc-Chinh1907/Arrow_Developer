@@ -28,7 +28,7 @@ internal sealed class FakeMachine : IDisposable
     public UserConfigStore Config => new(Home, () => Environment);
 
     /// <summary>A tool discovery that sees only this machine: fake folders, no real JDK, git or Maven.</summary>
-    public ToolDiscovery Discovery => new(Runner, name => Environment.GetValueOrDefault(name), Path.Combine(Root, "profile"), isWindows: false);
+    public ToolDiscovery Discovery => new(Runner, name => Environment.GetValueOrDefault(name), Path.Combine(Root, "profile"), isWindows: false, installFolders: []);
 
     /// <summary>Creates <c>bin/java</c> and <c>bin/javac</c> (both spellings, so Windows and Unix lookups find them) and registers the version it prints.</summary>
     public string AddJdk(int major, string version, bool withJavac = true)

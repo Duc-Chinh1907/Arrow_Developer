@@ -17,7 +17,7 @@ public sealed record JdkInstall(int Major, string Version, string Home, string S
 /// project's machines), <c>JAVA_HOME</c>, <c>PATH</c>, the usual install folders and, on Windows, the registry. The version comes from
 /// running <c>java</c>. A folder without <c>javac</c> is a JRE and is skipped.
 /// </summary>
-public sealed class JdkLocator(IProcessRunner runner, Func<string, string?> getEnvironment, string userProfile, bool? isWindows = null)
+public sealed class JdkLocator(IProcessRunner runner, Func<string, string?> getEnvironment, string userProfile, bool? isWindows = null, IReadOnlyList<string>? installFolders = null)
 {
     private readonly bool _windows = isWindows ?? OperatingSystem.IsWindows();
 
@@ -131,6 +131,12 @@ public sealed class JdkLocator(IProcessRunner runner, Func<string, string?> getE
 
     private IEnumerable<string> InstallFolders()
     {
+        if (installFolders is not null)
+        {
+            // Given by the caller (tests): folders whose sub-folders are JDK homes; nothing else is searched.
+            return installFolders.SelectMany(Children);
+        }
+
         IEnumerable<string> parents;
         if (_windows)
         {

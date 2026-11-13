@@ -23,12 +23,12 @@ public sealed record MachineTools(IReadOnlyList<JdkInstall> Jdks, string? Git, s
 }
 
 /// <summary>Finds the tools of the machine, honouring <c>java.*</c> of the configuration.</summary>
-public sealed class ToolDiscovery(IProcessRunner runner, Func<string, string?> getEnvironment, string userProfile, bool? isWindows = null)
+public sealed class ToolDiscovery(IProcessRunner runner, Func<string, string?> getEnvironment, string userProfile, bool? isWindows = null, IReadOnlyList<string>? installFolders = null)
 {
     /// <summary>JDKs from <c>java.jdk_homes</c>, the environment and the usual folders; git, Maven and Gradle from their configured path or <c>PATH</c>.</summary>
     public async Task<MachineTools> FindAsync(JavaSettings java, CancellationToken ct)
     {
-        var jdks = await new JdkLocator(runner, getEnvironment, userProfile, isWindows).FindAsync(java.JdkHomes, ct).ConfigureAwait(false);
+        var jdks = await new JdkLocator(runner, getEnvironment, userProfile, isWindows, installFolders).FindAsync(java.JdkHomes, ct).ConfigureAwait(false);
         var locator = new ToolLocator(getEnvironment, isWindows);
         return new MachineTools(jdks, locator.Resolve(java.GitPath, "git"), locator.Resolve(java.MavenPath, "mvn"), locator.Resolve(java.GradlePath, "gradle"));
     }
