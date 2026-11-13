@@ -159,4 +159,7 @@ It is the product version of the team's research framework. There is **no resear
     - The project must be unchanged: a local project must have the same `source_tree_hash` once the files this run wrote are ignored (`LocalProjectTree.SourceTreeHashWithout`, paths from `apply.json`); a repository must have the same commit. Otherwise `GEN_RESUME_MISMATCH`.
     - DONE targets other than BLOCKED/INFRA are kept; a kept target without `apply.json` still goes to the write step, rebuilt from `final.json` and `final.java`. Other targets are deleted and run again, and model calls replay from `llm_cache`. Block 1 runs again too, since `work/<run>` is deleted at the end of a run.
     - `IRunStore.Recent(limit)` lists runs newest first. Scenario `stop-at-second` gives a P03 stop at the second class.
+  - PR `gd6/show` (14/11/2026):
+    - `ShowRunUseCase` (`HistoryView`, `RunView`, `TargetView`, `RoundView`) and `ShowCommand`: `arrow history [--limit]`, `arrow show <run> [<class>]`, with `--json`.
+    - A run that ends by Ctrl+C or an error also gets its `history.jsonl` line (P07 §8).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

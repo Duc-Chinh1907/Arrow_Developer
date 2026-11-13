@@ -62,6 +62,7 @@ internal static class CompositionRoot
             sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IRunStore>(),
             sp.GetRequiredService<IAnalyzerHostFactory>(), sp.GetRequiredService<ILlmClientFactory>(), new ProjectFileWriter(),
             sp.GetRequiredService<IToolStore>(), sp.GetRequiredService<IProcessRunner>(), CliApp.Version));
+        services.AddSingleton<IShowRunUseCase>(sp => new ShowRunUseCase(sp.GetRequiredService<IRunStore>()));
         services.AddSingleton<IToolStore>(_ => new ToolStore(home, new HttpClient { Timeout = TimeSpan.FromMinutes(5) }, getEnvironment));
         services.AddSingleton<IToolsUseCase>(sp => new ToolsUseCase(sp.GetRequiredService<IToolStore>(), ErrorCatalog.For("vi")));
         services.AddSingleton(sp => new ModelsUseCase(
