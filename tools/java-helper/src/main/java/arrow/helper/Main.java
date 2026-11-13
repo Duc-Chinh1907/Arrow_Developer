@@ -3,6 +3,7 @@ package arrow.helper;
 import arrow.helper.commands.CalledMethods;
 import arrow.helper.commands.ClassApi;
 import arrow.helper.commands.CountAssertions;
+import arrow.helper.commands.ListClasses;
 import arrow.helper.commands.ListTestMethods;
 import arrow.helper.commands.MethodAtLine;
 import arrow.helper.commands.MethodSource;
@@ -29,7 +30,8 @@ import java.util.Map;
  */
 public final class Main {
 
-    public static final String VERSION = "1.0.0";
+    /** 1.1.0: {@code list_classes} and the assertion kinds of R03 §3.6 of 15/10/2026 (P10). */
+    public static final String VERSION = "1.1.0";
 
     private Main() {
     }
@@ -94,6 +96,7 @@ public final class Main {
             case "method_source" -> MethodSource.run(args);
             case "called_methods" -> CalledMethods.run(args);
             case "shrink_source" -> ShrinkSource.run(args);
+            case "list_classes" -> ListClasses.run(args);
             default -> throw new IllegalArgumentException("Lệnh không hỗ trợ: " + command);
         };
     }

@@ -25,6 +25,9 @@ import java.util.TreeMap;
  * {@code count_assertions}: đếm assertion qua cây cú pháp (AR Mục 5.2; CLAUDE.md hạng mục 10).
  * Tính: {@code assert*} của JUnit/TestNG, {@code assertThat} (AssertJ/Hamcrest), {@code @Test(expected = …)}, {@code fail()} trong {@code try},
  * {@code verify(…)} của Mockito, mỗi kiểm tra trong chuỗi {@code then()}/{@code expect()} của RestAssured.
+ * Bổ sung ở 1.1.0 theo R03 §3.6 (15/10/2026): {@code inOrder.verify(…)}, {@code verifyNoInteractions}/{@code verifyNoMoreInteractions}/
+ * {@code verifyZeroInteractions}, BDD {@code then(mock).should…()} và {@code then(actual).is…()}, MockMvc {@code andExpect(…)},
+ * {@code thrown.expect…(…)} của {@code ExpectedException}.
  * Không tính: assertion tầm thường ({@code assertTrue(true)}, {@code assertEquals(x, x)}, {@code assertNull(null)}, {@code assertNotNull(new X())}),
  * {@code assertThat()} không tham số.
  * Vào: {@code code}. Ra: {@code parsed}, {@code total}, {@code per_method} (chỉ test method).
@@ -91,11 +94,68 @@ public final class CountAssertions {
         if (name.equals("fail") && call.findAncestor(TryStmt.class).map(t -> isInside(call, t.getTryBlock())).orElse(false)) {
             return true;
         }
-        if (name.equals("verify") && arguments > 0
-                && (call.getScope().isEmpty() || call.getScope().get().toString().endsWith("Mockito"))) {
+        if (name.equals("verify") && arguments > 0 && (isMockitoScope(call) || isInOrderScope(call))) {
+            return true;
+        }
+        // R03 §3.6 (15/10/2026): verifyNoInteractions, verifyNoMoreInteractions, verifyZeroInteractions.
+        if (VERIFY_NO.contains(name) && arguments > 0 && isMockitoScope(call)) {
+            return true;
+        }
+        // BDD Mockito: then(mock).should…(); counted once, at the should… call.
+        if (name.startsWith("should") && call.getScope().filter(CountAssertions::isBddThen).isPresent()) {
+            return true;
+        }
+        // BDD AssertJ: then(actual).is…(); counted once, at the then(…) call.
+        if (isBddThen(call) && call.getParentNode().filter(p -> p instanceof MethodCallExpr parent
+                && parent.getScope().filter(s -> s == call).isPresent()
+                && parent.getNameAsString().startsWith("is")).isPresent()) {
+            return true;
+        }
+        // MockMvc: andExpect(status().isOk()).
+        if (name.equals("andExpect") && arguments > 0) {
+            return true;
+        }
+        // JUnit 4 ExpectedException: thrown.expect(…), thrown.expectMessage(…), thrown.expectCause(…).
+        if (name.startsWith("expect") && arguments > 0 && isExpectedExceptionScope(call)) {
             return true;
         }
         return isRestAssuredChain(call) && arguments > 0 && !name.equals("extract");
+    }
+
+    private static final java.util.Set<String> VERIFY_NO =
+            java.util.Set.of("verifyNoInteractions", "verifyNoMoreInteractions", "verifyZeroInteractions");
+
+    /** No scope (static import) or {@code Mockito.} / {@code BDDMockito.}. */
+    private static boolean isMockitoScope(MethodCallExpr call) {
+        return call.getScope().isEmpty() || call.getScope().get().toString().endsWith("Mockito");
+    }
+
+    /**
+     * {@code inOrder.verify(…)} or {@code inOrder(a, b).verify(…)}. Without type resolution the variable is recognised by
+     * its name, so that {@code signature.verify(bytes)} of {@code java.security} is not counted.
+     */
+    private static boolean isInOrderScope(MethodCallExpr call) {
+        return call.getScope().map(scope -> scope instanceof MethodCallExpr inner
+                ? inner.getNameAsString().equals("inOrder")
+                : scope.toString().toLowerCase(java.util.Locale.ROOT).contains("inorder")).orElse(false);
+    }
+
+    /** {@code then(x)} with exactly one argument (BDD style); RestAssured's {@code then()} has none. */
+    private static boolean isBddThen(Expression expression) {
+        return expression instanceof MethodCallExpr then
+                && then.getNameAsString().equals("then")
+                && then.getArguments().size() == 1
+                && (then.getScope().isEmpty() || then.getScope().get().toString().matches(".*(BDDMockito|BDDAssertions|Assertions)"));
+    }
+
+    /**
+     * {@code thrown.expect…(…)}: called on a variable or field, never on a static entry point such as
+     * {@code EasyMock.expect(…)} or on the zero-argument {@code expect()} of RestAssured.
+     */
+    private static boolean isExpectedExceptionScope(MethodCallExpr call) {
+        return call.getScope().map(scope -> (scope instanceof com.github.javaparser.ast.expr.NameExpr
+                        || scope instanceof com.github.javaparser.ast.expr.FieldAccessExpr)
+                && !scope.toString().endsWith("EasyMock")).orElse(false);
     }
 
     /** Lời gọi nằm sau {@code then()} hoặc {@code expect()} (không tham số) trong chuỗi của RestAssured. */
