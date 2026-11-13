@@ -1,0 +1,105 @@
+# CI of P11 §5.1: build and test on Windows and Ubuntu on every push and pull request.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  # Tests never call a real model (P11 §1); no secret is configured for this workflow.
+  CI: "true"
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET (global.json)
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # JDK 8, 11, 17, 21. setup-java exports JAVA_HOME_<n>_X64 for each; the last one listed (17) becomes JAVA_HOME.
+      - name: Set up JDKs
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            8
+            11
+            21
+            17
+          cache: maven
+
+      # Maven 3.9.x comes with the runner images; Gradle is pinned to the version on the development machine.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          dotnet --version
+          mvn -v
+          gradle --version | head -n 4
+          env | grep '^JAVA_HOME' | sort
+
+      # P11 §5.1 step 5 (mvn verify of tools/java-helper) starts in GĐ1, when java-helper is copied in.
+      # P11 §5.1 step 3 (ARROW_HOME/config.json pointing to the JDKs) starts in GĐ2, when block 1 reads it.
+
+      - name: Build
+        run: dotnet build ARROW.slnx -c Release -warnaserror
+
+      - name: Unit tests
+        run: >-
+          dotnet test --solution ARROW.slnx -c Release --no-build
+          --filter-not-trait "Category=Integration" --filter-not-trait "Category=E2E"
+          --ignore-exit-code 8 --report-xunit-trx --results-directory TestResults/unit
+
+      - name: Integration tests
+        run: >-
+          dotnet test --solution ARROW.slnx -c Release --no-build
+          --filter-trait "Category=Integration"
+          --ignore-exit-code 8 --report-xunit-trx --results-directory TestResults/integration
+
+      - name: E2E tests
+        if: runner.os == 'Linux'
+        run: >-
+          dotnet test --solution ARROW.slnx -c Release --no-build
+          --filter-trait "Category=E2E"
+          --ignore-exit-code 8 --report-xunit-trx --results-directory TestResults/e2e
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults/
+          retention-days: 14
