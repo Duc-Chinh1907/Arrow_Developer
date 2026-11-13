@@ -9,6 +9,11 @@
     <ProjectReference Include="..\Arrow.DataAccess\Arrow.DataAccess.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Arrow.Cli.Tests" />
     <InternalsVisibleTo Include="Arrow.IntegrationTests" />
   </ItemGroup>

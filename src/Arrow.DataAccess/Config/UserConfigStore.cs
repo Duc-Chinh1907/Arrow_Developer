@@ -20,8 +20,12 @@ public interface IConfigStore
     /// <param name="cliOverrides">Layer 5: dotted key to raw value, e.g. <c>repair.rounds</c> → <c>3</c>.</param>
     EffectiveConfig Load(string? projectRoot, IReadOnlyDictionary<string, string?> cliOverrides);
 
-    /// <summary>Sets one key in <c>config.json</c> or <c>.arrow.json</c>, keeping the other keys and their order.</summary>
-    void Set(ConfigScope scope, string key, string rawValue, string? projectRoot);
+    /// <summary>
+    /// Sets one key in <c>config.json</c> or <c>.arrow.json</c>, keeping the other keys and their order.
+    /// <paramref name="check"/> sees the defaults plus the changed file and may throw to refuse the change; the file is
+    /// written only when it does not.
+    /// </summary>
+    void Set(ConfigScope scope, string key, string rawValue, string? projectRoot, Action<ArrowConfig>? check = null);
 
     /// <summary>Removes one key from <c>config.json</c> or <c>.arrow.json</c>; false when it was not set there.</summary>
     bool Unset(ConfigScope scope, string key, string? projectRoot);
@@ -85,7 +89,7 @@ public sealed class UserConfigStore : IConfigStore
         return new EffectiveConfig(config, entries, _home.ConfigFile, projectFile);
     }
 
-    public void Set(ConfigScope scope, string key, string rawValue, string? projectRoot)
+    public void Set(ConfigScope scope, string key, string rawValue, string? projectRoot, Action<ArrowConfig>? check = null)
     {
         var origin = scope == ConfigScope.User ? ConfigOrigin.User : ConfigOrigin.Project;
         CheckKnownKey(key, rawValue, origin);
@@ -101,7 +105,7 @@ public sealed class UserConfigStore : IConfigStore
         // Check that the file still gives a valid configuration before writing it.
         var candidate = Defaults();
         Merge(candidate, Prepare(layer.DeepClone().AsObject(), file, baseDir), origin, new Dictionary<string, ConfigOrigin>());
-        ToConfig(candidate, new Dictionary<string, ConfigOrigin> { [key] = origin });
+        check?.Invoke(ToConfig(candidate, new Dictionary<string, ConfigOrigin> { [key] = origin }));
 
         AtomicFile.WriteAllText(file, layer.ToJsonString(ArrowJson.Options) + "\n");
     }

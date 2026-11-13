@@ -135,7 +135,8 @@ public sealed class RunStore : IRunStore
             1 => new RunHandle(matches[0]!, Path.Combine(_home.RunsDir, matches[0]!)),
             _ => matches.Contains(runIdOrPrefix)
                 ? new RunHandle(runIdOrPrefix, Path.Combine(_home.RunsDir, runIdOrPrefix))
-                : throw new ArrowException(ErrorCodes.CliArgs, $"Tiền tố {runIdOrPrefix} khớp {matches.Count} run: {string.Join(", ", matches.Take(5))}"),
+                : throw new ArrowException(ErrorCodes.CliArgs, $"Tiền tố {runIdOrPrefix} khớp {matches.Count} run: {string.Join(", ", matches.Take(5))}",
+                    new Dictionary<string, string> { ["help_command"] = "arrow history" }),
         };
     }
 
