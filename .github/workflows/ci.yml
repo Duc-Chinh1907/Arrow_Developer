@@ -71,7 +71,11 @@ jobs:
           gradle --version | head -n 4
           env | grep '^JAVA_HOME' | sort
 
-      # P11 §5.1 step 5 (mvn verify of tools/java-helper) starts in GĐ1, when java-helper is copied in.
+      # P11 §5.1 step 5. Runs before the .NET build, which embeds target/java-helper.jar into Arrow.DataAccess (P10 §2).
+      - name: java-helper (mvn verify)
+        shell: bash
+        run: mvn -B -ntp -q -f tools/java-helper/pom.xml verify
+
       # P11 §5.1 step 3 (ARROW_HOME/config.json pointing to the JDKs) starts in GĐ2, when block 1 reads it.
 
       - name: Build

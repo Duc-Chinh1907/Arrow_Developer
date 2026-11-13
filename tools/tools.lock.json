@@ -12,6 +12,7 @@
     { "id": "jopt-simple", "file": "pit-1.17.4/jopt-simple-4.9.jar", "maven": "net.sf.jopt-simple:jopt-simple:4.9", "sha256": "26c5856e954b5f864db76f13b86919b59c6eecf9fd930b96baa8884626baf2f5" },
     { "id": "pitest-junit5-plugin", "file": "pit-1.17.4/pitest-junit5-plugin-1.2.1.jar", "maven": "org.pitest:pitest-junit5-plugin:1.2.1", "sha256": "9d944887a583ebd4adc33d2d26b8b56639fd53fee93b4d068a90596705c072b5" },
     { "id": "pitest-testng-plugin", "file": "pit-1.17.4/pitest-testng-plugin-1.0.0.jar", "maven": "org.pitest:pitest-testng-plugin:1.0.0", "sha256": "cbd566f4edc888620233464a192ffdc82e2c226c9c094948d38e3fe233ddfc6e" },
+    { "id": "java-helper", "file": "java-helper-1.1.0.jar", "embedded": true, "sha256": null },
     { "id": "tsdetect", "file": "tsdetect-2.2/TestSmellDetector.jar", "url": "https://github.com/TestSmells/TestSmellDetector/releases/download/v2.2/TestSmellDetector.jar", "sha256": "6a12de6d1613c7ee9e845a2b69d876834f8ee98379e85d38c0e6027f7110f7bc" }
   ]
 }
