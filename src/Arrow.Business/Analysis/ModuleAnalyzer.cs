@@ -153,8 +153,8 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
         var copy = await FreshCopyAsync(job.Workspace.Checkout.Root, build, job.Ct).ConfigureAwait(false);
 
         // Build tool and its version, with the default JDK (P01 §4.2).
-        var probe = JdkSelector.Select(null, options.JdkHomes.Keys.ToList()).Order[0];
-        var tool = await ResolveToolAsync(job, plan, build, moduleWork, probe).ConfigureAwait(false);
+        var tool = await ResolveToolAsync(job, plan, build, moduleWork).ConfigureAwait(false);
+        var probe = tool.ProbeJdk;
         var setup = tool.Setup;
 
         // Declared Java level, test root, test patterns and declared dependencies (P01 §4.3, §4.4, §4.7).
@@ -308,12 +308,13 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
         }
     }
 
-    private sealed record Tool(BuildSetup Setup, string Version, bool Wrapper, bool Fallback);
+    private sealed record Tool(BuildSetup Setup, string Version, bool Wrapper, bool Fallback, int ProbeJdk);
 
     /// <summary>Wrapper first, the machine's tool otherwise or when the wrapper fails (P01 §4.2).</summary>
-    private async Task<Tool> ResolveToolAsync(Job job, BuildPlan plan, string build, string moduleWork, int probeJdk)
+    private async Task<Tool> ResolveToolAsync(Job job, BuildPlan plan, string build, string moduleWork)
     {
         var gradle = plan.Tool == BuildToolKind.Gradle;
+        var probeOrder = JdkSelector.Select(null, options.JdkHomes.Keys.ToList()).Order;
         var wrapperName = gradle ? (Windows ? "gradlew.bat" : "gradlew") : (Windows ? "mvnw.cmd" : "mvnw");
         var wrapper = new[] { plan.BuildRoot, "." }.Distinct()
             .Select(dir => BuildLayout.Join(dir, wrapperName))
@@ -332,28 +333,34 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
         {
             MakeExecutable(Path.Combine(build, wrapper));
             var setup = new BuildSetup(plan.Tool, wrapper, true, plan.BuildRoot, plan.Mode, plan.Module, flags, initScript);
-            var result = await RunStepAsync(job, setup, build, BuildCommands.Version, probeJdk, "version-wrapper").ConfigureAwait(false);
-            if (result.Failure == BuildFailureKind.None)
+            // The wrapper may download an old Gradle or Maven that does not run on the default JDK (Gradle 3.5 on JDK 17: "Could not
+            // determine java version"). Try the other JDKs in ascending order before giving up on the wrapper (P01 §4.2 step 3).
+            BuildResult? result = null;
+            foreach (var jdk in probeOrder)
             {
-                return Finish(setup, result, wrapperUsed: true, fallback: false);
+                result = await RunStepAsync(job, setup, build, BuildCommands.Version, jdk, jdk == probeOrder[0] ? "version-wrapper" : $"version-wrapper-jdk{jdk}").ConfigureAwait(false);
+                if (result.Failure == BuildFailureKind.None)
+                {
+                    return Finish(setup, result, wrapperUsed: true, fallback: false, jdk);
+                }
             }
 
             if (system is null)
             {
                 throw Stop.Blocked(this, ErrorCodes.B1BuildToolMissing,
-                    $"Wrapper {wrapper} không chạy được ({BuildFailureClassifier.FirstError(result.Process.Output)}) và máy không có {name}.");
+                    $"Wrapper {wrapper} không chạy được ({BuildFailureClassifier.FirstError(result!.Process.Output)}) và máy không có {name}.");
             }
 
             job.Warnings.Add($"Wrapper {wrapper} không chạy được; dùng {name} của máy.");
             job.Report(ArrowEventTypes.B1Plan, $"Wrapper lỗi, dùng {name} của máy", ("wrapper_fallback", true));
             var fallbackSetup = setup with { Executable = system, ExecutableInRepo = false };
-            var again = await RunStepAsync(job, fallbackSetup, build, BuildCommands.Version, probeJdk, "version").ConfigureAwait(false);
+            var again = await RunStepAsync(job, fallbackSetup, build, BuildCommands.Version, probeOrder[0], "version").ConfigureAwait(false);
             if (again.Failure != BuildFailureKind.None)
             {
                 throw Stop.Blocked(this, ErrorCodes.B1BuildToolMissing, $"{name} của máy ({system}) không chạy được: {BuildFailureClassifier.FirstError(again.Process.Output)}");
             }
 
-            return Finish(fallbackSetup, again, wrapperUsed: false, fallback: true);
+            return Finish(fallbackSetup, again, wrapperUsed: false, fallback: true, probeOrder[0]);
         }
 
         if (system is null)
@@ -362,19 +369,19 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
         }
 
         var systemSetup = new BuildSetup(plan.Tool, system, false, plan.BuildRoot, plan.Mode, plan.Module, flags, initScript);
-        var version = await RunStepAsync(job, systemSetup, build, BuildCommands.Version, probeJdk, "version").ConfigureAwait(false);
+        var version = await RunStepAsync(job, systemSetup, build, BuildCommands.Version, probeOrder[0], "version").ConfigureAwait(false);
         if (version.Failure != BuildFailureKind.None)
         {
             throw Stop.Blocked(this, ErrorCodes.B1BuildToolMissing, $"{name} của máy ({system}) không chạy được: {BuildFailureClassifier.FirstError(version.Process.Output)}");
         }
 
-        return Finish(systemSetup, version, wrapperUsed: false, fallback: false);
+        return Finish(systemSetup, version, wrapperUsed: false, fallback: false, probeOrder[0]);
 
-        static Tool Finish(BuildSetup setup, BuildResult result, bool wrapperUsed, bool fallback)
+        static Tool Finish(BuildSetup setup, BuildResult result, bool wrapperUsed, bool fallback, int probeJdk)
         {
             var version = BuildFailureClassifier.ToolVersion(result.Process.Output) ?? "";
             var flags = setup.Tool == BuildToolKind.Maven ? BuildCommands.MavenCommonFlags(version, Windows) : BuildCommands.GradleCommonFlags;
-            return new Tool(setup with { CommonFlags = flags }, version, wrapperUsed, fallback);
+            return new Tool(setup with { CommonFlags = flags }, version, wrapperUsed, fallback, probeJdk);
         }
     }
 
@@ -472,15 +479,19 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
                     throw new Stop(Outcome(BlockOutcomeKind.Infra, ErrorCodes.B1DependencyResolution,
                         $"Không tải được dependency hay plugin: {BuildFailureClassifier.FirstError(result.Process.Output)}", log: job.LogPath(log)));
                 default:
-                    failed = result;
-                    failedLog = log;
+                    // Report the first failure: the JDK that the build declares, not the last one tried.
+                    if (failed is null)
+                    {
+                        (failed, failedLog) = (result, log);
+                    }
+
                     break;
             }
         }
 
         var output = failed?.Process.Output ?? "";
         var missingArtifact = BuildFailureClassifier.IsMissingArtifact(output);
-        var module = buildPlan.Module ?? job.ModuleRoot;
+        var module = job.ModuleRoot;
         throw new Stop(
             Outcome(
                 BlockOutcomeKind.Blocked,

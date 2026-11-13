@@ -76,6 +76,17 @@ public class MetadataRulesTests
         Assert.Equal("", ProjectPaths.PackageOf("// package wrong;\nclass A {}"));
     }
 
+    // Found on gephi-like real repos (intendia-oss/qualifier): a top-level class in a file with another name.
+    [Fact]
+    public void SourceRootUsesThePackageNotTheFileName()
+    {
+        Assert.Equal("core/src/main/java", ProjectPaths.SourceRoot("core/src/main/java/com/intendia/qualifier/Extension.java", "com.intendia.qualifier.NamedExtension"));
+        Assert.Equal(".", ProjectPaths.SourceRoot("com/acme/Other.java", "com.acme.Main"));
+        // A folder that does not end with the package (a flat source folder): the folder itself.
+        Assert.Equal("src/java", ProjectPaths.SourceRoot("src/java/Main.java", "com.acme.Main"));
+        Assert.Equal("src", ProjectPaths.SourceRoot("src/Main.java", "Main"));
+    }
+
     // P01 §11: _ArrowTest, _Arrow2Test when the file exists, _Arrow3Test when both exist, a name used in the reactor, k = 99.
     [Fact]
     public void TestNamesSkipTakenFilesAndReactorNames()

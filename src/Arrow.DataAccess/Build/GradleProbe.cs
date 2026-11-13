@@ -50,17 +50,17 @@ public static class GradleProbe
     /// <summary>
     /// The init script. It disables the checkstyle and spotless tasks, makes test failures not fail the build
     /// (the baseline must run every test), and adds <see cref="InfoTask"/> and <see cref="ClasspathTask"/>.
-    /// Written against the API of Gradle 6 so that it runs on Gradle 6 to 9.
+    /// Written with the old API (<c>all</c>, <c>create</c>) so that it runs from Gradle 3 (old wrappers of old projects) to Gradle 9: <c>configureEach</c> and <c>register</c> exist only from Gradle 4.9.
     /// </summary>
     public const string InitScript = """
         def arrowOut = { String key, Object value -> println('ARROW|' + key + '|' + (value == null ? '' : value.toString().replace('\n', ' ').replace('\r', ' '))) }
-        def arrowTestClasspath = { p -> p.configurations.findByName('testRuntimeClasspath') }
+        def arrowTestClasspath = { p -> p.configurations.findByName('testRuntimeClasspath') ?: p.configurations.findByName('testRuntime') }
 
         allprojects { p ->
-            p.tasks.matching { t -> t.name.startsWith('checkstyle') || t.name.startsWith('spotless') }.configureEach { t -> t.enabled = false }
-            p.tasks.withType(Test).configureEach { t -> t.ignoreFailures = true }
+            p.tasks.matching { t -> t.name.startsWith('checkstyle') || t.name.startsWith('spotless') }.all { t -> t.enabled = false }
+            p.tasks.withType(Test).all { t -> t.ignoreFailures = true }
 
-            p.tasks.register('arrowInfo') {
+            p.tasks.create('arrowInfo') {
                 doLast {
                     arrowOut('gradle_version', p.gradle.gradleVersion)
                     arrowOut('project_dir', p.projectDir.absolutePath)
@@ -96,8 +96,8 @@ public static class GradleProbe
                         if (test != null) { test.java.srcDirs.each { d -> arrowOut('test_src', d.absolutePath) } }
                     }
 
-                    ['api', 'implementation', 'compileOnly', 'runtimeOnly',
-                     'testImplementation', 'testCompileOnly', 'testRuntimeOnly'].each { n ->
+                    ['api', 'implementation', 'compile', 'compileOnly', 'runtimeOnly', 'runtime',
+                     'testImplementation', 'testCompile', 'testCompileOnly', 'testRuntimeOnly', 'testRuntime'].each { n ->
                         def c = p.configurations.findByName(n)
                         if (c != null) {
                             c.dependencies.each { d -> arrowOut('dep', n + '|' + (d.group ?: '') + '|' + d.name + '|' + (d.version ?: '')) }
@@ -112,7 +112,7 @@ public static class GradleProbe
                 }
             }
 
-            p.tasks.register('arrowClasspath') {
+            p.tasks.create('arrowClasspath') {
                 dependsOn { def c = arrowTestClasspath(p); c != null ? c : [] }
                 doLast {
                     def c = arrowTestClasspath(p)
@@ -202,7 +202,7 @@ public static class GradleProbe
     private static string ScopeOf(string configuration) => configuration switch
     {
         "compileOnly" => "provided",
-        "runtimeOnly" => "runtime",
+        "runtimeOnly" or "runtime" => "runtime",
         _ when configuration.StartsWith("test", StringComparison.Ordinal) => "test",
         _ => "compile",
     };

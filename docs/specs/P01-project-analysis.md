@@ -160,7 +160,8 @@ Mọi lệnh Maven/Gradle về sau (baseline, khối 3, khối 4) đều chạy 
 3. **Wrapper:**
    - trên macOS/Linux được đặt quyền chạy trong bản sao;
    - lưu **tương đối với gốc project**, để chạy được trên mọi bản sao;
-   - lệnh đầu tiên chạy bằng wrapper mà lỗi (không tải được bản phân phối, không tương thích JDK): thử lại bằng chương trình của máy, ghi `wrapper_fallback: true`.
+   - lệnh đầu tiên chạy bằng wrapper (`-v`) mà lỗi: thử lại với các JDK còn lại theo thứ tự tăng dần, vì wrapper có thể tải bản Gradle/Maven cũ không chạy được trên JDK 17 (ví dụ Gradle 3.5: `Could not determine java version`). JDK nào chạy được thì dùng cho bước dò ở Mục 4.3;
+   - không JDK nào chạy được wrapper (không tải được bản phân phối): thử lại bằng chương trình của máy, ghi `wrapper_fallback: true`.
 4. **Phiên bản:** `mvn -v` / `gradle -v` với JDK đã chọn.
 
 ### 4.3 Java version và chọn JDK (R01 §4.3)
@@ -171,6 +172,8 @@ Mọi lệnh Maven/Gradle về sau (baseline, khối 3, khối 4) đều chạy 
      - Có `-am` thì file có nhiều `<project>`; project đích là project có `target/` hoặc `src/main/java` nằm ngay trong module root.
      - Thứ tự đọc: `maven.compiler.release` → `maven.compiler.source` → `release`/`source` của `maven-compiler-plugin` → `java.version`. Bỏ qua giá trị chưa nội suy (`${…}`).
    - **Gradle:** init script `arrow-info.gradle` của ARROW, chạy task `arrowInfo` trước khi biên dịch. Task in `java.toolchain.languageVersion`, nếu không có thì `sourceCompatibility`, kèm thư mục project, source/test dirs và dependency khai báo.
+     - Script dùng API cũ (`all`, `create`), vì `configureEach` và `register` chỉ có từ Gradle 4.9, mà wrapper của project cũ có thể là Gradle 3.
+     - Task cũng in `include`/`exclude` của task `test` (Mục 4.7).
    - Quy về số major: `1.7` → 7, `1.8` → 8, `11` → 11.
    - Lệnh effective POM hay `arrowInfo` lỗi: không dừng, ghi `missing_reasons.java`.
 2. **Chọn JDK** trong các JDK có trên máy (8, 11, 17, 21), theo `JdkSelector`:

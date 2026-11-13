@@ -55,6 +55,41 @@ public sealed class CliExecutableTests : IDisposable
         Assert.NotEmpty(Directory.GetFiles(Path.Combine(_home, "logs"), "arrow-*.log"));
     }
 
+    /// <summary>P08 §2.6: the machine of the tests (CI runners, a developer machine) is ready.</summary>
+    [Fact]
+    public async Task DoctorReportsAReadyMachine()
+    {
+        var run = await Arrow("", TimeSpan.FromMinutes(3), "doctor");
+        Assert.Equal(0, run.ExitCode);
+        Assert.Contains("java-helper", run.Output, StringComparison.Ordinal);
+        Assert.Contains("Kết quả: SẴN SÀNG", run.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// P01 §11, P11 §2: <c>arrow inspect</c> through the real executable on a fixture, with the JSON result; the project is not changed
+    /// and the work folder is deleted afterwards.
+    /// </summary>
+    [Fact]
+    public async Task InspectFixtureWithJson()
+    {
+        Assert.SkipWhen(new Arrow.DataAccess.Tools.ToolLocator(Environment.GetEnvironmentVariable).FindOnPath("mvn") is null, "Maven is not on PATH");
+        using var project = new Fixtures.FixtureRepo("maven-existing-arrowtest");
+        var before = Fixtures.FixtureRepo.FingerprintOf(project.Root);
+
+        var run = await Arrow("", TimeSpan.FromMinutes(8), "inspect", "WordCounter", "--project", project.Root, "--json");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(JsonObjectOf(run.Output))!;
+        var analysis = json["analysis"]!;
+        Assert.Equal("OK", (string?)json["outcome"]!["outcome"]);
+        Assert.Equal("com.acme.text.WordCounter_Arrow2Test", (string?)analysis["cut"]!["generated_test_fqn"]);
+        Assert.Equal(2, (int)analysis["cut"]!["name_index"]!);
+        Assert.Single(analysis["baseline"]!["passing_in_all_runs"]!.AsArray());
+        Assert.Equal(before, Fixtures.FixtureRepo.FingerprintOf(project.Root));
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_home, "work")));
+        Assert.True(File.Exists(Path.Combine((string)json["run_dir"]!, "targets", "com.acme.text.WordCounter", "block1", "outcome.json")));
+    }
+
     public void Dispose()
     {
         try
@@ -66,12 +101,23 @@ public sealed class CliExecutableTests : IDisposable
         }
     }
 
-    private async Task<ProcessResult> Arrow(string stdin, params string[] args)
+    /// <summary>The JSON object in a mixed stdout/stderr text: the lines from the first line that is <c>{</c> to the last that is <c>}</c>.</summary>
+    private static string JsonObjectOf(string output)
+    {
+        var lines = output.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var first = Array.IndexOf(lines, "{");
+        var last = Array.LastIndexOf(lines, "}");
+        return string.Join('\n', lines[first..(last + 1)]);
+    }
+
+    private Task<ProcessResult> Arrow(string stdin, params string[] args) => Arrow(stdin, TimeSpan.FromMinutes(1), args);
+
+    private async Task<ProcessResult> Arrow(string stdin, TimeSpan timeout, params string[] args)
     {
         var dll = Path.Combine(AppContext.BaseDirectory, "Arrow.Cli.dll");
         var spec = new ProcessSpec("dotnet", [dll, .. args, "--home", _home], _home,
             Environment: new Dictionary<string, string?> { ["NO_COLOR"] = "1" },
-            Timeout: TimeSpan.FromMinutes(1),
+            Timeout: timeout,
             StandardInput: stdin);
         return await new ProcessRunner().RunAsync(spec, TestContext.Current.CancellationToken);
     }

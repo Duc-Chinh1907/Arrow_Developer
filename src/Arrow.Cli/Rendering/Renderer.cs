@@ -33,6 +33,12 @@ public interface IRenderer
     /// <summary><c>!</c> / <c>[!]</c>.</summary>
     void Warn(string text);
 
+    /// <summary><c>▶</c> / <c>[&gt;]</c>: a progress line.</summary>
+    void Step(string text);
+
+    /// <summary><c>✗</c> / <c>[X]</c> with <c>→ Cách sửa:</c>; for a failed check that has no error code, such as a line of <c>arrow doctor</c>.</summary>
+    void Fail(string text, string? hint);
+
     /// <summary>
     /// <c>✗ CODE · message</c>, then the hint and the log path (P08 §3.2). In JSON mode the error is also written to
     /// stdout as <c>{ "error": { … } }</c>, so scripts can read it.
@@ -91,6 +97,17 @@ public sealed class Renderer : IRenderer
     public void Ok(string text) => Marked("green", "✓", "[OK]", text);
 
     public void Warn(string text) => Marked("yellow", "!", "[!]", text);
+
+    public void Step(string text) => Marked("cyan", "▶", "[>]", text);
+
+    public void Fail(string text, string? hint)
+    {
+        Marked("red", "✗", "[X]", text);
+        if (hint is not null)
+        {
+            Detail("  → Cách sửa: " + hint);
+        }
+    }
 
     public void Error(ErrorInfo error)
     {

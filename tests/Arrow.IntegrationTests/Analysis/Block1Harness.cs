@@ -42,6 +42,7 @@ public sealed class Block1Harness : IAsyncDisposable
             new ProjectSource(Home.MirrorsDir, git, workspaces, []),
             ct => _pool.RentAsync(ct),
             new ModuleAnalyzer(builds, workspaces, options, catalog),
+            workspaces,
             Runs,
             catalog);
     }

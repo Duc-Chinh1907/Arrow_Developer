@@ -18,6 +18,9 @@ public sealed record HistoryContent(IReadOnlyList<HistoryEntry> Entries, int Ski
 /// <summary>Results of the runs (P09 §5). Every text written through it is redacted first (P00 §5).</summary>
 public interface IRunStore
 {
+    /// <summary>A run id that no folder in <c>runs/</c> uses yet (P09 §5.1).</summary>
+    string NewUniqueRunId(DateTime localTime);
+
     /// <summary>Creates <c>runs/&lt;run_id&gt;/</c> and writes <c>run.json</c>. <see cref="RunInfo.RunId"/> must be unused.</summary>
     RunHandle Create(RunInfo info);
 

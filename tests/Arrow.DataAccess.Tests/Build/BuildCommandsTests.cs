@@ -83,6 +83,19 @@ public class BuildCommandsTests
         Assert.Equal("[ERROR] /w/src/main/java/a/Order.java:[3,24] package javax.annotation does not exist", BuildFailureClassifier.FirstError(log));
         Assert.Equal("[ERROR] Failed to execute goal x", BuildFailureClassifier.FirstError("[INFO] a\n[ERROR] Failed to execute goal x\n"));
         Assert.Null(BuildFailureClassifier.FirstError(""));
+
+        // Gradle: the reason is under "What went wrong", not in the last line.
+        const string gradle = """
+            FAILURE: Build failed with an exception.
+
+            * What went wrong:
+            An exception occurred applying plugin request [id: 'org.sonarqube']
+            > Failed to apply plugin 'org.sonarqube'.
+
+            * Try:
+            BUILD FAILED in 5s
+            """;
+        Assert.StartsWith("An exception occurred applying plugin request", BuildFailureClassifier.FirstError(gradle), StringComparison.Ordinal);
     }
 
     // Parity: Block1Tests.RemovesOnlyCorruptJarsInsideBuildCaches, with the cache folder passed in instead of the real ~/.m2.
