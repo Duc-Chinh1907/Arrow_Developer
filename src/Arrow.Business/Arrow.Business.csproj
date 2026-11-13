@@ -4,6 +4,10 @@
     <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
     <ProjectReference Include="..\Arrow.DataAccess\Arrow.DataAccess.csproj" />
   </ItemGroup>
+  <!-- Prompt templates (P02 §3.1): data shipped inside the assembly; prompts.override_dir may replace single files. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts\**\*.md" LogicalName="Arrow.Business.Prompts.%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Arrow.Business.Tests" />
     <InternalsVisibleTo Include="Arrow.IntegrationTests" />
