@@ -5,6 +5,10 @@
   <ItemGroup Label="Product">
     <!-- DPAPI for API keys on Windows (P09 §4.1); version matches the .NET 10 runtime. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+    <!-- CLI (P08): command parsing, rendering and prompts, dependency injection. -->
+    <PackageVersion Include="System.CommandLine" Version="2.0.14" />
+    <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.15" />
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="xunit.v3" Version="4.0.2" />

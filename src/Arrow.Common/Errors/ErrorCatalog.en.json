@@ -217,7 +217,7 @@
   },
   "CLI_ARGS": {
     "message": "Wrong or missing arguments.",
-    "hint": "Type \"arrow {command} --help\" to see the usage."
+    "hint": "Type \"{help_command}\" to see the usage."
   },
   "CLI_NO_TTY": {
     "message": "This command needs a keyboard, but the input is redirected.",

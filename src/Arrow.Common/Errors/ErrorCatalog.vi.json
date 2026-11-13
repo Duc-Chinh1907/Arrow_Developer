@@ -217,7 +217,7 @@
   },
   "CLI_ARGS": {
     "message": "Tham số sai hoặc thiếu.",
-    "hint": "Gõ \"arrow {command} --help\" để xem cách dùng."
+    "hint": "Gõ \"{help_command}\" để xem cách dùng."
   },
   "CLI_NO_TTY": {
     "message": "Lệnh này cần bàn phím, nhưng đầu vào đang bị chuyển hướng.",

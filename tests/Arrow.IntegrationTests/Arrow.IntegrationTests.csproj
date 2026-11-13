@@ -1,9 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Integration and E2E tests on fixtures with real JDKs, Maven and Gradle (P11 §1). Never a real LLM. -->
-  <PropertyGroup>
-    <!-- No tests yet: accept exit code 8 (zero tests ran). Remove this when the first test is added. -->
-    <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
-  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Arrow.Cli\Arrow.Cli.csproj" />
   </ItemGroup>
