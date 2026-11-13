@@ -9,14 +9,14 @@ using Arrow.Common.Errors;
 namespace Arrow.Cli.Commands;
 
 /// <summary>
-/// <c>arrow gen &lt;class&gt;</c> (P08 §2.2), the minimal version of milestone M1: one class, blocks 1–3, then the question to write
-/// the file. <c>--package</c>, <c>--jobs</c>, <c>--max-tokens</c> estimates and <c>--resume</c> come with GĐ6.
+/// <c>arrow gen &lt;class…&gt; [--package &lt;pkg&gt;]</c> (P08 §2.2): blocks 1–4 for each class, at most <c>--jobs</c> at once,
+/// then the question to write the files. <c>--resume</c> comes with the resume PR of GĐ6.
 /// </summary>
 internal static class GenCommand
 {
     public static Command Build(CliApp app)
     {
-        var classes = new Argument<string[]>("class") { Description = "Tên ngắn, FQN hoặc đường dẫn file .java", Arity = ArgumentArity.OneOrMore };
+        var classes = new Argument<string[]>("class") { Description = "Tên ngắn, FQN hoặc đường dẫn file .java", Arity = ArgumentArity.ZeroOrMore };
         var project = new Option<string?>("--project") { Description = "Thư mục project (mặc định: thư mục hiện tại)" };
         var repo = new Option<string?>("--repo") { Description = "URL https của repo GitHub" };
         var gitRef = new Option<string?>("--ref") { Description = "Nhánh, tag hoặc SHA đầy đủ của repo" };
@@ -26,22 +26,24 @@ internal static class GenCommand
         var noMetrics = new Option<bool>("--no-metrics") { Description = "Bỏ khối 4 (đo chất lượng)" };
         var dryRun = new Option<bool>("--dry-run") { Description = "Chạy đủ nhưng không ghi vào project" };
         var maxTokens = new Option<long?>("--max-tokens") { Description = "Ngân sách token của cả run" };
-        var command = new Command("gen", "Sinh unit test cho một class, xác minh trên build thật, sửa tự động, rồi hỏi ghi file")
+        var package = new Option<string?>("--package") { Description = "Mọi class cụ thể trong package này" };
+        var jobs = new Option<int?>("--jobs") { Description = "Số class chạy song song, 1–8 (mặc định: run.jobs)" };
+        var command = new Command("gen", "Sinh unit test cho một hoặc nhiều class, xác minh trên build thật, sửa tự động, đo chất lượng, rồi hỏi ghi file")
         {
-            classes, project, repo, gitRef, model, rounds, noRepair, noMetrics, dryRun, maxTokens,
+            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, dryRun, jobs, maxTokens,
         };
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, token) =>
         {
             var options = new GenerateOptions(parse.GetValue(model), parse.GetValue(rounds), parse.GetValue(noRepair), parse.GetValue(noMetrics),
-                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens));
-            return RunAsync(context, parse.GetValue(classes)!, parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
+                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs));
+            return RunAsync(context, parse.GetValue(classes) ?? [], parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
                 parse.Tokens.Select(t => t.Value).ToList(), token);
         }));
         return command;
     }
 
     private static async Task<int> RunAsync(
-        CommandContext context, string[] classes, string? project, string? repo, string? gitRef, GenerateOptions options, IReadOnlyList<string> tokens, CancellationToken ct)
+        CommandContext context, string[] classes, string? package, string? project, string? repo, string? gitRef, GenerateOptions options, IReadOnlyList<string> tokens, CancellationToken ct)
     {
         static void Usage(string detail) =>
             throw new ArrowException(ErrorCodes.CliArgs, detail, new Dictionary<string, string> { ["help_command"] = "arrow gen --help" });
@@ -55,23 +57,21 @@ internal static class GenCommand
             Usage("--ref chỉ dùng cùng --repo.");
         }
 
-        if (classes.Length > 1)
+        if (classes.Length == 0 && package is null)
         {
-            Usage("Bản này sinh test cho một class mỗi lần; chạy arrow gen riêng cho từng class.");
+            Usage("Cần ít nhất một class, hoặc --package.");
         }
 
-        var cls = classes[0];
-        var target = repo is not null
-            ? new ProjectTarget(ProjectSourceKind.GitRepository, repo, gitRef, cls)
-            : new ProjectTarget(ProjectSourceKind.LocalDirectory, Path.GetFullPath(project ?? ".", context.Console.CurrentDirectory), null, cls);
+        var request = repo is not null
+            ? new GenerateRequest(ProjectSourceKind.GitRepository, repo, gitRef, classes, package, options)
+            : new GenerateRequest(ProjectSourceKind.LocalDirectory, Path.GetFullPath(project ?? ".", context.Console.CurrentDirectory), null, classes, package, options);
         var command = new List<string> { "gen" };
         command.AddRange(tokens.Where(t => t != "gen"));
 
         var result = await context.Get<IGenerateTestsUseCase>().RunAsync(
-            target,
-            options,
+            request,
             command,
-            repo is null ? target.Location : context.ProjectRoot,
+            repo is null ? request.Location : context.ProjectRoot,
             new EventPrinter(context.Renderer, context.Globals.Verbose),
             context.Get<IConfirmation>(),
             ct).ConfigureAwait(false);
@@ -81,9 +81,12 @@ internal static class GenCommand
         {
             Print(context.Renderer, result);
         }
-        else if (result.Targets.FirstOrDefault()?.Error is { } error)
+        else
         {
-            context.Renderer.Fail($"{error.Code} · {error.Message}", error.Hint);
+            foreach (var error in result.Targets.Select(t => t.Error).OfType<ErrorInfo>())
+            {
+                context.Renderer.Fail($"{error.Code} · {error.Message}", error.Hint);
+            }
         }
 
         return result.ExitCode;
@@ -140,6 +143,24 @@ internal static class GenCommand
                     renderer.Line($"Không ghi vào project; bản test ở {Path.Combine(result.RunDir, "targets", target.CutFqn, "block3", "final.java")}");
                     break;
             }
+        }
+
+        if (result.Targets.Count > 1)
+        {
+            renderer.Table(
+                ["Class", "Kết quả", "Vòng", "Line", "Branch", "Mutation", "Smell", "Ghi file"],
+                result.Targets.Select(t => (IReadOnlyList<string>)
+                [
+                    t.CutFqn[(t.CutFqn.LastIndexOf('.') + 1)..],
+                    t.Result.ToString().ToUpperInvariant(),
+                    t.RoundsRun.ToString(CultureInfo.InvariantCulture),
+                    Percent(t.Metrics?.Line),
+                    Percent(t.Metrics?.Branch),
+                    Percent(t.Metrics?.Mutation),
+                    t.Metrics?.SmellDensity is { } density ? density.ToString("0.00", CultureInfo.InvariantCulture) : "-",
+                    t.Apply?.Decision is { } decision ? decision.ToString().ToLowerInvariant() : "-",
+                ]).ToList());
+            renderer.Line($"{result.Targets.Count(t => t.Result == TargetOutcome.Valid)}/{result.Targets.Count} class VALID");
         }
 
         var totals = result.Totals;

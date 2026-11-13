@@ -139,5 +139,12 @@ It is the product version of the team's research framework. There is **no resear
     - `.arrow-sample/` added to `maven-verify-junit4`, `maven-multi-junit5`, `gradle-junit5`; READMEs give the measured values. The `maven-testng` README said 100% line and branch; the measurement gives 90% and 86%, since its sample never adds a positive amount.
     - `QualityIntegrationTests` measure the 4 fixtures (about 3 min; tools downloaded once into `%TEMP%/arrow-quality-tools`).
 - **GĐ5 is complete** when PR `gd5/quality` is merged.
-- **Next:** GĐ6, the full `arrow gen` and the interactive session (P06, P07, P08).
+- GĐ5 is complete (PRs #19–#21).
+- GĐ6 (full `arrow gen`, interactive session; P06, P07, P08) in PRs: `gd6/multi`, `gd6/apply`, `gd6/resume`, `gd6/show`, `gd6/display`, `gd6/repl`.
+  - PR `gd6/multi` (14/11/2026):
+    - `GenerateTestsUseCase` takes a `GenerateRequest` (several classes, `--package`, `--jobs`). It runs the cost estimate and question of P07 §4, then runs targets in parallel with `SemaphoreSlim(jobs)`, sharing one model client and block 1 per module (`AnalysisCache`).
+    - A P03 stop starts no new target, and the exit codes follow P07 §9.
+    - The per-target pipeline is `TargetPipeline` (`PipelineShared`, `TargetRun`); the write step is `ProjectApplier`, run after all targets. `TestWritePolicy` replaces it in `gd6/apply`.
+    - `ToolStore` retries HTTP 429/5xx and network errors (2/5/10 s or `Retry-After` ≤ 30 s): Maven Central answered 429 after many test downloads. `GenExecutableTests` copy tools from `%TEMP%/arrow-quality-tools/tools`.
+    - New scenario `tests/scenarios/two-classes`.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

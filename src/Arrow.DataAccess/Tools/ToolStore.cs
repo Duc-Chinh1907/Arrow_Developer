@@ -65,10 +65,19 @@ public interface IToolStore
 
 /// <summary>
 /// <see cref="IToolStore"/>: downloads over HTTPS from Maven Central (or <c>ARROW_MAVEN_MIRROR</c>) and GitHub, without Maven on the
-/// machine. A file is written to <c>.part</c>, checked, then renamed; a wrong sha256 deletes it.
+/// machine. A file is written to <c>.part</c>, checked, then renamed; a wrong sha256 deletes it. HTTP 429, 5xx and network errors
+/// are tried again after <see cref="RetryDelays"/> (or <c>Retry-After</c>, at most 30 s).
 /// </summary>
-public sealed class ToolStore(ArrowHome home, HttpClient http, Func<string, string?> getEnvironment, ToolLock? lockFile = null) : IToolStore
+public sealed class ToolStore(ArrowHome home, HttpClient http, Func<string, string?> getEnvironment, ToolLock? lockFile = null, TimeProvider? time = null) : IToolStore
 {
+    /// <summary>Waits before the retries of a download.</summary>
+    public static readonly IReadOnlyList<TimeSpan> RetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)];
+
+    /// <summary>Longest <c>Retry-After</c> honoured.</summary>
+    public static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(30);
+
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     /// <summary>Variable that replaces <see cref="MavenCentral"/> (P09 §6.2).</summary>
     public const string MirrorVariable = "ARROW_MAVEN_MIRROR";
 
@@ -207,26 +216,43 @@ public sealed class ToolStore(ArrowHome home, HttpClient http, Func<string, stri
     private async Task DownloadAsync(string id, Uri url, string part, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(part)!);
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            TimeSpan? wait = null;
+            string reason;
+            try
             {
-                throw new ArrowException(ErrorCodes.CfgToolMissing, $"{id}: {url} trả HTTP {(int)response.StatusCode}");
+                using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    await using var file = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
+                    return;
+                }
+
+                var status = (int)response.StatusCode;
+                reason = $"{url} trả HTTP {status}";
+                if (status != 429 && status < 500)
+                {
+                    TryDelete(part);
+                    throw new ArrowException(ErrorCodes.CfgToolMissing, $"{id}: {reason}");
+                }
+
+                wait = response.Headers.RetryAfter?.Delta;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException && !ct.IsCancellationRequested)
+            {
+                reason = $"không tải được {url} ({ex.Message})";
             }
 
-            await using var file = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None);
-            await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException && !ct.IsCancellationRequested)
-        {
             TryDelete(part);
-            throw new ArrowException(ErrorCodes.CfgToolMissing, $"{id}: không tải được {url} ({ex.Message})");
-        }
-        catch (ArrowException)
-        {
-            TryDelete(part);
-            throw;
+            if (attempt >= RetryDelays.Count)
+            {
+                throw new ArrowException(ErrorCodes.CfgToolMissing, $"{id}: {reason}");
+            }
+
+            var delay = wait is { } after && after > TimeSpan.Zero ? (after < MaxRetryAfter ? after : MaxRetryAfter) : RetryDelays[attempt];
+            await Task.Delay(delay, _time, ct).ConfigureAwait(false);
         }
     }
 

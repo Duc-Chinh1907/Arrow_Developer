@@ -1,23 +1,16 @@
-using System.Diagnostics;
-using System.Security.Cryptography;
 using Arrow.Business.Analysis;
 using Arrow.Business.Config;
 using Arrow.Business.Environment;
 using Arrow.Business.Generation;
 using Arrow.Business.Llm;
-using Arrow.Business.Repair;
+using Arrow.Business.Quality;
 using Arrow.Common;
 using Arrow.Common.Analysis;
-using Arrow.Common.Config;
 using Arrow.Common.Errors;
 using Arrow.Common.Events;
-using Arrow.Common.Generation;
-using Arrow.Common.Verification;
 using Arrow.DataAccess.Apply;
 using Arrow.DataAccess.Config;
 using Arrow.DataAccess.JavaHelper;
-using Arrow.Business.Quality;
-using Arrow.Common.Quality;
 using Arrow.DataAccess.Processes;
 using Arrow.DataAccess.Source;
 using Arrow.DataAccess.Storage;
@@ -25,22 +18,32 @@ using Arrow.DataAccess.Tools;
 
 namespace Arrow.Business.UseCases;
 
-/// <summary>Options of <c>arrow gen</c> (P07 §1, P08 §2.2) that the minimal version supports.</summary>
+/// <summary>Options of <c>arrow gen</c> (P07 §1, P08 §2.2).</summary>
 /// <param name="Model"><c>--model</c>; null for <c>llm.default_model</c>.</param>
 /// <param name="Rounds"><c>--rounds</c>; null for <c>repair.rounds</c>.</param>
 /// <param name="NoRepair"><c>--no-repair</c>.</param>
 /// <param name="NoMetrics"><c>--no-metrics</c>.</param>
-/// <param name="Yes"><c>--yes</c>: write the file without asking.</param>
+/// <param name="Yes"><c>--yes</c>: accept the cost estimate and write the files without asking.</param>
 /// <param name="DryRun"><c>--dry-run</c>: never write into the project.</param>
 /// <param name="MaxTokens"><c>--max-tokens</c>.</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens);
+/// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
+public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null);
+
+/// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
+/// <param name="Kind">Local folder or GitHub repository.</param>
+/// <param name="Location">Folder or URL.</param>
+/// <param name="GitRef"><c>--ref</c>.</param>
+/// <param name="CutQueries">Class names as typed; may be empty with <paramref name="Package"/>.</param>
+/// <param name="Package"><c>--package</c>.</param>
+/// <param name="Options">The options.</param>
+public sealed record GenerateRequest(ProjectSourceKind Kind, string Location, string? GitRef, IReadOnlyList<string> CutQueries, string? Package, GenerateOptions Options);
 
 /// <summary>What <c>arrow gen</c> did (P07 §9).</summary>
 /// <param name="RunId">The run.</param>
 /// <param name="RunDir">Its folder.</param>
 /// <param name="Status">Status of the run.</param>
 /// <param name="ExitCode">Exit code of P07 §9.</param>
-/// <param name="Targets">The <c>result.json</c> of each CUT.</param>
+/// <param name="Targets">The <c>result.json</c> of each CUT, in the order of the request.</param>
 /// <param name="Totals">Model calls, tokens and cost of the run.</param>
 /// <param name="Warnings">Warnings to print.</param>
 public sealed record GenerateResult(string RunId, string RunDir, RunStatus Status, int ExitCode, IReadOnlyList<TargetResult> Targets, RunTotals Totals, IReadOnlyList<string> Warnings);
@@ -49,17 +52,16 @@ public sealed record GenerateResult(string RunId, string RunDir, RunStatus Statu
 public interface IGenerateTestsUseCase
 {
     /// <summary>
-    /// Generates, verifies and repairs a test for the class of <paramref name="target"/>, then offers to write it. Environment and
-    /// configuration problems raise <see cref="ArrowException"/> before a run exists (exit 2); a cancellation raises
+    /// Generates, verifies, repairs and measures a test for each class of <paramref name="request"/>, then offers to write them.
+    /// Environment and configuration problems raise <see cref="ArrowException"/> before a run exists (exit 2); Ctrl+C raises
     /// <see cref="OperationCanceledException"/> after the run is marked CANCELLED.
     /// </summary>
-    Task<GenerateResult> RunAsync(ProjectTarget target, GenerateOptions options, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct);
+    Task<GenerateResult> RunAsync(GenerateRequest request, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct);
 }
 
 /// <summary>
-/// <see cref="IGenerateTestsUseCase"/>, the minimal version of milestone M1 (PLAN GĐ4): one class, blocks 1 → 2 → 3, no block 4,
-/// and a simple writer that never overwrites. Several classes, <c>--jobs</c>, resume, renaming before writing and the cost
-/// question come with GĐ6.
+/// <see cref="IGenerateTestsUseCase"/> (P07): checks, the run, the classes, the cost question, the targets in parallel (at most
+/// <c>--jobs</c>, sharing block 1 per module and one model client), then the write step and the exit code.
 /// </summary>
 public sealed class GenerateTestsUseCase(
     IConfigStore config,
@@ -72,33 +74,40 @@ public sealed class GenerateTestsUseCase(
     IToolStore toolStore,
     IProcessRunner processes,
     string arrowVersion,
-    Func<string, long?>? freeBytes = null) : IGenerateTestsUseCase
+    Func<string, long?>? freeBytes = null,
+    ILlmCostEstimator? estimator = null) : IGenerateTestsUseCase
 {
     /// <summary>Exit codes of P07 §9.</summary>
     public const int ExitValid = 0, ExitNotValid = 1, ExitBlocked = 2, ExitCancelled = 3;
 
+    /// <summary>Characters counted for the block of M in the estimate (P07 §4).</summary>
+    public const int MetadataChars = 1500;
+
     private static readonly Dictionary<string, string?> NoOverrides = [];
 
-    private IRunStore Runs => runs;
-
-    private ILlmClientFactory Llms => llms;
-
-    private IProjectFileWriter Writer => writer;
-
-    private IToolStore ToolStore => toolStore;
-
-    private IProcessRunner Processes => processes;
-
-    public async Task<GenerateResult> RunAsync(ProjectTarget target, GenerateOptions options, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct)
+    public async Task<GenerateResult> RunAsync(GenerateRequest request, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct)
     {
+        var options = request.Options;
+
         // P07 §2: nothing is created until these pass.
-        var remote = target.Kind == ProjectSourceKind.GitRepository ? GitRemote.Parse(target.Location) : null;
+        if (request.CutQueries.Count == 0 && request.Package is null)
+        {
+            throw new ArrowException(ErrorCodes.CliArgs, "Cần tên class hoặc --package.");
+        }
+
+        var remote = request.Kind == ProjectSourceKind.GitRepository ? GitRemote.Parse(request.Location) : null;
         var effective = config.Load(projectRoot, NoOverrides);
         ConfigValidator.ThrowIfInvalid(effective);
         var settings = effective.Config;
         if (options.Rounds is < 1 or > 10)
         {
             throw new ArrowException(ErrorCodes.CliArgs, "--rounds phải từ 1 đến 10.");
+        }
+
+        var jobs = options.Jobs ?? settings.Run.Jobs;
+        if (jobs is < 1 or > 8)
+        {
+            throw new ArrowException(ErrorCodes.CliArgs, "--jobs phải từ 1 đến 8.");
         }
 
         var catalog = ErrorCatalog.For(settings.Ui.Language);
@@ -131,15 +140,20 @@ public sealed class GenerateTestsUseCase(
         }
 
         var analysisOptions = AnalysisOptions.From(settings.Verification, machine.BuildJdkHomes, machine.Maven, machine.Gradle);
-        await using var host = await hosts.StartAsync(new AnalyzerSetup(java, machine.Git, analysisOptions, catalog), ct).ConfigureAwait(false);
+        await using var host = await hosts.StartAsync(new AnalyzerSetup(java, machine.Git, analysisOptions, catalog, jobs), ct).ConfigureAwait(false);
 
         // P07 §3: the run.
         var id = runs.NewUniqueRunId(DateTime.Now);
         var repair = settings.Repair with { Enabled = settings.Repair.Enabled && !options.NoRepair, Rounds = options.Rounds ?? settings.Repair.Rounds };
-        var project = new RunProject(target.Kind, remote?.RepoPath ?? new DirectoryInfo(target.Location).Name,
-            remote is null ? target.Location.Replace('\\', '/') : null, remote?.Url, target.GitRef, null, null, null);
+        var measure = !options.NoMetrics && settings.Quality.Enabled
+            ? new QualityOptions(settings.Quality.Tools, machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
+                TimeSpan.FromSeconds(settings.Quality.PitTimeoutSeconds), TimeSpan.FromSeconds(settings.Quality.TsdetectTimeoutSeconds),
+                settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces)
+            : null;
+        var project = new RunProject(request.Kind, remote?.RepoPath ?? new DirectoryInfo(request.Location).Name,
+            remote is null ? request.Location.Replace('\\', '/') : null, remote?.Url, request.GitRef, null, null, null);
         var info = new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-            new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, false),
+            new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null),
             templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = runs.Create(info);
         var work = Path.Combine(home.WorkDir, id);
@@ -147,13 +161,15 @@ public sealed class GenerateTestsUseCase(
         var run = new RunContext(id, home.Root, work, handle, new RunProgress(runs, handle, progress));
         Report(run, ArrowEventTypes.RunStarted, null, "arrow " + string.Join(' ', command));
 
+        var state = new RunState(runs, handle, info);
         ProjectWorkspace? workspace = null;
         var warnings = new List<string>();
         try
         {
+            var target = new ProjectTarget(request.Kind, request.Location, request.GitRef, request.CutQueries.FirstOrDefault() ?? "");
             workspace = await host.Analyzer.PrepareAsync(target, run, size => confirm.ConfirmAsync(
                 $"Project nặng {size / (1024 * 1024 * 1024.0):0.0} GB sau khi lọc. Vẫn chép?", true, ct), ct).ConfigureAwait(false);
-            info = info with
+            state.Update(i => i with
             {
                 Project = project with
                 {
@@ -162,53 +178,66 @@ public sealed class GenerateTestsUseCase(
                     Dirty = workspace.Checkout.Dirty,
                     SourceTreeHash = workspace.Checkout.SourceTreeHash,
                 },
-            };
-            runs.Update(handle, info);
+            });
+            warnings.AddRange(workspace.Warnings);
 
-            var picked = await CutPicker.PickAsync(host.Analyzer, workspace, target.CutQuery, catalog, confirm, ct).ConfigureAwait(false);
-            if (picked.Warning is not null)
+            // P07 §3 steps 4–6: the classes.
+            var (cuts, blocked) = await SelectAsync(host.Analyzer, workspace, request, catalog, confirm, warnings, ct).ConfigureAwait(false);
+            var order = cuts.Select(c => c.Fqn).Concat(blocked.Select(b => b.CutFqn)).ToList();
+            state.Update(i => i with { Targets = [.. cuts.Select(c => new RunTarget(c.Fqn, TargetState.Pending)), .. blocked.Select(b => new RunTarget(b.CutFqn, TargetState.Done))] });
+            foreach (var b in blocked)
             {
-                warnings.Add(picked.Warning);
+                runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(b.CutFqn)}/result.json", b);
             }
 
-            var cutFqn = picked.Cut?.Fqn ?? target.CutQuery;
-            info = info with { Targets = [new RunTarget(cutFqn, TargetState.Running)] };
-            runs.Update(handle, info);
-
-            var measure = !options.NoMetrics && settings.Quality.Enabled
-                ? new QualityOptions(settings.Quality.Tools, machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
-                    TimeSpan.FromSeconds(settings.Quality.PitTimeoutSeconds), TimeSpan.FromSeconds(settings.Quality.TsdetectTimeoutSeconds),
-                    settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces)
-                : null;
-            var pipeline = new Pipeline(this, host, run, settings, model, limits, templates, catalog, options, repair, confirm, workspace, warnings, measure);
-            var result = picked.Cut is null
-                ? Blocked(cutFqn, picked.Blocked!, 0)
-                : await pipeline.RunAsync(picked.Cut, ct).ConfigureAwait(false);
-            runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(cutFqn)}/result.json", result);
-
-            var stopped = result.Result == TargetOutcome.Cancelled;
-            var totals = new RunTotals(result.LlmCalls, result.Tokens.In, result.Tokens.Out, result.CostUsd);
-            info = info with
+            Report(run, ArrowEventTypes.RunTargetsResolved, null, $"{cuts.Count} class: {string.Join(", ", cuts.Select(c => c.SimpleName))}", ("targets", cuts.Select(c => c.Fqn).ToList()));
+            var results = new Dictionary<string, TargetResult>(StringComparer.Ordinal);
+            foreach (var b in blocked)
             {
-                Status = stopped ? RunStatus.Failed : RunStatus.Completed,
-                FinishedAt = DateTimeOffset.UtcNow,
-                Targets = [new RunTarget(cutFqn, stopped ? TargetState.Running : TargetState.Done)],
-                Totals = totals,
-            };
-            runs.Update(handle, info);
-            runs.AppendHistory(new HistoryEntry(id, info.StartedAt, project.PathName, [cutFqn],
-                result.Result == TargetOutcome.Valid ? 1 : 0, result.Apply?.Decision == ApplyDecision.Written ? 1 : 0, info.Status));
-            Report(run, ArrowEventTypes.RunFinished, null, $"Run {id}: {result.Result.ToString().ToUpperInvariant()}");
-            return new GenerateResult(id, handle.Root, info.Status, ExitCodeOf(result), [result], totals, warnings);
+                results[b.CutFqn] = b;
+            }
+
+            // P07 §4: the estimate and the question.
+            if (cuts.Count > 0 && !await ConfirmCostAsync(cuts, workspace, model, repair, templates, limits, settings, options, confirm, run, ct).ConfigureAwait(false))
+            {
+                state.Update(i => i with { Status = RunStatus.Cancelled, FinishedAt = DateTimeOffset.UtcNow });
+                Finish(state, project, order, results);
+                return new GenerateResult(id, handle.Root, RunStatus.Cancelled, ExitCancelled, Ordered(order, results), RunTotals.Zero, warnings);
+            }
+
+            // P07 §6–7: the targets, at most `jobs` at a time.
+            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog, settings, repair, measure, workspace, runs, toolStore, processes);
+            var runs2 = await RunTargetsAsync(cuts, run, shared, jobs, state, results, warnings, ct).ConfigureAwait(false);
+
+            // P07 §9: the write step, then the end of the run.
+            var applier = new ProjectApplier(writer, runs, catalog);
+            var applyContext = new ApplyContext(run, workspace.Checkout.ProjectRoot, options.Yes, options.DryRun, settings.Apply.Confirm);
+            foreach (var done in runs2.Where(r => r.Final is not null && r.Metadata is not null))
+            {
+                var apply = await applier.ApplyAsync(done.Metadata!, done.Final!, applyContext, confirm, warnings, ct).ConfigureAwait(false);
+                var withApply = done.Result with { Apply = apply };
+                results[withApply.CutFqn] = withApply;
+                runs.WriteJson(handle, $"{ProjectAnalyzer.TargetDir(withApply.CutFqn)}/result.json", withApply);
+            }
+
+            var stopped = runs2.Any(r => r.Result is { Result: TargetOutcome.Cancelled, Error: not null });
+            var ordered = Ordered(order, results);
+            var totals = new RunTotals(ordered.Sum(r => r.LlmCalls), ordered.Sum(r => r.Tokens.In), ordered.Sum(r => r.Tokens.Out),
+                ordered.Any(r => r.CostUsd is not null) ? ordered.Sum(r => r.CostUsd ?? 0) : null);
+            state.Update(i => i with { Status = stopped ? RunStatus.Failed : RunStatus.Completed, FinishedAt = DateTimeOffset.UtcNow, Totals = totals });
+            Finish(state, project, order, results);
+            Report(run, ArrowEventTypes.RunFinished, null,
+                $"Run {id}: {ordered.Count(r => r.Result == TargetOutcome.Valid)}/{ordered.Count} VALID", ("valid", ordered.Count(r => r.Result == TargetOutcome.Valid)), ("targets", ordered.Count));
+            return new GenerateResult(id, handle.Root, state.Info.Status, ExitCodeOf(ordered, stopped), ordered, totals, warnings);
         }
         catch (OperationCanceledException)
         {
-            runs.Update(handle, info with { Status = RunStatus.Cancelled, FinishedAt = DateTimeOffset.UtcNow });
+            state.Update(i => i with { Status = RunStatus.Cancelled, FinishedAt = DateTimeOffset.UtcNow });
             throw;
         }
         catch (Exception)
         {
-            runs.Update(handle, info with { Status = RunStatus.Failed, FinishedAt = DateTimeOffset.UtcNow });
+            state.Update(i => i with { Status = RunStatus.Failed, FinishedAt = DateTimeOffset.UtcNow });
             throw;
         }
         finally
@@ -224,293 +253,211 @@ public sealed class GenerateTestsUseCase(
         }
     }
 
-    /// <summary>Exit code of one target (P07 §9).</summary>
-    public static int ExitCodeOf(TargetResult result) => result.Result switch
+    /// <summary>
+    /// The classes of the queries and the package (P07 §3 steps 4–5), without repeats, in the order typed. A query without a usable
+    /// class becomes a BLOCKED target; the other targets still run.
+    /// </summary>
+    private static async Task<(List<ClassCandidate> Cuts, List<TargetResult> Blocked)> SelectAsync(
+        IProjectAnalyzer analyzer, ProjectWorkspace workspace, GenerateRequest request, ErrorCatalog catalog, IConfirmation confirm, List<string> warnings, CancellationToken ct)
     {
-        TargetOutcome.Valid => ExitValid,
-        TargetOutcome.Blocked => ExitBlocked,
-        TargetOutcome.Cancelled => result.Error is not null ? ExitBlocked : ExitCancelled,
-        _ => ExitNotValid,
-    };
+        var cuts = new List<ClassCandidate>();
+        var blocked = new List<TargetResult>();
+        foreach (var query in request.CutQueries)
+        {
+            var picked = await CutPicker.PickAsync(analyzer, workspace, query, catalog, confirm, ct).ConfigureAwait(false);
+            if (picked.Warning is not null)
+            {
+                warnings.Add(picked.Warning);
+            }
 
-    private static TargetResult Blocked(string cutFqn, BlockOutcome outcome, double block1Seconds) => new(
-        cutFqn,
-        outcome.Outcome == BlockOutcomeKind.Infra ? TargetOutcome.Infra : TargetOutcome.Blocked,
-        null, 0, null, null, null, null, null, null, null, null, TokenUsage.Zero, null, 0,
-        new BlockSeconds(block1Seconds, null, null, null, block1Seconds),
-        new ErrorInfo(outcome.Code ?? ErrorCodes.CliInternal, outcome.Message ?? "", outcome.Hint, outcome.Log is null ? null : $"block1/{outcome.Log}".Replace("block1/block1/", "block1/", StringComparison.Ordinal)),
-        [], null);
+            if (picked.Cut is null)
+            {
+                blocked.Add(TargetPipeline.Blocked(query, picked.Blocked!, 0));
+            }
+            else if (cuts.All(c => c.Fqn != picked.Cut.Fqn))
+            {
+                cuts.Add(picked.Cut);
+            }
+        }
+
+        if (request.Package is { } package)
+        {
+            var inPackage = ClassLocator.InPackage(workspace.Classes, package);
+            if (inPackage.Count == 0)
+            {
+                var info = catalog.Describe(ErrorCodes.B1CutMissing, $"Package {package} không có class cụ thể nào.", new Dictionary<string, string> { ["query"] = package });
+                blocked.Add(TargetPipeline.Blocked(package, new BlockOutcome(BlockOutcomeKind.Blocked, ErrorCodes.B1CutMissing, info.Message, info.Hint, null, null, 0), 0));
+            }
+
+            cuts.AddRange(inPackage.Where(c => cuts.All(x => x.Fqn != c.Fqn)));
+        }
+
+        return (cuts, blocked);
+    }
+
+    /// <summary>
+    /// P07 §4: the estimate, asked when there are at least <c>run.confirm_cost_from_classes</c> classes or the maximum is over
+    /// <c>--max-tokens</c>. <c>--yes</c> accepts; without a keyboard the answer is no.
+    /// </summary>
+    private async Task<bool> ConfirmCostAsync(
+        IReadOnlyList<ClassCandidate> cuts, ProjectWorkspace workspace, ResolvedModel model, Common.Config.RepairSettings repair, IPromptTemplateStore templates,
+        LlmLimits limits, Common.Config.ArrowConfig settings, GenerateOptions options, IConfirmation confirm, RunContext run, CancellationToken ct)
+    {
+        var templateChars = templates.Get("generation/system/zero_shot_project_aware.md").Body.Length + templates.Get("generation/user/project_aware.md").Body.Length;
+        var sizes = cuts.Select(c =>
+        {
+            var file = Path.Combine(workspace.Checkout.Root, c.Path.Replace('/', Path.DirectorySeparatorChar));
+            var chars = File.Exists(file) ? (int)Math.Min(new FileInfo(file).Length, TestGenerator.MaxCutChars) : TestGenerator.MaxCutChars;
+            return new PromptSizeHint(chars + templateChars + MetadataChars);
+        }).ToList();
+        var estimate = (estimator ?? new LlmCostEstimator()).Estimate(model, sizes, repair.Enabled ? repair.Rounds : 0);
+        var text = EstimateText(cuts.Count, model.Name, repair.Rounds, estimate);
+        Report(run, ArrowEventTypes.RunEstimate, null, text, ("expected_tokens", estimate.ExpectedTokens), ("max_tokens", estimate.MaxTokens),
+            ("expected_cost_usd", estimate.ExpectedCostUsd), ("max_cost_usd", estimate.MaxCostUsd));
+
+        var ask = cuts.Count >= settings.Run.ConfirmCostFromClasses || (limits.MaxTokens is { } budget && estimate.MaxTokens > budget);
+        if (!ask || options.Yes)
+        {
+            return true;
+        }
+
+        if (!confirm.CanAsk)
+        {
+            Report(run, ArrowEventTypes.RunStopping, null, "Bỏ qua: cần --yes khi chạy không tương tác", level: EventLevel.Warning);
+            return false;
+        }
+
+        return await confirm.ConfirmAsync(text + " Tiếp tục?", true, ct).ConfigureAwait(false);
+    }
+
+    /// <summary><c>Ước tính cho 8 class (gpt-x, N=5): ~45k token (~0.03 USD), tối đa ~120k token (~0.08 USD).</c></summary>
+    public static string EstimateText(int classes, string model, int rounds, CostEstimate estimate)
+    {
+        static string Tokens(long n) => n >= 1000 ? $"~{n / 1000.0:0}k token" : $"~{n} token";
+        static string Usd(double? cost) => cost is { } c ? $" (~{c.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} USD)" : "";
+        return $"Ước tính cho {classes} class ({model}, N={rounds}): {Tokens(estimate.ExpectedTokens)}{Usd(estimate.ExpectedCostUsd)}, tối đa {Tokens(estimate.MaxTokens)}{Usd(estimate.MaxCostUsd)}.";
+    }
+
+    /// <summary>Runs the targets, at most <paramref name="jobs"/> at once, starting them in order (P07 §7). A stop of the run (P03) starts no new target.</summary>
+    private static async Task<IReadOnlyList<TargetRun>> RunTargetsAsync(
+        IReadOnlyList<ClassCandidate> cuts, RunContext run, PipelineShared shared, int jobs, RunState state, Dictionary<string, TargetResult> results, List<string> warnings, CancellationToken ct)
+    {
+        using var gate = new SemaphoreSlim(jobs);
+        var done = new TargetRun?[cuts.Count];
+        var stop = 0;
+        var tasks = new List<Task>();
+        for (var i = 0; i < cuts.Count; i++)
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            if (Volatile.Read(ref stop) == 1)
+            {
+                gate.Release();
+                break;
+            }
+
+            var index = i;
+            var cut = cuts[i];
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    var targetRun = run with { Progress = new TargetProgress(run.Progress, cut.Fqn, index + 1, cuts.Count) };
+                    state.SetTarget(cut.Fqn, TargetState.Running);
+                    Report(targetRun, ArrowEventTypes.RunTargetStarted, cut.Fqn, $"[{index + 1}/{cuts.Count}] {cut.Fqn}");
+                    TargetRun result;
+                    try
+                    {
+                        result = await TargetPipeline.RunAsync(cut, targetRun, shared, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // P07 §8: an unexpected error ends this target only.
+                        var info = shared.Catalog.Describe(ErrorCodes.CliInternal, ex.Message);
+                        result = new TargetRun(TargetPipeline.Blocked(cut.Fqn, new BlockOutcome(BlockOutcomeKind.Infra, info.Code, info.Message, info.Hint, ex.ToString(), null, 0), 0) with { Error = info }, null, null, []);
+                    }
+
+                    done[index] = result;
+                    lock (results)
+                    {
+                        results[cut.Fqn] = result.Result;
+                        warnings.AddRange(result.Warnings);
+                    }
+
+                    shared.Runs.WriteJson(run.Run, $"{ProjectAnalyzer.TargetDir(cut.Fqn)}/result.json", result.Result);
+                    var stopped = result.Result is { Result: TargetOutcome.Cancelled, Error: not null };
+                    if (stopped)
+                    {
+                        Interlocked.Exchange(ref stop, 1);
+                        Report(targetRun, ArrowEventTypes.RunStopping, cut.Fqn, $"{result.Result.Error!.Code}: dừng run, không bắt đầu class mới", level: EventLevel.Error);
+                    }
+
+                    // A target stopped by P03 keeps RUNNING so that the run can be resumed (P07 §8).
+                    state.SetTarget(cut.Fqn, stopped ? TargetState.Running : TargetState.Done);
+                    Report(targetRun, ArrowEventTypes.RunTargetDone, cut.Fqn, $"[{index + 1}/{cuts.Count}] {cut.SimpleName}: {result.Result.Result.ToString().ToUpperInvariant()}",
+                        ("result", result.Result.Result.ToString().ToUpperInvariant()));
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }, CancellationToken.None));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return done.OfType<TargetRun>().ToList();
+    }
+
+    /// <summary>Exit code of a run (P07 §9).</summary>
+    public static int ExitCodeOf(IReadOnlyList<TargetResult> targets, bool stoppedByLlm)
+    {
+        if (stoppedByLlm || targets.Count == 0 || targets.All(t => t.Result == TargetOutcome.Blocked))
+        {
+            return ExitBlocked;
+        }
+
+        return targets.All(t => t.Result == TargetOutcome.Valid) ? ExitValid : ExitNotValid;
+    }
+
+    private static IReadOnlyList<TargetResult> Ordered(IReadOnlyList<string> order, Dictionary<string, TargetResult> results) =>
+        order.Where(results.ContainsKey).Select(fqn => results[fqn]).ToList();
+
+    private void Finish(RunState state, RunProject project, IReadOnlyList<string> order, Dictionary<string, TargetResult> results)
+    {
+        var ordered = Ordered(order, results);
+        runs.AppendHistory(new HistoryEntry(state.Info.RunId, state.Info.StartedAt, project.PathName, order,
+            ordered.Count(r => r.Result == TargetOutcome.Valid), ordered.Count(r => r.Apply?.Decision == ApplyDecision.Written), state.Info.Status));
+    }
 
     private static void Report(RunContext run, string type, string? cut, string message, EventLevel level = EventLevel.Info, params (string Key, object? Value)[] data) =>
         run.Progress.Report(new ArrowEvent(DateTimeOffset.UtcNow, type, cut, null, null, level, message, data.ToDictionary(d => d.Key, d => d.Value)));
 
-    /// <summary>The target pipeline of P07 §6 for one CUT.</summary>
-    private sealed class Pipeline(
-        GenerateTestsUseCase owner,
-        IAnalyzerHost host,
-        RunContext run,
-        ArrowConfig settings,
-        ResolvedModel model,
-        LlmLimits limits,
-        IPromptTemplateStore templates,
-        ErrorCatalog catalog,
-        GenerateOptions options,
-        RepairSettings repair,
-        IConfirmation confirm,
-        ProjectWorkspace workspace,
-        List<string> warnings,
-        QualityOptions? measure)
+    private static void Report(RunContext run, string type, string? cut, string message, params (string Key, object? Value)[] data) =>
+        Report(run, type, cut, message, EventLevel.Info, data);
+
+    /// <summary><c>run.json</c>, updated from several targets at once.</summary>
+    private sealed class RunState(IRunStore runs, RunHandle handle, RunInfo info)
     {
-        public async Task<TargetResult> RunAsync(ClassCandidate cut, CancellationToken ct)
+        private readonly object _gate = new();
+
+        public RunInfo Info { get; private set; } = info;
+
+        public void Update(Func<RunInfo, RunInfo> change)
         {
-            var total = Stopwatch.StartNew();
-            var analysis = await host.Analyzer.AnalyzeAsync(workspace, cut, run, ct).ConfigureAwait(false);
-            var block1 = analysis.Outcome.Seconds;
-            warnings.AddRange(analysis.Warnings);
-            if (analysis.Outcome.Outcome != BlockOutcomeKind.Ok)
+            lock (_gate)
             {
-                return Blocked(cut.Fqn, analysis.Outcome, block1);
+                Info = change(Info);
+                runs.Update(handle, Info);
             }
-
-            var m = analysis.Metadata!;
-            var dir = ProjectAnalyzer.TargetDir(m.Cut.Fqn);
-            var shared = analysis.SharedFrom is null ? dir : ProjectAnalyzer.TargetDir(analysis.SharedFrom);
-            var task = new TaskContext(
-                run, m.Cut.Fqn, m, analysis.Baseline!, analysis.Workspace!,
-                File.ReadAllText(Path.Combine(workspace.Checkout.Root, m.Paths.CutPath.Replace('/', Path.DirectorySeparatorChar))),
-                dir,
-                (owner.Runs.ReadText(run.Run, $"{shared}/block1/test_classpath.txt") ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries));
-            var repairOptions = new RepairOptions(
-                repair.Enabled, repair.Rounds, repair.EarlyStopP, model,
-                (owner.Runs.ReadText(run.Run, $"{dir}/block1/metadata_prompt.txt") ?? "").TrimEnd('\n'),
-                TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts,
-                TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces);
-
-            var llm = owner.Llms.Create(model, run.Run, limits, run.Progress);
-            var generator = new TestGenerator(llm, host.JavaHelpers, templates, owner.Runs);
-
-            // Block 2: c0.
-            var watch = Stopwatch.StartNew();
-            GenerationResult c0;
-            try
-            {
-                c0 = await generator.GenerateAsync(new GenerationContext(run.Run, m.Cut.Fqn, m, repairOptions.MetadataPrompt, task.CutSource, model, $"{dir}/block2", run.Progress), ct).ConfigureAwait(false);
-            }
-            catch (ArrowException ex)
-            {
-                var stop = RepairRunner.StopCodes.Contains(ex.Code);
-                return Result(m, stop ? TargetOutcome.Cancelled : TargetOutcome.Infra, null, null, catalog.Describe(ex), block1, watch.Elapsed.TotalSeconds, null, total);
-            }
-
-            var block2 = watch.Elapsed.TotalSeconds;
-            var calls = new Usage(c0.Response);
-            if (!c0.Candidate.ValidOutput)
-            {
-                var invalid = catalog.Describe(ErrorCodes.B2InvalidOutput, c0.Candidate.InvalidReason);
-                return Result(m, TargetOutcome.InvalidOutput, null, null, invalid, block1, block2, null, total, calls);
-            }
-
-            // Block 3: verify c0, then the chain.
-            watch.Restart();
-            var v0 = await host.Verifier.VerifyAsync(
-                SuiteFiles.Single(c0.Candidate.TestFqn, c0.Candidate.TestPath, c0.Candidate.Code!), task,
-                repairOptions.Verify($"{dir}/block3/c0", 0, c0.Candidate), ct).ConfigureAwait(false);
-            owner.Runs.WriteJson(run.Run, $"{dir}/block3/verify_c0.json", v0);
-            if (v0.IsInfra)
-            {
-                var infra = catalog.Describe(v0.InfraReason!, v0.BuildErrorExcerpt, log: "block3/c0/logs/");
-                return Result(m, TargetOutcome.Infra, null, null, infra, block1, block2, watch.Elapsed.TotalSeconds, total, calls);
-            }
-
-            var runner = new RepairRunner(generator, host.Verifier, new FailureDiagnoser(), new ExtraContextBuilder(host.JavaHelpers), host.JavaHelpers, owner.Runs, catalog);
-            var final = await runner.RunChainAsync(c0.Candidate, v0, task, repairOptions, ct).ConfigureAwait(false);
-            var block3 = watch.Elapsed.TotalSeconds;
-            calls = calls.Add(final);
-            if (final.DroppedMethods.Count > 0)
-            {
-                warnings.Add($"{final.DroppedMethods.Count} test method đã bị bỏ trong lúc sửa: {string.Join(", ", final.DroppedMethods)}");
-            }
-
-            var outcome = final.StopReason switch
-            {
-                StopReason.Stopped or StopReason.Cancelled => TargetOutcome.Cancelled,
-                StopReason.Infra => TargetOutcome.Infra,
-                _ => final.FinalState.ToOutcome(),
-            };
-            if (final.StopReason == StopReason.Cancelled)
-            {
-                ct.ThrowIfCancellationRequested();
-            }
-
-            // Block 4: only the final VALID suite, when measuring is on (P05 §2).
-            QualityResult? quality = null;
-            double? block4 = null;
-            if (measure is not null && final.Success)
-            {
-                watch.Restart();
-                var suite = new SuiteToMeasure(final.Candidate.TestFqn, final.Candidate.TestPath, final.Candidate.Code!);
-                quality = await QualityServiceOf().MeasureAsync(suite, task, measure, ct).ConfigureAwait(false);
-                block4 = watch.Elapsed.TotalSeconds;
-                foreach (var (tool, state) in quality.Tools.Where(t => t.Value.Status != ToolStatus.Ok))
-                {
-                    warnings.Add($"Chưa đo được {tool} ({state.Code}); xem {Path.Combine(run.Run.Root, "targets", m.Cut.Fqn, "block4", "logs")}");
-                }
-            }
-
-            ApplySummary? apply = null;
-            if (outcome != TargetOutcome.Cancelled || final.Error is not null)
-            {
-                apply = await ApplyAsync(m, final, ct).ConfigureAwait(false);
-            }
-
-            return Result(m, outcome, v0.State, final, final.Error, block1, block2, block3, total, calls, quality, block4) with { Apply = apply };
         }
 
-        private TargetResult Result(
-            RepositoryMetadata m, TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error,
-            double block1, double? block2, double? block3, Stopwatch total, Usage? usage = null, QualityResult? quality = null, double? block4 = null)
-        {
-            var metricsSkipped = measure is null ? "disabled" : null;
-
-            return new TargetResult(
-                m.Cut.Fqn, outcome, c0State, final?.RoundsRun ?? 0, final?.SuccessRound, final?.StopReason,
-                final?.Candidate.TestFqn ?? m.Paths.GeneratedTestFqn, final?.Candidate.TestPath ?? m.Paths.GeneratedTestPath,
-                final is null ? null : "block3/final.java",
-                quality?.Metrics, metricsSkipped, quality?.Tools.ToDictionary(t => t.Key, t => t.Value.Status),
-                usage?.Tokens ?? TokenUsage.Zero, usage?.Cost, usage?.Calls ?? 0,
-                new BlockSeconds(Round(block1), Round(block2), Round(block3), Round(block4), Math.Round(total.Elapsed.TotalSeconds, 1)),
-                error,
-                final?.DroppedMethods.Count > 0 ? [$"dropped_methods: {final.DroppedMethods.Count}"] : [],
-                null);
-        }
-
-        private static double? Round(double? seconds) => seconds is { } s ? Math.Round(s, 1) : null;
-
-        private QualityService QualityServiceOf()
-        {
-            var java = new JavaRunner(owner.Processes);
-            var preparer = new SuitePreparer(host.Builds, host.Workspaces);
-            return new QualityService(
-            [
-                new JacocoTool(preparer, host.Builds, owner.ToolStore, java, host.Workspaces, owner.Runs),
-                new PitTool(preparer, owner.ToolStore, java, host.Workspaces, owner.Runs),
-                new TsDetectTool(owner.ToolStore, host.JavaHelpers, java, host.Workspaces, owner.Runs),
-            ], owner.Runs, catalog);
-        }
-
-        /// <summary>The simple writer of M1 (P06 §3, §4.1, §5): VALID only, a local project, the CUT unchanged, never overwrite.</summary>
-        private async Task<ApplySummary> ApplyAsync(RepositoryMetadata m, FinalTestSuite final, CancellationToken ct)
-        {
-            var path = final.Candidate.TestPath;
-            var decision = ApplyDecision.Blocked;
-            ErrorInfo? error = null;
-            string? written = null;
-            var eol = LineEndings.Lf;
-            var tags = new List<string>();
-            if (!m.Paths.NameMatchesTestIncludes || final.GeneratedTestRanInModule == false)
-            {
-                tags.Add("surefire_includes_mismatch");
-                warnings.Add($"mvn test của project sẽ không tự chạy file này. Hãy thêm mẫu tên vào cấu hình Surefire, hoặc chạy riêng bằng -Dtest={m.Paths.GeneratedTestFqn[(m.Paths.GeneratedTestFqn.LastIndexOf('.') + 1)..]}");
-            }
-
-            var root = workspace.Checkout.ProjectRoot;
-            if (!final.Success)
-            {
-                decision = ApplyDecision.NotValid;
-            }
-            else if (root is null)
-            {
-                decision = ApplyDecision.RemoteProject;
-            }
-            else if (options.DryRun)
-            {
-                decision = ApplyDecision.DryRun;
-            }
-            else
-            {
-                var cutFile = Path.Combine(root, m.Paths.CutPath.Replace('/', Path.DirectorySeparatorChar));
-                var current = File.Exists(cutFile) ? Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(cutFile, ct).ConfigureAwait(false))) : null;
-                eol = current is null ? LineEndings.Lf : ProjectFileWriter.EndingsOf(await File.ReadAllTextAsync(cutFile, ct).ConfigureAwait(false));
-                var changed = current != m.Cut.SourceSha256;
-                var question = $"Ghi {path} ({final.Candidate.TestMethodCount} test)?";
-                bool write;
-                if (changed)
-                {
-                    error = catalog.Describe(ErrorCodes.WProjectChanged);
-                    write = !options.Yes && confirm.CanAsk
-                            && await confirm.ConfirmAsync("CUT đã thay đổi sau khi ARROW đọc nó; test được xác minh trên bản cũ. Vẫn ghi?", false, ct).ConfigureAwait(false);
-                    decision = write ? decision : ApplyDecision.Blocked;
-                }
-                else if (options.Yes || !settings.Apply.Confirm)
-                {
-                    write = true;
-                }
-                else if (!confirm.CanAsk)
-                {
-                    write = false;
-                    decision = ApplyDecision.SkippedNonInteractive;
-                    warnings.Add("Bỏ qua: cần --yes khi chạy không tương tác");
-                }
-                else
-                {
-                    write = await confirm.ConfirmAsync(question, true, ct).ConfigureAwait(false);
-                    decision = write ? decision : ApplyDecision.Declined;
-                }
-
-                if (write)
-                {
-                    try
-                    {
-                        written = await owner.Writer.WriteNewAsync(root, path, final.Candidate.Code!, eol, ct).ConfigureAwait(false);
-                        decision = ApplyDecision.Written;
-                        error = null;
-                        Report(run, ArrowEventTypes.ApplyWritten, m.Cut.Fqn, $"Đã ghi {path}", EventLevel.Info, ("path", path));
-                    }
-                    catch (ArrowException ex)
-                    {
-                        decision = ApplyDecision.Blocked;
-                        error = catalog.Describe(ex);
-                    }
-                }
-            }
-
-            if (decision != ApplyDecision.Written)
-            {
-                Report(run, ArrowEventTypes.ApplySkipped, m.Cut.Fqn, $"Không ghi file ({decision.ToString().ToLowerInvariant()})", EventLevel.Info, ("decision", decision));
-            }
-
-            owner.Runs.WriteJson(run.Run, $"{ProjectAnalyzer.TargetDir(m.Cut.Fqn)}/apply.json", new ApplyRecord(
-                decision, decision is ApplyDecision.Written or ApplyDecision.DryRun or ApplyDecision.Declined or ApplyDecision.SkippedNonInteractive ? path : null,
-                final.Candidate.TestFqn, m.Paths.NameIndex, false, false,
-                eol == LineEndings.Crlf ? "crlf" : "lf", tags, error, DateTimeOffset.UtcNow));
-            return new ApplySummary(decision, written is null ? (decision == ApplyDecision.DryRun ? path : null) : path);
-        }
+        public void SetTarget(string cut, TargetState target) =>
+            Update(i => i with { Targets = i.Targets.Select(t => t.CutFqn == cut ? t with { State = target } : t).ToList() });
     }
 
-    /// <summary>Model calls, tokens and cost of a target.</summary>
-    private sealed record Usage(int Calls, TokenUsage Tokens, double? Cost)
+    /// <summary>Adds the position <c>[i/n]</c> to the events of a target (P07 §10).</summary>
+    private sealed class TargetProgress(IProgress<ArrowEvent> inner, string cut, int index, int total) : IProgress<ArrowEvent>
     {
-        public Usage(Common.Llm.LlmResponse response)
-            : this(response.Attempts, new TokenUsage(response.PromptTokens, response.CompletionTokens), response.CostUsd)
-        {
-        }
-
-        public Usage Add(FinalTestSuite final) => new(
-            Calls + final.LlmCalls,
-            new TokenUsage(Tokens.In + final.Tokens.In, Tokens.Out + final.Tokens.Out),
-            Cost is null && final.CostUsd is null ? null : (Cost ?? 0) + (final.CostUsd ?? 0));
+        public void Report(ArrowEvent value) =>
+            inner.Report(value.Index is null && (value.CutFqn is null || value.CutFqn == cut) ? value with { CutFqn = value.CutFqn ?? cut, Index = index, Total = total } : value);
     }
 }
-
-/// <summary><c>apply.json</c> (P06 §6).</summary>
-public sealed record ApplyRecord(
-    ApplyDecision Decision,
-    string? Path,
-    string TestFqn,
-    int NameIndex,
-    bool RenamedAfterRun,
-    bool Reverified,
-    string LineEndings,
-    IReadOnlyList<string> Warnings,
-    ErrorInfo? Error,
-    DateTimeOffset At);
