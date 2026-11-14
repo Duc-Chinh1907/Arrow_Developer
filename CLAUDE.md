@@ -69,7 +69,7 @@ It is the product version of the team's research framework. There is **no resear
 - .NET SDK 10.0.404 and 9.0.320 in `C:\Program Files\dotnet`.
 - JDKs 8, 11, 17, 21 in `D:\Ky9\DoAn\ARROW\Java-version\runtime\jdk-<n>`. User environment variables `JAVA_HOME_<n>_X64` point to them (the CI convention). Plain `java` on PATH is Oracle JDK 17.
 - Maven 3.9.16; Gradle 8.14.3 in `%LOCALAPPDATA%\Programs\gradle\gradle-8.14.3\bin` (on the user PATH); git; `gh`, logged in as `Duc-Chinh1907`.
-- Validation repos for GĐ7 come from `D:\Ky9\DoAn\ARROW\preflight_manifest\*\strict_eligible_manifest.jsonl`.
+- Validation repos for GĐ7 come from `D:\Ky9\DoAn\ARROW\preflight_manifest\*\technical_eligible_manifest.jsonl` (the strict ones are empty; Chính's choice, 14/11/2026).
 - **Shell gotchas:**
   - The console is cp1252: set `PYTHONIOENCODING=utf-8` before printing Vietnamese from Python.
   - In GNU sed, `\|` means alternation; use the Edit tool for markdown tables.
@@ -179,4 +179,9 @@ It is the product version of the team's research framework. There is **no resear
     - `SetupCommand.OfferFirstRunAsync`: the first `arrow` or `arrow gen` without a user `config.json` asks `Chưa thiết lập. Chạy arrow setup ngay?` (not with `--yes`, `--json` or no keyboard).
     - With several classes, `arrow gen` warnings start with the class name.
     - E2E `ThreeClassesOfAMultiModuleProject` (scenario `multi-module`): `shop-api` declares no test framework, so `TaxPolicy` ends COMPILE by stagnation (P01 §4.5); `OrderService` and `Greeter` (outside the reactor) are VALID; one baseline per module.
+- GĐ7 (real repositories) in PRs #29 (`gd7/pilot`) and `gd7/fixes` (14/11/2026):
+  - `tools/validation/sample_validation_set.py` → `docs/validation-set.json` (seed 20261114); results and decisions for the team in `docs/validation.md`. Chính chose 10 repositories (13 classes): 10 VALID, 1 REGRESSION, 1 BLOCKED, 1 INFRA.
+  - Run validation from a copy of the build output (`%TEMP%/arrow-gd7/bin`), not from `bin/`, which a running `arrow` locks. Write class lists with LF: a CR stays in the last argument.
+  - Fixes: pasted class names are trimmed and `TargetDir` replaces characters a folder cannot have; `ErrorCatalog.With` fills `run_id`/`log_path`; `doctor` checks the measuring tools; source roots include Gradle `include`s and Maven `<modules>` (subprojects without a build file); a leftover `work/<run>` is deleted before a run; test names in prompts ≤ 200 characters (`FailureDiagnoser.TestName`).
+  - Open for the team (`validation.md` §5): a PIT plugin for old JUnit Platform, no retry after a baseline timeout, a warning for weak VALID suites.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
