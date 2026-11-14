@@ -17,6 +17,7 @@ public static class CutPicker
     /// <summary>The class of <paramref name="query"/> in <paramref name="workspace"/>.</summary>
     public static async Task<PickedCut> PickAsync(IProjectAnalyzer analyzer, ProjectWorkspace workspace, string query, ErrorCatalog catalog, IConfirmation confirm, CancellationToken ct)
     {
+        query = query.Trim();
         var args = new Dictionary<string, string> { ["query"] = query };
         var located = await analyzer.LocateAsync(workspace, query, ct).ConfigureAwait(false);
         if (located is LocateResult.Ambiguous ambiguous)

@@ -20,12 +20,21 @@ public sealed partial class ErrorCatalog
     private static readonly ConcurrentDictionary<string, ErrorCatalog> Cache = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Dictionary<string, ErrorEntry> _entries;
+    private readonly IReadOnlyDictionary<string, string> _context;
 
-    private ErrorCatalog(string language, Dictionary<string, ErrorEntry> entries)
+    private ErrorCatalog(string language, Dictionary<string, ErrorEntry> entries, IReadOnlyDictionary<string, string>? context = null)
     {
         Language = language;
         _entries = entries;
+        _context = context ?? new Dictionary<string, string>();
     }
+
+    /// <summary>
+    /// The same catalog with <paramref name="name"/> = <paramref name="value"/> for every text that has no value of its own, e.g. the
+    /// <c>run_id</c> of a run for the <c>--resume {run_id}</c> hints (GĐ7: these hints were printed with the raw placeholder).
+    /// </summary>
+    public ErrorCatalog With(string name, string value) =>
+        new(Language, _entries, new Dictionary<string, string>(_context) { [name] = value });
 
     /// <summary>Languages with an embedded catalog.</summary>
     public static IReadOnlyList<string> Languages { get; } = ["vi", "en"];
@@ -56,6 +65,22 @@ public sealed partial class ErrorCatalog
     public ErrorInfo Describe(string code, string? detail = null, IReadOnlyDictionary<string, string>? args = null, string? log = null)
     {
         var entry = Find(code);
+        if (_context.Count > 0 || log is not null)
+        {
+            var merged = new Dictionary<string, string>(_context);
+            if (log is not null)
+            {
+                merged["log_path"] = log;
+            }
+
+            foreach (var (name, value) in args ?? new Dictionary<string, string>())
+            {
+                merged[name] = value;
+            }
+
+            args = merged;
+        }
+
         var message = detail ?? (entry is null ? code : Fill(entry.Message, args));
         var hint = entry?.Hint is null ? null : Fill(entry.Hint, args);
         return new ErrorInfo(code, message, hint, log);

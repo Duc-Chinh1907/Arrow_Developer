@@ -31,6 +31,15 @@ public sealed class FailureDiagnoser : IFailureDiagnoser
     /// <summary>Characters of a first error.</summary>
     public const int MaxFirstErrorChars = 200;
 
+    /// <summary>
+    /// Most characters of a test name in a prompt. A parameterized TestNG or JUnit test is named with the toString() of its arguments,
+    /// which may be a whole log file (GĐ7, otroslogviewer: 72,000 characters per name, 400 KB per repair prompt).
+    /// </summary>
+    public const int MaxTestNameChars = 200;
+
+    /// <summary>A test name cut to <see cref="MaxTestNameChars"/>.</summary>
+    public static string TestName(string name) => Cut(name, MaxTestNameChars)!;
+
     /// <inheritdoc />
     public Diagnosis Diagnose(VerifyResult result, CandidateTest candidate, RepositoryMetadata metadata)
     {
@@ -160,7 +169,7 @@ public sealed class FailureDiagnoser : IFailureDiagnoser
         return (text.ToString(), first);
     }
 
-    private static string MethodOf(FailureInfo failure) => failure.Method.Length > 0 ? failure.Method : "(class)";
+    private static string MethodOf(FailureInfo failure) => failure.Method.Length > 0 ? TestName(failure.Method) : "(class)";
 
     /// <summary>
     /// REGRESSION: each broken existing test (at most 5) with exception and message, then the failures of the generated test
@@ -186,7 +195,7 @@ public sealed class FailureDiagnoser : IFailureDiagnoser
         }
 
         var r = existing.FirstOrDefault() ?? generated.FirstOrDefault();
-        var first = r is null ? null : $"{r.Test}: {(r.Kind == RegressionKind.Missing ? "not run" : TestResultClassifier.ShortName(r.Type ?? "unknown"))}";
+        var first = r is null ? null : $"{TestName(r.Test)}: {(r.Kind == RegressionKind.Missing ? "not run" : TestResultClassifier.ShortName(r.Type ?? "unknown"))}";
         return (text.ToString(), first);
     }
 
@@ -197,7 +206,7 @@ public sealed class FailureDiagnoser : IFailureDiagnoser
             var reason = regression.Kind == RegressionKind.Missing
                 ? "was not run (missing from the report)"
                 : $"{regression.Type ?? "unknown"}{(string.IsNullOrWhiteSpace(regression.Message) ? "" : ": " + OneLine(regression.Message))}";
-            text.Append($"- {regression.Test}: {reason}\n");
+            text.Append($"- {TestName(regression.Test)}: {reason}\n");
         }
 
         if (regressions.Count > MaxFailures)
@@ -206,7 +215,7 @@ public sealed class FailureDiagnoser : IFailureDiagnoser
         }
     }
 
-    private static string OneLine(string text)
+    internal static string OneLine(string text)
     {
         var line = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')[0].Trim();
         return line.Length > 300 ? line[..300] + "…" : line;

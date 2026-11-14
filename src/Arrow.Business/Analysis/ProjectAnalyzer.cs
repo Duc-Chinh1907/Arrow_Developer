@@ -44,16 +44,8 @@ public sealed class ProjectAnalyzer(
         watch.Restart();
         Report(run, ArrowEventTypes.B1Locate, null, "Liệt kê class");
         var layout = BuildLayout.Scan(checkout.Root);
-        var roots = layout.Dirs.Select(d => BuildLayout.Join(d.Path, "src/main/java"))
-            .Prepend("src/main/java")
-            .Distinct()
-            .Where(r => Directory.Exists(Path.Combine(checkout.Root, r)))
-            .ToList();
-        var testRoots = layout.Dirs.Select(d => BuildLayout.Join(d.Path, "src/test/java"))
-            .Prepend("src/test/java")
-            .Distinct()
-            .Where(r => Directory.Exists(Path.Combine(checkout.Root, r)))
-            .ToList();
+        var roots = SourceRoots(checkout.Root, layout, "src/main/java");
+        var testRoots = SourceRoots(checkout.Root, layout, "src/test/java");
 
         var warnings = new List<string>(checkout.Warnings);
         var classes = await ListClassesAsync(checkout.Root, roots, warnings, ct).ConfigureAwait(false);
@@ -125,8 +117,30 @@ public sealed class ProjectAnalyzer(
         await workspaces.DeleteAsync(run.WorkDir, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Folder of a CUT below the run, <c>targets/&lt;cut_fqn&gt;</c> (P09 §5.2).</summary>
-    public static string TargetDir(string cutFqn) => "targets/" + cutFqn;
+    /// <summary>
+    /// The existing <c>&lt;module&gt;/<paramref name="standard"/></c> folders of the project, the root first. Module folders are the
+    /// folders with a build file plus the folders that settings files include and Maven <c>&lt;modules&gt;</c> name: a Gradle subproject
+    /// configured from the root build file has no build file of its own (GĐ7, otroslogviewer).
+    /// </summary>
+    public static IReadOnlyList<string> SourceRoots(string projectRoot, BuildLayout layout, string standard) =>
+        layout.Dirs.Select(d => d.Path)
+            .Concat(layout.Dirs.SelectMany(d => d.GradleIncludes))
+            .Concat(layout.Dirs.SelectMany(d => d.MavenModules))
+            .Select(d => BuildLayout.Join(d, standard))
+            .Prepend(standard)
+            .Distinct()
+            .Where(r => Directory.Exists(Path.Combine(projectRoot, r)))
+            .ToList();
+
+    /// <summary>
+    /// Folder of a CUT below the run, <c>targets/&lt;cut_fqn&gt;</c> (P09 §5.2). A FQN never has characters a folder name cannot have; a
+    /// class the user typed that was not found may (GĐ7: a pasted <c>\r</c> made the whole run fail), so those become <c>_</c>.
+    /// </summary>
+    public static string TargetDir(string cutFqn) =>
+        "targets/" + string.Concat(cutFqn.Select(c => char.IsControl(c) || InvalidNameChars.Contains(c) ? '_' : c));
+
+    // The Windows set on every OS, so that a run folder can be copied between machines.
+    private static readonly HashSet<char> InvalidNameChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     private ProjectAnalysis Finish(RunContext run, ProjectWorkspace workspace, ClassCandidate cut, BlockOutcome? failure, ModuleResult? module, List<string> warnings, Stopwatch watch, string? sharedFrom)
     {

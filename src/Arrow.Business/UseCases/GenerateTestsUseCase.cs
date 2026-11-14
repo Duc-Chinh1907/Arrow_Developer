@@ -186,6 +186,13 @@ public sealed class GenerateTestsUseCase(
             runs.Update(handle, info);
         }
         var work = Path.Combine(home.WorkDir, id);
+        if (Directory.Exists(work))
+        {
+            // GĐ7: a run killed before its cleanup leaves work/<run> behind, and resuming it then failed on "git worktree add" into the old
+            // base/. Nothing in it is kept across runs (block 1 runs again on resume), so it starts empty.
+            WorkspaceManager.DeleteTree(work);
+        }
+
         Directory.CreateDirectory(work);
         var run = new RunContext(id, home.Root, work, handle, new RunProgress(runs, handle, progress));
         Report(run, ArrowEventTypes.RunStarted, null, "arrow " + string.Join(' ', command));
@@ -260,7 +267,7 @@ public sealed class GenerateTestsUseCase(
             }
 
             // P07 §6–7: the targets, at most `jobs` at a time.
-            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog, settings, repair, measure, workspace, runs, toolStore, processes);
+            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog.With("run_id", id).With("log_path", handle.Root), settings, repair, measure, workspace, runs, toolStore, processes);
             var runs2 = await RunTargetsAsync(cuts, run, shared, jobs, state, results, warnings, ct).ConfigureAwait(false);
 
             // P07 §9: the write step, then the end of the run.
