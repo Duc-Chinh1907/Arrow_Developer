@@ -84,8 +84,8 @@ Cách viết phù hợp trong báo cáo: "Chạy thử trên 13 class của 10 r
 
 ### 4.3 Chỉ một cấu hình
 
-- Một model (`gpt-6-luna`, `temperature=0`), một máy Windows 11, chỉ chạy với `--repo`.
-- Chưa thử: Linux, Ollama, model khác, và đường ghi file vào project thật trên repo thật (`--project`). Đường ghi file đã có E2E trên fixture (P06), nhưng chưa có trên repo thật.
+- Một model (`gpt-6-luna`, `temperature=0`), một máy Windows 11; 13 class chạy với `--repo`, 4 lần chạy với `--project` (mục 5.1).
+- Chưa thử: Linux, Ollama, model khác. Đường ghi file vào project trên máy (`--project`) đã được thử trên 3 repo (mục 5.1).
 
 ### 4.4 Thất bại chủ yếu do repo, không do model
 
@@ -97,7 +97,8 @@ Cách viết phù hợp trong báo cáo: "Chạy thử trên 13 class của 10 r
 Với tiêu chí "xong khi" của PLAN GĐ7, kết quả đã đủ:
 - không lần chạy nào làm hỏng project hay ghi sai chỗ;
 - mọi lần thất bại đều có mã lỗi và gợi ý cách sửa;
-- 8 lỗi tìm được đều đã sửa, mỗi lỗi có test hồi quy.
+- 9 lỗi tìm được đều đã sửa, mỗi lỗi có test hồi quy;
+- file test được ghi đúng module trên 3 repo thật (Maven, module lồng, Gradle), không đụng file nào khác, và build của project vẫn pass (mục 5.1).
 
 Kết quả **chưa** đủ để nói về chất lượng sinh test của ARROW nói chung. Nếu báo cáo cần con số đó, nên chạy nốt 10 repo còn lại của `validation-set.json` theo đúng thứ tự seed, không chọn tay; ước tính 60–100k token và 1–2 giờ máy.
 
@@ -113,8 +114,24 @@ Kết quả **chưa** đủ để nói về chất lượng sinh test của ARRO
 | 6 | Project Gradle có subproject không có file build riêng (cấu hình từ `build.gradle` gốc): không liệt kê được class nào, `B1_CUT_MISSING` (otroslogviewer) | Các thư mục được `include` trong settings và `<modules>` của Maven cũng là module | `SourceRootsTests` |
 | 7 | Chạy tiếp một run bị dừng đột ngột (kill, tắt máy): `git worktree add` lỗi vì `work/<run>` cũ còn sót lại (acadia) | Xoá `work/<run>` cũ trước khi bắt đầu | `AStoppedRunIsResumed` |
 | 8 | Test TestNG có tham số mang `toString()` của tham số trong tên (72.000 ký tự): prompt repair nặng 400 KB, 3 lượt gọi tốn 237k token (otroslogviewer) | Tên test trong prompt tối đa 200 ký tự, thông điệp tối đa 300 (ghi vào P04 §4.2). Chạy lại: 4 lượt gọi tốn 17,4k token | `LongParameterizedTestNamesAreCut` |
+| 9 | Sau một lần `gen` thất bại, sửa project rồi chạy `gen --yes`: ARROW tự chạy tiếp run thất bại, thấy project đã đổi và dừng với `GEN_RESUME_MISMATCH`, ở mọi lần chạy trong 7 ngày (đợt kiểm ghi file ở mục 5.1) | Run tự tìm ra được so với project trước khi hỏi; đổi thì bắt đầu run mới, kèm cảnh báo. `--resume <id>` vẫn báo `GEN_RESUME_MISMATCH` (P07 §5.2) | `AStoppedRunIsResumed` |
 
-Không lần chạy nào làm hỏng project hay ghi sai chỗ: project từ GitHub chỉ được ghi trong `runs/`. Đường ghi file vào project local đã được E2E kiểm (P06), nhưng GĐ7 chưa chạy lại trên repo thật dưới dạng bản clone với `--project`.
+Không lần chạy nào làm hỏng project hay ghi sai chỗ: project từ GitHub chỉ được ghi trong `runs/`; đường ghi file vào project trên máy được kiểm ở mục 5.1.
+
+### 5.1 Ghi file vào project thật (`--project`)
+
+Ba repo VALID ở mục 3 được xuất đúng commit ra thư mục trên máy (`git archive`, rồi một commit gốc để `git status` chỉ hiện những gì ARROW thêm), rồi chạy `arrow gen <class> --project <thư mục> --yes`. Sau mỗi lần: `git status`, rồi build module có test mới bằng Maven/Gradle của project.
+
+| Repo | Class | File ghi | `git status` | Build của project |
+|---|---|---|---|---|
+| Teradata/jaqy | `ArgumentParser` (lần 1) | `jaqy-core/src/test/java/…/ArgumentParser_ArrowTest.java` | chỉ có file mới | pass, 7/7 test |
+| Teradata/jaqy | `ArgumentParser` (lần 2) | `…/ArgumentParser_Arrow2Test.java`, sau câu `[!] Đã có ArgumentParser_ArrowTest; test mới sẽ tên ArgumentParser_Arrow2Test.` | thêm đúng file mới; file lần 1 không đổi | pass, 5/5 test |
+| aicis/fresco | `MascotResourcePoolImpl` | `tools/mascot/src/test/java/…` (module lồng 2 cấp) | chỉ có file mới | pass |
+| h908714124/jbock | `Optionalish` | `core/src/test/java/…` (Gradle) | chỉ có file mới | pass, 1/1 test |
+
+- File ghi có kiểu xuống dòng của project: jaqy dùng CRLF nên `ArgumentParser_ArrowTest.java` là CRLF (`"line_endings": "crlf"` trong `apply.json`); nội dung giống hệt `block3/final.java`.
+- `Optionalish` nhận cảnh báo `B4.WeakSuite` trước khi ghi (`line 22%, mutation 0%`), đúng quyết định 3 ở mục 6.
+- Lần chạy đầu của đợt này dùng một bản sao rỗng (lỗi script), nên mọi lần sau gặp lỗi 9 ở bảng trên; bản sửa đã được thử lại trên chính các run đó.
 
 ## 6. Quyết định (Chính, 14/11/2026)
 
@@ -131,5 +148,4 @@ Bối cảnh của ba câu hỏi:
 ## 7. Còn lại
 
 - 10 repo còn lại của `validation-set.json`: chưa chạy (Chính chọn chạy 10 repo).
-- Chạy lại vài repo dưới dạng bản clone với `--project`, để kiểm đường ghi file trên repo thật.
 - Ollama: chưa có trên máy.
