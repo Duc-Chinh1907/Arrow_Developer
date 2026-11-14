@@ -240,6 +240,11 @@ public sealed class GenExecutableTests : IDisposable
         var priceFile = Path.Combine(_project.Root, TestDir.Replace('/', Path.DirectorySeparatorChar), "PriceCalculator_ArrowTest.java");
         var written = File.GetLastWriteTimeUtc(priceFile);
 
+        // GD7: a run killed before its cleanup leaves work/<run> behind; resuming must not trip over it.
+        var leftover = Path.Combine(_home, "work", id, "base", "src", "leftover.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(leftover)!);
+        await File.WriteAllTextAsync(leftover, "from a killed run", TestContext.Current.CancellationToken);
+
         var resumed = await Arrow(Scenario("two-classes"), null, "gen", "--resume", id, "--project", _project.Root, "--no-metrics", "--plain", "--yes");
         Assert.True(resumed.ExitCode == 0, resumed.Output);
         Assert.Equal(dir, RunDir(resumed));
