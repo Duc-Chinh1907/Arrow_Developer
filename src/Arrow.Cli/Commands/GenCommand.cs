@@ -64,6 +64,11 @@ internal static class GenCommand
             Usage("Cần ít nhất một class, hoặc --package.");
         }
 
+        if (await SetupCommand.OfferFirstRunAsync(context, ct).ConfigureAwait(false) is { } setup && setup != ExitCodes.Ok)
+        {
+            return setup;
+        }
+
         var request = repo is not null
             ? new GenerateRequest(ProjectSourceKind.GitRepository, repo, gitRef, classes, package, options)
             : new GenerateRequest(ProjectSourceKind.LocalDirectory, Path.GetFullPath(project ?? ".", context.Console.CurrentDirectory), null, classes, package, options);

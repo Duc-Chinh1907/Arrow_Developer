@@ -75,7 +75,8 @@ public class ModelsSetupCommandTests
         public int Remaining => _answers.Count;
     }
 
-    private static CliRunner Cli(FakeModels models, IWizardPrompter? prompter = null, bool interactive = false, IDoctorUseCase? doctor = null)
+    private static CliRunner Cli(
+        FakeModels models, IWizardPrompter? prompter = null, bool interactive = false, IDoctorUseCase? doctor = null, FakeMachine? machine = null, FakeTools? tools = null)
     {
         var cli = new CliRunner { Interactive = interactive };
         cli.Services = services =>
@@ -87,8 +88,44 @@ public class ModelsSetupCommandTests
             }
 
             services.AddSingleton(doctor ?? new FakeDoctor());
+            services.AddSingleton<IMachineSetupUseCase>(machine ?? new FakeMachine());
+            services.AddSingleton<IToolsUseCase>(tools ?? new FakeTools(missing: 0));
         };
         return cli;
+    }
+
+    private sealed class FakeMachine : IMachineSetupUseCase
+    {
+        public List<MachineChoice> Found { get; } = [];
+
+        public MachineChoice? Saved { get; private set; }
+
+        public Task<MachineFound> FindAsync(MachineChoice choice, string? projectRoot, CancellationToken ct)
+        {
+            Found.Add(choice);
+            var jdks = new[] { 8, 11, 17, 21 }
+                .Select(m => choice.JdkHomes.TryGetValue(m.ToString(System.Globalization.CultureInfo.InvariantCulture), out var home)
+                    ? new MachineJdk(m, m + ".0.1", home, "config")
+                    : m == 17 ? new MachineJdk(17, "17.0.12", "/opt/jdk-17", "JAVA_HOME") : new MachineJdk(m, null, null, null))
+                .ToList();
+            return Task.FromResult(new MachineFound(jdks, choice.MavenPath ?? "/usr/bin/mvn", null, []));
+        }
+
+        public void Save(MachineChoice choice, string? projectRoot) => Saved = choice;
+    }
+
+    private sealed class FakeTools(int missing) : IToolsUseCase
+    {
+        public int Installs { get; private set; }
+
+        public IReadOnlyList<ToolRow> List() =>
+            [.. Enumerable.Range(0, 12).Select(i => new ToolRow("tool" + i, "central", "/tools/" + i, i >= missing, null))];
+
+        public Task<IReadOnlyList<ToolInstallResult>> InstallAsync(IReadOnlyList<string> ids, IProgress<string>? progress, CancellationToken ct)
+        {
+            Installs++;
+            return Task.FromResult<IReadOnlyList<ToolInstallResult>>([new ToolInstallResult("tool0", "/tools/0", null)]);
+        }
     }
 
     private sealed class FakeDoctor : IDoctorUseCase
@@ -199,7 +236,7 @@ public class ModelsSetupCommandTests
     public async Task SetupCollectsTheModelTriesItSavesAndRunsDoctor()
     {
         var models = new FakeModels();
-        var prompter = new Scripted([.. CustomProviderAnswers(), true, true]);   // + privacy "Đồng ý?" and "Lưu?"
+        var prompter = new Scripted([.. CustomProviderAnswers(), true, 0, true]);   // + privacy "Đồng ý?", "Dùng như trên" and "Lưu?"
         using var cli = Cli(models, prompter, interactive: true);
 
         var run = await cli.RunAsync("setup");
@@ -224,8 +261,9 @@ public class ModelsSetupCommandTests
     public async Task SetupWithOllamaNeedsNoKeyAndSaysTheCodeStaysOnTheMachine()
     {
         var models = new FakeModels();
-        // Ollama is preset 3: URL (default), model_id, short name (default), price none, prefix "-", trial no, default yes, privacy yes, save yes.
-        var prompter = new Scripted(3, "", "qwen3-coder:30b", "", "", "-", false, true, true, true);
+        // Ollama is preset 3: URL (default), model_id, short name (default), price none, prefix "-", trial no, default yes, privacy yes,
+        // machine as found, save yes.
+        var prompter = new Scripted(3, "", "qwen3-coder:30b", "", "", "-", false, true, true, 0, true);
         using var cli = Cli(models, prompter, interactive: true);
 
         var run = await cli.RunAsync("setup");
@@ -249,7 +287,7 @@ public class ModelsSetupCommandTests
         Assert.Null(declinePrivacy.Saved);
 
         var declineSave = new FakeModels();
-        using var cli2 = Cli(declineSave, new Scripted([.. CustomProviderAnswers(), true, false]), interactive: true);
+        using var cli2 = Cli(declineSave, new Scripted([.. CustomProviderAnswers(), true, 0, false]), interactive: true);
         Assert.Equal(ExitCodes.Cancelled, (await cli2.RunAsync("setup")).ExitCode);
         Assert.Null(declineSave.Saved);
     }
@@ -259,7 +297,7 @@ public class ModelsSetupCommandTests
     {
         var models = new FakeModels { TestFails = new ArrowException(ErrorCodes.B2LlmConfig, "HTTP 401: bad key") };
         // Same answers, but the trial fails: "Vẫn lưu model này?" → yes, then the default question.
-        var answers = new object?[] { 1, "https://api.teamorouter.com/v1", "teamo", new AskedSecret(new SecretValue("sk-bad"), false), "gpt-4.1-mini", "gpt-x", "", "", true, true, true, true, true };
+        var answers = new object?[] { 1, "https://api.teamorouter.com/v1", "teamo", new AskedSecret(new SecretValue("sk-bad"), false), "gpt-4.1-mini", "gpt-x", "", "", true, true, true, true, 0, true };
         using var cli = Cli(models, new Scripted(answers), interactive: true);
 
         var run = await cli.RunAsync("setup");
@@ -279,7 +317,7 @@ public class ModelsSetupCommandTests
         {
             1, "https://a.example/v1", "a", new AskedSecret(new SecretValue("sk-first-key-1"), false), null,
             2, "https://api.anthropic.com", new AskedSecret(new SecretValue("sk-ant-test-key"), false), "claude-sonnet-4-5", "claude", "", "-", false, true,
-            true, true,
+            true, 0, true,
         };
         using var cli = Cli(models, new Scripted(answers), interactive: true);
 
@@ -287,6 +325,67 @@ public class ModelsSetupCommandTests
 
         Assert.Equal(0, run.ExitCode);
         Assert.Equal(("anthropic", ProviderKind.Anthropic, "claude"), (models.Saved!.ProviderName, models.Saved.Kind, models.Saved.ModelName));
+    }
+
+    [Fact]
+    public async Task SetupLetsTheUserFixAJdkAndDownloadsTheToolsAfterTheSave()
+    {
+        var models = new FakeModels();
+        var machine = new FakeMachine();
+        var tools = new FakeTools(missing: 3);
+        using var cli = Cli(models, null, interactive: true, machine: machine, tools: tools);
+        var jdk8 = Directory.CreateDirectory(Path.Combine(cli.Home, "jdk-8")).FullName;
+        // Step 4: "Sửa JDK 8" (index 1), a missing folder, "Sửa JDK 8" again with a real one, then "Dùng như trên"; step 5: download.
+        var prompter = new Scripted([.. CustomProviderAnswers(), true, 1, Path.Combine(cli.Home, "nope"), 1, jdk8, 0, 0, true]);
+        cli.Services += services => services.AddSingleton<IWizardPrompter>(prompter);
+
+        var run = await cli.RunAsync("setup");
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal(0, prompter.Remaining);
+        Assert.Contains("Bước 4. Java và build", run.Out, StringComparison.Ordinal);
+        Assert.Contains("/opt/jdk-17 (JAVA_HOME)", run.Out, StringComparison.Ordinal);
+        Assert.Contains("Không thấy", run.Out, StringComparison.Ordinal);
+        Assert.Contains("ARROW tải 3 file", run.Out, StringComparison.Ordinal);
+        Assert.Contains("tải 3 file sau khi lưu", run.Out, StringComparison.Ordinal);
+        Assert.Equal(jdk8, machine.Saved!.JdkHomes["8"]);
+        Assert.Equal(jdk8, machine.Found[^1].JdkHomes["8"]);
+        Assert.Equal(1, tools.Installs);
+        Assert.True(run.Out.IndexOf("Đã lưu vào", StringComparison.Ordinal) < run.Out.IndexOf("[OK] tool0", StringComparison.Ordinal));
+        Assert.Contains("Kiểm tra môi trường", run.Out, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BackFromTheJavaStepAsksThePrivacyAgainAndToolsCanWait()
+    {
+        var machine = new FakeMachine();
+        var tools = new FakeTools(missing: 12);
+        // Privacy yes, back (-1) at step 4, privacy yes again, as found, then "Để sau" (1), save yes.
+        var prompter = new Scripted([.. CustomProviderAnswers(), true, -1, true, 0, 1, true]);
+        using var cli = Cli(new FakeModels(), prompter, interactive: true, machine: machine, tools: tools);
+
+        var run = await cli.RunAsync("setup");
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal(2, prompter.Questions.Count(q => q == "Đồng ý?"));
+        Assert.Equal(0, tools.Installs);
+        Assert.True(machine.Saved!.IsEmpty);
+        Assert.Contains("để sau (arrow tools install)", run.Out, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TheFirstGenWithoutConfigOffersSetup()
+    {
+        var prompter = new Scripted(false);
+        using var cli = Cli(new FakeModels(), prompter, interactive: true);
+
+        await cli.RunAsync("gen", "Cart", "--project", cli.Home);
+
+        Assert.Equal(["Chưa thiết lập. Chạy arrow setup ngay?"], prompter.Questions);
+
+        using var yes = Cli(new FakeModels(), new Scripted(), interactive: true);
+        var run = await yes.RunAsync("gen", "Cart", "--project", yes.Home, "--yes");
+        Assert.DoesNotContain("Chưa thiết lập", run.All, StringComparison.Ordinal);
     }
 
     [Fact]

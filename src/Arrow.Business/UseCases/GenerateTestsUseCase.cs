@@ -545,7 +545,8 @@ public sealed class GenerateTestsUseCase(
                     lock (results)
                     {
                         results[cut.Fqn] = result.Result;
-                        warnings.AddRange(result.Warnings);
+                        // With several classes, each warning names its class: a module warning is otherwise unplaceable.
+                        warnings.AddRange(cuts.Count == 1 ? result.Warnings : result.Warnings.Select(w => $"{cut.SimpleName}: {w}"));
                     }
 
                     shared.Runs.WriteJson(run.Run, $"{ProjectAnalyzer.TargetDir(cut.Fqn)}/result.json", result.Result);

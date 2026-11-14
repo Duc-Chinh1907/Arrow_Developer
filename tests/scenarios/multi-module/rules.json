@@ -1,0 +1,9 @@
+{
+  "rules": [
+    { "when": { "call_id": "gen/com.acme.shop.api.TaxPolicy" }, "respond_file": "tax_policy.md" },
+    { "when": { "call_id_prefix": "repair/com.acme.shop.api.TaxPolicy/" }, "respond_file": "tax_policy.md" },
+    { "when": { "call_id": "gen/com.acme.shop.OrderService" }, "respond_file": "order_service.md" },
+    { "when": { "call_id": "gen/com.acme.sample.Greeter" }, "respond_file": "greeter.md" }
+  ],
+  "default": { "error": "no_rule" }
+}

@@ -174,4 +174,9 @@ It is the product version of the team's research framework. There is **no resear
     - `Arrow.Cli/Repl`: `LineEditor` (`IKeySource`; history ≤ 500 lines, Tab, `/` lists the commands), `InteractiveSession` (slash commands → CLI arguments with `--project` and the `/model` override), `SpectreClassPicker` (asks a filter first: Spectre 0.57 has no search in `MultiSelectionPrompt`).
     - Ctrl+C: `Program` calls `CliApp.Interrupt()`, which cancels only the running command of the session; twice within 2 s leaves. `ConsoleKeySource` sets `Console.TreatControlCAsInput` while a line is edited.
     - Tests use a scripted `IKeySource`, a fake `ISessionUseCase` and a fake runner (`InteractiveSessionTests`, `LineEditorTests`).
+  - PR `gd6/setup` (14/11/2026), P08 §2.5:
+    - `arrow setup` has all 5 steps: `IMachineSetupUseCase` (`MachineChoice`, `MachineFound`) finds the JDKs and Maven/Gradle with the user's corrections on top of `java.*`, and saves only the corrected paths; step 5 asks whether to download the tools, which happens after `Lưu?` (`ToolsCommand.InstallAsync`), then `doctor`.
+    - `SetupCommand.OfferFirstRunAsync`: the first `arrow` or `arrow gen` without a user `config.json` asks `Chưa thiết lập. Chạy arrow setup ngay?` (not with `--yes`, `--json` or no keyboard).
+    - With several classes, `arrow gen` warnings start with the class name.
+    - E2E `ThreeClassesOfAMultiModuleProject` (scenario `multi-module`): `shop-api` declares no test framework, so `TaxPolicy` ends COMPILE by stagnation (P01 §4.5); `OrderService` and `Greeter` (outside the reactor) are VALID; one baseline per module.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
