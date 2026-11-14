@@ -151,6 +151,8 @@ java -cp <thư viện PIT> org.pitest.mutationtest.commandline.MutationCoverageR
 - **Lỗi môi trường** (timeout, công cụ không chạy) được chạy lại, tối đa 3 lần, chờ 30 s giữa hai lần. Vẫn lỗi thì ghi vào `block4/outcome.json`.
 - **Công cụ chưa tải và không tải được** (P09 §6.2): công cụ đó có kết quả `skipped`, lý do `CFG_TOOL_MISSING`.
 - **Lỗi đo không làm CUT thất bại:** bộ test vẫn VALID và vẫn được đề nghị ghi vào project (P06). Chỉ có chỉ số là thiếu.
+- **JUnit Platform cũ** (1.0–1.1): `pitest-junit5-plugin` 1.2.1 không chạy, PIT báo `B4_PIT_FAILED`. Không thêm bản plugin cũ hơn vào `tools.lock.json` (Chính quyết định, 14/11/2026, GĐ7); JaCoCo và tsDetect vẫn đo.
+- **Bộ test VALID nhưng yếu** (thêm ở GĐ7, Chính quyết định 14/11/2026): line < 30% hoặc mutation = 0% (khi PIT đo được) thì phát sự kiện `B4.WeakSuite` mức cảnh báo, in ngay trước câu hỏi ghi file: `[!] <Class>: bộ test VALID nhưng kiểm tra rất ít (line 22%, mutation 0%); xem lại trước khi ghi vào project.` Bộ test vẫn được đề nghị ghi.
 
 **`block4/outcome.json`:**
 

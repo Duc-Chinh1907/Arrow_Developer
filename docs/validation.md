@@ -42,15 +42,66 @@ Tóm tắt:
 - **10/13 class VALID** (77%); tính riêng các class đã tới được khối 2 thì 10/11.
 - Với 10 class VALID: trung bình 0,3 vòng sửa, 5,4k token và 299 s mỗi class. Thời gian của class đầu mỗi repo có cả khối 1 (85–524 s, gồm baseline ×2); class sau cùng module dùng chung khối 1.
 - Mọi lần không VALID đều có mã lỗi và gợi ý cách sửa.
-- Tổng token của cả GĐ7: khoảng 308k, gồm 237k của lần chạy `otroslogviewer` gặp lỗi 6 ở mục 4.
+- Tổng token của cả GĐ7: khoảng 308k, gồm 237k của lần chạy `otroslogviewer` gặp lỗi 8 ở mục 5.
 
 Nhận xét:
 - **VALID nhưng test yếu:** `Optionalish` (1 test, mutation 0%) và `Mascot` (line 6%) qua được 5 bước xác minh nhưng gần như không kiểm tra gì. Khối 4 phát hiện được điều này; người dùng xem số đo trước khi ghi file.
 - **`otroslogviewer`:** 19 test `LoadingRunnableTest` pass ở cả 2 lần baseline nhưng fail khi chạy chung với test mới, ở c0 và ở cả 3 vòng sửa. Đây là test về thời gian (pause/resume), có thể là flaky khi máy tải nặng, cũng có thể test mới thật sự ảnh hưởng tới trạng thái chung. Chưa kết luận.
 - **`selenium-grid-extensions`:** Maven không phân giải được dependency của module `extension-clients/file-extension-client` (chưa xem artifact nào thiếu). ARROW dừng ở khối 1, chưa gọi model.
-- **`acadia`:** baseline lần 1 quá thời gian 3 lần liên tiếp (khoảng 15 phút mỗi lần), không gọi model.
+- **`acadia`:** baseline lần 1 quá thời gian 3 lần liên tiếp (khoảng 15 phút mỗi lần), không gọi model. Từ quyết định 2 ở mục 6, ARROW dừng ngay sau lần quá giờ đầu tiên.
 
-## 4. Lỗi phát hiện và đã sửa
+## 4. Diễn giải kết quả
+
+Mục này giúp đọc đúng các con số ở mục 3, nhất là khi đưa vào báo cáo.
+
+### 4.1 "VALID" và "test có giá trị" là hai việc khác nhau
+
+VALID nghĩa là bộ test qua đủ 5 bước xác minh trên build thật: biên dịch được, được tìm thấy, chạy không lỗi, các assertion đúng, và không làm hỏng test sẵn có. VALID **không** nói bộ test kiểm tra được bao nhiêu. Điều đó do khối 4 đo.
+
+Chia 13 class theo hai tiêu chí:
+
+| Nhóm | Số class | Class |
+|---|---:|---|
+| VALID, line ≥ 50% và mutation ≥ 50% | 4 | `ArgumentParser`, `DynamicEntityGraph`, `NamedEntityGraph`, `MascotResourcePoolImpl` |
+| VALID, chưa đo được mutation (PIT lỗi), line ≥ 50% | 2 | `TorrentManager` (line 70%, branch 17%), `LocalTimeConverter` (line 100%) |
+| VALID nhưng một chỉ số thấp | 2 | `PathUtils` (mutation 44%), `AnnotationValues` (mutation 45%) |
+| VALID nhưng gần như không kiểm tra gì | 2 | `Optionalish` (line 22%, mutation 0%), `Mascot` (line 6%) |
+| Không VALID | 3 | `JsonLogParser` (REGRESSION), `ResourceUploadRequest` (BLOCKED), `Amazon` (INFRA) |
+
+Vì vậy:
+- **tỷ lệ VALID là 10/13**;
+- **tỷ lệ test vừa VALID vừa có giá trị (line và mutation ≥ 50%) chỉ là 4/13**, có thể lên 6/13 nếu hai class chưa đo được mutation cũng đạt.
+
+Ngưỡng 50% chỉ dùng để đọc bảng này, không có trong spec. Hai class ở nhóm "gần như không kiểm tra gì" là đúng những class mà cảnh báo `B4.WeakSuite` (quyết định 3 ở mục 6) sẽ báo cho người dùng.
+
+### 4.2 Mẫu nhỏ và không ngẫu nhiên
+
+- **Cỡ mẫu:** 13 class. Khoảng tin cậy 95% (Wilson) của tỷ lệ VALID 10/13 là **khoảng 50%–92%**; của tỷ lệ 4/13 là khoảng 13%–58%. Không nên viết "ARROW đạt 77%" như một độ chính xác.
+- **Cách chọn:** 2 repo đầu là 2 repo đầu tiên có từ 2 class của danh sách seed; 8 repo sau được chọn tay để phủ các kiểu project (Gradle, TestNG, JUnit 5, Java 17, module lồng). Mẫu này thiên về độ phủ kiểu project, không đại diện cho repo Java nói chung.
+- **Nguồn:** manifest `technical_eligible`, tức là các class mà preflight của nhóm đã kiểm là build được. Repo ngoài thực tế có thể khó hơn.
+
+Cách viết phù hợp trong báo cáo: "Chạy thử trên 13 class của 10 repo thật, 10 class cho bộ test VALID; 4 class đạt line và mutation từ 50% trở lên."
+
+### 4.3 Chỉ một cấu hình
+
+- Một model (`gpt-6-luna`, `temperature=0`), một máy Windows 11, chỉ chạy với `--repo`.
+- Chưa thử: Linux, Ollama, model khác, và đường ghi file vào project thật trên repo thật (`--project`). Đường ghi file đã có E2E trên fixture (P06), nhưng chưa có trên repo thật.
+
+### 4.4 Thất bại chủ yếu do repo, không do model
+
+- 2/3 class không VALID dừng ở khối 1, trước khi gọi model: repo không phân giải được dependency (`selenium-grid-extensions`), và repo có test treo (`acadia`). Người dùng thật cũng sẽ gặp các repo như vậy; điều quan trọng là ARROW dừng sạch, có mã lỗi và gợi ý.
+- Chỉ 1/11 class đã tới khối 2 là không VALID (`JsonLogParser`), và nguyên nhân chưa rõ: 19 test về thời gian fail khi chạy chung với test mới. Đó có thể là test flaky khi máy tải nặng, hoặc test mới thật sự ảnh hưởng tới trạng thái chung. Cần chạy lại module nhiều lần, có và không có test mới, mới kết luận được.
+
+### 4.5 Điều kết quả này chứng minh được
+
+Với tiêu chí "xong khi" của PLAN GĐ7, kết quả đã đủ:
+- không lần chạy nào làm hỏng project hay ghi sai chỗ;
+- mọi lần thất bại đều có mã lỗi và gợi ý cách sửa;
+- 8 lỗi tìm được đều đã sửa, mỗi lỗi có test hồi quy.
+
+Kết quả **chưa** đủ để nói về chất lượng sinh test của ARROW nói chung. Nếu báo cáo cần con số đó, nên chạy nốt 10 repo còn lại của `validation-set.json` theo đúng thứ tự seed, không chọn tay; ước tính 60–100k token và 1–2 giờ máy.
+
+## 5. Lỗi phát hiện và đã sửa
 
 | # | Lỗi | Sửa | Test hồi quy |
 |---|---|---|---|
@@ -65,13 +116,19 @@ Nhận xét:
 
 Không lần chạy nào làm hỏng project hay ghi sai chỗ: project từ GitHub chỉ được ghi trong `runs/`. Đường ghi file vào project local đã được E2E kiểm (P06), nhưng GĐ7 chưa chạy lại trên repo thật dưới dạng bản clone với `--project`.
 
-## 5. Cần nhóm quyết
+## 6. Quyết định (Chính, 14/11/2026)
+
+1. **PIT với JUnit 5 cũ:** không thêm bản plugin cũ hơn; ARROW giữ `B4_PIT_FAILED` cho các project này (ghi vào P05 §7).
+2. **Baseline quá thời gian:** dừng ngay ở lần đầu, không thử lại; lỗi mạng vẫn được thử lại (P01 §6.2 bước 7; test `ABaselineTimeoutIsNotRetried`).
+3. **VALID nhưng test yếu:** cảnh báo khi line < 30% hoặc mutation = 0%, in trước câu hỏi ghi file (P05 §7; test `WeakSuiteTests`, `TheWeakSuiteWarningIsPrinted`).
+
+Bối cảnh của ba câu hỏi:
 
 1. **PIT với JUnit 5 cũ:** JavaTorrent (JUnit Platform 1.0.2) và threeten-jpa (1.1.0) báo `B4_PIT_FAILED`, vì `pitest-junit5-plugin` 1.2.1 trong `tools.lock.json` không chạy với JUnit Platform cũ như vậy. Muốn sửa thì phải thêm một bản plugin cũ hơn vào `tools.lock.json` (dùng khi Platform < 1.x), hoặc chấp nhận không đo mutation cho các project này. JaCoCo và tsDetect vẫn đo bình thường.
 2. **Thử lại khi baseline quá thời gian:** `acadia` tốn 46 phút cho 3 lần thử baseline quá giờ, trong khi một test treo gần như chắc chắn sẽ treo lại. Có nên dừng ngay sau lần quá giờ đầu tiên của baseline không?
 3. **VALID nhưng test yếu:** có nên cảnh báo khi một bộ test VALID có line < 30% hoặc mutation = 0% không (thêm một dòng `[!]` trước câu hỏi ghi file)?
 
-## 6. Còn lại
+## 7. Còn lại
 
 - 10 repo còn lại của `validation-set.json`: chưa chạy (Chính chọn chạy 10 repo).
 - Chạy lại vài repo dưới dạng bản clone với `--project`, để kiểm đường ghi file trên repo thật.

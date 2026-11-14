@@ -69,6 +69,9 @@ public static class ArrowEventTypes
     public const string B4ToolFailed = "B4.ToolFailed";
     public const string B4Done = "B4.Done";
 
+    /// <summary>A VALID suite that tests very little (Chính, GĐ7): a warning before the write question.</summary>
+    public const string B4WeakSuite = "B4.WeakSuite";
+
     // Writing into the project (P06 §8)
     public const string ApplyPlanned = "APPLY.Planned";
     public const string ApplyRenamed = "APPLY.Renamed";

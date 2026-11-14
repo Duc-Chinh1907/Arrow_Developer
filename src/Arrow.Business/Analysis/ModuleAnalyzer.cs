@@ -553,7 +553,8 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
             await workspaces.DeleteAsync(copy, job.Ct).ConfigureAwait(false);
             await workspaces.CloneAsync(snapshot, copy, job.Ct).ConfigureAwait(false);
             var log = $"baseline-{i}";
-            var result = await RunStepAsync(job, setup, copy, BuildCommands.ModuleTest(setup), jdk, log).ConfigureAwait(false);
+            // A test that hangs hangs again: a baseline timeout is not retried (Chính, GĐ7: acadia spent 46 min on 3 tries).
+            var result = await RunStepAsync(job, setup, copy, BuildCommands.ModuleTest(setup), jdk, log, retryTimeout: false).ConfigureAwait(false);
             var tests = TestReportReader.Read(Path.Combine(copy, plan.BuildRoot));
             await workspaces.DeleteAsync(copy, job.Ct).ConfigureAwait(false);
             seconds.Add(watch.Elapsed.TotalSeconds);
@@ -582,8 +583,11 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
         return new BaselineRuns(runs, seconds);
     }
 
-    /// <summary>Runs a build step, retrying timeouts and network errors <c>infra_attempts</c> times (P01 §6.2 step 7).</summary>
-    private async Task<BuildResult> RunStepAsync(Job job, BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, int jdk, string logName)
+    /// <summary>
+    /// Runs a build step, retrying network errors, and timeouts unless <paramref name="retryTimeout"/> is false, <c>infra_attempts</c>
+    /// times (P01 §6.2 step 7).
+    /// </summary>
+    private async Task<BuildResult> RunStepAsync(Job job, BuildSetup setup, string projectRoot, IReadOnlyList<string> arguments, int jdk, string logName, bool retryTimeout = true)
     {
         var attempts = Math.Max(1, options.InfraAttempts);
         for (var attempt = 1; ; attempt++)
@@ -592,7 +596,8 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
             Directory.CreateDirectory(job.LogsDir);
             var result = await builds.RunAsync(setup, projectRoot, arguments, options.JdkHomes[jdk], options.StepTimeout,
                 Path.Combine(job.LogsDir, name + ".log"), job.Ct).ConfigureAwait(false);
-            if (result.Failure is BuildFailureKind.Timeout or BuildFailureKind.Network && attempt < attempts)
+            var retry = result.Failure == BuildFailureKind.Network || (result.Failure == BuildFailureKind.Timeout && retryTimeout);
+            if (retry && attempt < attempts)
             {
                 job.Warnings.Add($"{logName}: {(result.Failure == BuildFailureKind.Timeout ? "quá thời gian" : "lỗi mạng")} (lần {attempt}), thử lại.");
                 if (options.InfraWait > TimeSpan.Zero)

@@ -17,6 +17,25 @@ namespace Arrow.IntegrationTests.Analysis;
 public class Block1IntegrationTests
 {
     // Parity: Block1IntegrationTests.SubdirectoryBuildRootJUnit4
+    // Chính's decision (GD7): a test that hangs hangs again, so a baseline timeout is INFRA at once, without the infra_attempts retries
+    // (acadia spent 46 minutes on 3 tries). The harness allows 2 attempts, so a retry would leave baseline-1-try2.log.
+    [Fact]
+    public async Task ABaselineTimeoutIsNotRetried()
+    {
+        await using var harness = await Block1Harness.CreateAsync(stepTimeout: TimeSpan.FromSeconds(60));
+        using var project = new UserProject("maven-verify-junit4");
+        await File.WriteAllTextAsync(
+            Path.Combine(project.Root, "src", "test", "java", "com", "acme", "billing", "HangsTest.java"),
+            "package com.acme.billing;\n\npublic class HangsTest {\n    @org.junit.Test\n    public void hangs() throws Exception {\n        Thread.sleep(Long.MAX_VALUE);\n    }\n}\n",
+            TestContext.Current.CancellationToken);
+
+        var (analysis, run) = await harness.InspectAsync(project.Root, "PriceCalculator");
+
+        Assert.Equal((BlockOutcomeKind.Infra, "B1_BASELINE_TIMEOUT"), (analysis.Outcome.Outcome, analysis.Outcome.Code));
+        Assert.NotNull(harness.Block1File(run, "com.acme.billing.PriceCalculator", "logs/baseline-1.log"));
+        Assert.Null(harness.Block1File(run, "com.acme.billing.PriceCalculator", "logs/baseline-1-try2.log"));
+    }
+
     [Fact]
     public async Task SubdirectoryBuildRootJUnit4()
     {
