@@ -194,6 +194,33 @@ public sealed class GenExecutableTests : IDisposable
         Assert.All(runJson.RootElement.GetProperty("targets").EnumerateArray(), t => Assert.Equal("DONE", t.GetProperty("state").GetString()));
     }
 
+    // PLAN GĐ6: three classes of maven-multi-junit5 with --jobs 2; block 1 runs once per module.
+    [Fact]
+    public async Task ThreeClassesOfAMultiModuleProject()
+    {
+        await ConfigureAsync();
+        using var multi = new FixtureRepo("maven-multi-junit5");
+        var run = await Arrow(Scenario("multi-module"), null, "gen", "TaxPolicy", "OrderService", "Greeter", "--project", multi.Root, "--no-metrics", "--plain", "--yes", "--jobs", "2");
+        Assert.True(run.ExitCode == 1, run.Output);
+        Assert.Contains("2/3 class VALID", run.Output, StringComparison.Ordinal);
+        Assert.Contains("[OK] com.acme.shop.OrderService: VALID", run.Output, StringComparison.Ordinal);
+        Assert.Contains("[OK] com.acme.sample.Greeter: VALID", run.Output, StringComparison.Ordinal);
+        Assert.Contains("[X] com.acme.shop.api.TaxPolicy: COMPILE", run.Output, StringComparison.Ordinal);
+        // The warning of the module without a test framework names its class (P01 §4.5).
+        Assert.Contains("[!] TaxPolicy: Không thấy JUnit hay TestNG", run.Output, StringComparison.Ordinal);
+
+        Assert.True(File.Exists(Path.Combine(multi.Root, "shop-core", "src", "test", "java", "com", "acme", "shop", "OrderService_ArrowTest.java")));
+        Assert.True(File.Exists(Path.Combine(multi.Root, "samples", "standalone", "src", "test", "java", "com", "acme", "sample", "Greeter_ArrowTest.java")));
+        Assert.False(Directory.Exists(Path.Combine(multi.Root, "shop-api", "src", "test")));
+
+        // Three modules: three block-1 analyses, each with its own baseline, none shared.
+        var targets = Path.Combine(RunDir(run), "targets");
+        Assert.Equal(3, Directory.GetFiles(targets, "baseline.json", SearchOption.AllDirectories).Length);
+        Assert.Empty(Directory.GetFiles(targets, "shared_from.txt", SearchOption.AllDirectories));
+        using var tax = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(targets, "com.acme.shop.api.TaxPolicy", "result.json"), TestContext.Current.CancellationToken));
+        Assert.Equal("COMPILE", tax.RootElement.GetProperty("result").GetString());
+    }
+
     // P07 §5, §8: P03 stops the run at the second class; --resume keeps the first and runs the second again.
     [Fact]
     public async Task AStoppedRunIsResumed()

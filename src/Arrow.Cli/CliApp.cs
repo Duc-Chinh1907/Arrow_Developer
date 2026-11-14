@@ -125,6 +125,7 @@ public sealed class CliApp
     {
         var globals = context.Globals;
         string[] passThrough = [.. globals.Home is { } h ? new[] { "--home", h } : [], .. globals.Plain ? new[] { "--plain" } : [], .. globals.Verbose ? new[] { "--verbose" } : []];
+        await SetupCommand.OfferFirstRunAsync(context, ct).ConfigureAwait(false);
         var sessionUseCase = context.Get<ISessionUseCase>();
         InteractiveSession? session = null;
         var editor = new LineEditor(new ConsoleKeySource(), _console.Out, sessionUseCase.HistoryFile, line => session!.Complete(line));

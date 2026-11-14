@@ -41,7 +41,7 @@ internal static class ToolsCommand
         return ExitCodes.Ok;
     }
 
-    private static async Task<int> InstallAsync(CommandContext context, string[] ids, CancellationToken ct)
+    internal static async Task<int> InstallAsync(CommandContext context, string[] ids, CancellationToken ct)
     {
         var results = await context.Get<IToolsUseCase>().InstallAsync(ids, new SyncProgress(context.Renderer), ct).ConfigureAwait(false);
         context.Renderer.Json(new { tools = results });

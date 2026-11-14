@@ -75,6 +75,7 @@ internal static class CompositionRoot
             sp.GetRequiredService<IConfigStore>(), home, sp.GetRequiredService<ToolDiscovery>(), sp.GetRequiredService<IProcessRunner>(), new JavaHelperProbe(home),
             models: sp.GetRequiredService<IModelDiagnostics>()));
         services.AddSingleton<ConfigUseCase>();
+        services.AddSingleton<IMachineSetupUseCase>(sp => new MachineSetupUseCase(sp.GetRequiredService<IConfigStore>(), sp.GetRequiredService<ConfigUseCase>(), sp.GetRequiredService<ToolDiscovery>()));
         services.AddSingleton<SecretsUseCase>();
         configure?.Invoke(services);
         return services.BuildServiceProvider();
