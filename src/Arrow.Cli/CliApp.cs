@@ -4,6 +4,7 @@ using System.CommandLine.Invocation;
 using Arrow.Business.UseCases;
 using Arrow.Cli.Commands;
 using Arrow.Cli.Rendering;
+using Arrow.Cli.Repl;
 using Arrow.Common.Config;
 using Arrow.Common.Errors;
 using Arrow.Common.Logging;
@@ -104,10 +105,40 @@ public sealed class CliApp
         root.Subcommands.Add(ConfigCommand.Build(this));
         root.Subcommands.Add(SecretsCommand.Build(this));
 
-        // GĐ6 opens the interactive session here (P08 §5). Until then, "arrow" alone shows the help.
-        root.SetAction((parse, ct) => root.Parse(["--help"]).InvokeAsync(
-            new InvocationConfiguration { Output = _console.Out, Error = _console.Error }, ct));
+        // "arrow" alone opens the interactive session (P08 §5); without a keyboard, with --json, or inside a session (a line of
+        // options only), it shows the help.
+        root.SetAction((parse, ct) => _console.HasKeyboard && !parse.GetValue(_json) && _session is null
+            ? Execute(parse, ct, (context, token) => SessionAsync(context, token))
+            : root.Parse(["--help"]).InvokeAsync(new InvocationConfiguration { Output = _console.Out, Error = _console.Error }, ct));
         return root;
+    }
+
+    /// <summary>
+    /// Ctrl+C from the console (P08 §5.4): inside the interactive session it cancels the running command and returns true; otherwise
+    /// false, and the caller cancels the whole process.
+    /// </summary>
+    public bool Interrupt() => _session?.Interrupt() ?? false;
+
+    private InteractiveSession? _session;
+
+    private async Task<int> SessionAsync(CommandContext context, CancellationToken ct)
+    {
+        var globals = context.Globals;
+        string[] passThrough = [.. globals.Home is { } h ? new[] { "--home", h } : [], .. globals.Plain ? new[] { "--plain" } : [], .. globals.Verbose ? new[] { "--verbose" } : []];
+        var sessionUseCase = context.Get<ISessionUseCase>();
+        InteractiveSession? session = null;
+        var editor = new LineEditor(new ConsoleKeySource(), _console.Out, sessionUseCase.HistoryFile, line => session!.Complete(line));
+        session = new InteractiveSession(sessionUseCase, editor, context.Renderer, new SpectreClassPicker(),
+            (args, token) => RunAsync([.. args, .. passThrough], token), _console.CurrentDirectory, Version);
+        _session = session;
+        try
+        {
+            return await session.RunAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _session = null;
+        }
     }
 
     /// <summary>

@@ -289,7 +289,8 @@ Thông tin build tool, Java và test framework trong banner lấy bằng phân t
 ### 5.3 Ô chọn class
 
 - Danh sách lấy bằng java-helper `list_classes` trên source root của mọi module, lưu tạm trong phiên.
-- Gõ để lọc theo tên ngắn hoặc một phần FQN, không phân biệt hoa thường. Interface và annotation không hiện.
+- Gõ để lọc theo tên ngắn hoặc một phần FQN, không phân biệt hoa thường. Interface, annotation và class abstract không hiện.
+  - Danh sách chọn nhiều của Spectre.Console 0.57 không có ô tìm kiếm, nên ô chọn hỏi chuỗi lọc trước (Enter để xem tất cả), rồi mới hiện danh sách đã lọc.
 - Class đã có `<CUT>Test` hay `<CUT>_ArrowTest` được ghi chú `(đã có test)`.
 - Chọn nhiều bằng phím cách, Enter để chạy.
 
