@@ -50,6 +50,9 @@ public interface IRenderer
 
     /// <summary>The result object of the command; written to stdout in JSON mode only.</summary>
     void Json(object value);
+
+    /// <summary>The Spectre console of rich mode, for live displays; null in plain and JSON mode.</summary>
+    IAnsiConsole? Ansi { get; }
 }
 
 /// <summary>Picks the mode (P08 §3.1).</summary>
@@ -81,6 +84,8 @@ public sealed class Renderer : IRenderer
     }
 
     public RenderMode Mode { get; }
+
+    public IAnsiConsole? Ansi => _rich;
 
     public void Line(string text)
     {

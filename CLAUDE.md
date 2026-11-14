@@ -162,4 +162,10 @@ It is the product version of the team's research framework. There is **no resear
   - PR `gd6/show` (14/11/2026):
     - `ShowRunUseCase` (`HistoryView`, `RunView`, `TargetView`, `RoundView`) and `ShowCommand`: `arrow history [--limit]`, `arrow show <run> [<class>]`, with `--json`.
     - A run that ends by Ctrl+C or an error also gets its `history.jsonl` line (P07 §8).
+  - PR `gd6/display` (14/11/2026), P08 §3:
+    - `GenEventPrinter` prints one line per block (`Khối 1 …` from the richer `B1.Done` message of `ProjectAnalyzer.Summary`, `Khối 2 c0 · tokens · s`, `Khối 3 c0: …` plus the round lines, `Khối 4 …`), `[i/n]` with several classes, and the time in plain mode.
+    - Events go through a bounded channel; Info events are dropped when it is full (P07 §10).
+    - Rich mode with several classes draws a Spectre `Live` table from the first started class.
+    - `SettlingConfirmation` prints the queue and ends the live table before any question.
+    - `IRenderer.Ansi` exposes the Spectre console of rich mode. Ctrl+C was already exit 3 through the cancellation token.
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.
