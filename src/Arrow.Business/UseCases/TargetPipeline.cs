@@ -158,9 +158,40 @@ public static class TargetPipeline
             {
                 warnings.Add($"{m.Cut.SimpleName}: chưa đo được {tool} ({state.Code}); xem {Path.Combine(run.Run.Root, "targets", m.Cut.Fqn, "block4", "logs")}");
             }
+
+            if (WeakSuite(quality.Metrics) is { } weak)
+            {
+                // Live, so that it is printed before the write question (the end-of-run warnings come after it).
+                run.Progress.Report(new ArrowEvent(DateTimeOffset.UtcNow, ArrowEventTypes.B4WeakSuite, m.Cut.Fqn, null, null, EventLevel.Warning,
+                    $"{m.Cut.SimpleName}: bộ test VALID nhưng kiểm tra rất ít ({weak}); xem lại trước khi ghi vào project.", new Dictionary<string, object?>()));
+            }
         }
 
         return Done(outcome, v0.State, final, final.Error, block2, block3, usage, quality, block4);
+    }
+
+    /// <summary>Line coverage below which a VALID suite is called weak.</summary>
+    public const double WeakLine = 0.30;
+
+    /// <summary>
+    /// Why a VALID suite is weak, e.g. <c>line 22%, mutation 0%</c>: line coverage below <see cref="WeakLine"/> or no mutant killed
+    /// (Chính, GĐ7: jbock and fresco gave VALID suites with mutation 0% and line 6%). Null when it is not weak or was not measured.
+    /// </summary>
+    public static string? WeakSuite(TargetMetrics? metrics)
+    {
+        static string Percent(double ratio) => (ratio * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
+        var reasons = new List<string>();
+        if (metrics?.Line is { } line && line < WeakLine)
+        {
+            reasons.Add("line " + Percent(line));
+        }
+
+        if (metrics?.Mutation is 0)
+        {
+            reasons.Add("mutation 0%");
+        }
+
+        return reasons.Count == 0 ? null : string.Join(", ", reasons);
     }
 
     /// <summary>The result of a target that block 1 could not use, or a query that named no class.</summary>

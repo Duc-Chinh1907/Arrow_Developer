@@ -65,7 +65,13 @@ Nhận xét:
 
 Không lần chạy nào làm hỏng project hay ghi sai chỗ: project từ GitHub chỉ được ghi trong `runs/`. Đường ghi file vào project local đã được E2E kiểm (P06), nhưng GĐ7 chưa chạy lại trên repo thật dưới dạng bản clone với `--project`.
 
-## 5. Cần nhóm quyết
+## 5. Quyết định (Chính, 14/11/2026)
+
+1. **PIT với JUnit 5 cũ:** không thêm bản plugin cũ hơn; ARROW giữ `B4_PIT_FAILED` cho các project này (ghi vào P05 §7).
+2. **Baseline quá thời gian:** dừng ngay ở lần đầu, không thử lại; lỗi mạng vẫn được thử lại (P01 §6.2 bước 7; test `ABaselineTimeoutIsNotRetried`).
+3. **VALID nhưng test yếu:** cảnh báo khi line < 30% hoặc mutation = 0%, in trước câu hỏi ghi file (P05 §7; test `WeakSuiteTests`, `TheWeakSuiteWarningIsPrinted`).
+
+Bối cảnh của ba câu hỏi:
 
 1. **PIT với JUnit 5 cũ:** JavaTorrent (JUnit Platform 1.0.2) và threeten-jpa (1.1.0) báo `B4_PIT_FAILED`, vì `pitest-junit5-plugin` 1.2.1 trong `tools.lock.json` không chạy với JUnit Platform cũ như vậy. Muốn sửa thì phải thêm một bản plugin cũ hơn vào `tools.lock.json` (dùng khi Platform < 1.x), hoặc chấp nhận không đo mutation cho các project này. JaCoCo và tsDetect vẫn đo bình thường.
 2. **Thử lại khi baseline quá thời gian:** `acadia` tốn 46 phút cho 3 lần thử baseline quá giờ, trong khi một test treo gần như chắc chắn sẽ treo lại. Có nên dừng ngay sau lần quá giờ đầu tiên của baseline không?

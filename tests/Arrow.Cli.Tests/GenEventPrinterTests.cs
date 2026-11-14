@@ -53,6 +53,19 @@ public class GenEventPrinterTests
 
     private static readonly DateTimeOffset Noon = new(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
 
+    // GD7: the weak-suite warning is printed live, so it comes before the write question.
+    [Fact]
+    public async Task TheWeakSuiteWarningIsPrinted()
+    {
+        var renderer = new RecordingRenderer();
+        await using (var printer = new GenEventPrinter(renderer, false, () => Noon))
+        {
+            printer.Report(E(ArrowEventTypes.B4WeakSuite, "Order: bộ test VALID nhưng kiểm tra rất ít (line 6%)", EventLevel.Warning));
+        }
+
+        Assert.Contains(renderer.Lines, l => l.StartsWith("[!] ", StringComparison.Ordinal) && l.EndsWith("Order: bộ test VALID nhưng kiểm tra rất ít (line 6%)", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task OneLinePerBlockWithTheTimeInPlainMode()
     {

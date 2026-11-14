@@ -25,14 +25,14 @@ public sealed class Block1Harness : IAsyncDisposable
 
     private readonly JavaHelperPool _pool;
 
-    private Block1Harness(IReadOnlyDictionary<int, string> jdks, string? maven, string? gradle)
+    private Block1Harness(IReadOnlyDictionary<int, string> jdks, string? maven, string? gradle, TimeSpan? stepTimeout)
     {
         Jdks = jdks;
         Home = new ArrowHome(Path.Combine(Path.GetTempPath(), "arrow-b1", Guid.NewGuid().ToString("N")[..8]));
         Home.EnsureCreated();
         Runs = new RunStore(Home);
         var runner = new ProcessRunner();
-        var options = new AnalysisOptions(jdks, maven, gradle, BaselineRuns: 2, StepTimeout: TimeSpan.FromMinutes(10), InfraAttempts: 2, InfraWait: TimeSpan.Zero);
+        var options = new AnalysisOptions(jdks, maven, gradle, BaselineRuns: 2, StepTimeout: stepTimeout ?? TimeSpan.FromMinutes(10), InfraAttempts: 2, InfraWait: TimeSpan.Zero);
         _pool = new JavaHelperPool(JavaHelperEnvironment.Options(), 1);
         var git = new ToolLocator(Environment.GetEnvironmentVariable).FindOnPath("git") is { } gitPath ? new GitClient(runner, gitPath) : null;
         var workspaces = new WorkspaceManager();
@@ -59,7 +59,7 @@ public sealed class Block1Harness : IAsyncDisposable
     public List<ArrowEvent> Events { get; } = [];
 
     /// <summary>A harness; skips the test when a JDK, java-helper, or the build tool the fixture needs is missing.</summary>
-    public static async Task<Block1Harness> CreateAsync(bool needsGradle = false)
+    public static async Task<Block1Harness> CreateAsync(bool needsGradle = false, TimeSpan? stepTimeout = null)
     {
         var jdks = await MachineJdks.Value;
         Assert.SkipWhen(jdks.Count == 0, "no JDK found (JAVA_HOME_<n>_X64, JAVA_HOME, PATH)");
@@ -68,7 +68,7 @@ public sealed class Block1Harness : IAsyncDisposable
         var gradle = tools.FindOnPath("gradle");
         Assert.SkipWhen(!needsGradle && maven is null, "Maven is not on PATH");
         Assert.SkipWhen(needsGradle && gradle is null, "Gradle is not on PATH");
-        return new Block1Harness(jdks, maven, gradle);
+        return new Block1Harness(jdks, maven, gradle, stepTimeout);
     }
 
     /// <summary>A new run with <c>command = inspect</c>.</summary>

@@ -351,6 +351,7 @@ Khối M dạng chữ, sinh bằng `MetadataPromptRenderer`, rồi điền vào 
 5. **Có test fail sẵn:** vẫn `OK`. In cảnh báo kèm số test fail. Các test này không được dùng để kết luận regression.
 6. **Jar hỏng trong cache:** javac báo `error reading <jar>; zip END header not found` (hoặc `error in opening zip file`) cho jar trong `~/.m2/repository` hay `~/.gradle/caches`. Khi đó xoá đúng các jar đó và coi là lỗi hạ tầng để thử lại.
 7. **Lỗi hạ tầng** (timeout, tải dependency, công cụ không chạy): thử 3 lần, cách nhau 30 s. Vẫn lỗi thì `INFRA`, `B1_BASELINE_TIMEOUT` hoặc `B1_DEPENDENCY_RESOLUTION`.
+   - **Riêng baseline quá thời gian thì không thử lại** (Chính quyết định, 14/11/2026, GĐ7): test đã treo thì gần như chắc chắn treo lại. `acadia` mất 46 phút cho 3 lần thử. Baseline vẫn được thử lại khi lỗi mạng.
 
 ### 6.3 `baseline.json`
 
@@ -453,7 +454,7 @@ public sealed record ProjectAnalysis(
 | `B1_JDK_MISSING` | BLOCKED | Không có JDK nào | Cài JDK `<n>`, rồi chạy `arrow setup` |
 | `B1_DEPENDENCY_RESOLUTION` | INFRA / BLOCKED | Không tải được dependency | Chạy `mvn -q dependency:resolve` để xem lỗi; kiểm tra `settings.xml`, proxy |
 | `B1_BASELINE_BUILD_FAILED` | BLOCKED | Không JDK nào biên dịch được | In lỗi đầu tiên; chạy `mvn -q test-compile` trên máy |
-| `B1_BASELINE_TIMEOUT` | INFRA | Build hoặc test quá `step_timeout_seconds` (3 lần) | Tăng `verification.step_timeout_seconds` |
+| `B1_BASELINE_TIMEOUT` | INFRA | Build quá `step_timeout_seconds` (3 lần), hoặc baseline quá thời gian (1 lần) | Tăng `verification.step_timeout_seconds` |
 | `B1_TEST_NAME_EXHAUSTED` | BLOCKED | Đã có `_ArrowTest` tới `_Arrow99Test` | Xoá bớt các file test cũ do ARROW sinh |
 | `B1_WORKSPACE` | INFRA | Không chép hay xoá được workspace (đĩa, quyền, đường dẫn dài) | Kiểm tra dung lượng trống; đặt `ARROW_HOME` ngắn hơn |
 
