@@ -117,7 +117,7 @@ public sealed class GenerateTestsUseCase(
         var warnings = new List<string>();
 
         // P07 §5.1: a run to resume, named or found; its settings win over the options (P07 §5.2).
-        var resume = await FindResumeAsync(request, confirm, ct).ConfigureAwait(false);
+        var resume = await FindResumeAsync(request, confirm, warnings, ct).ConfigureAwait(false);
         if (resume?.Info.Config is { } old)
         {
             var changed = new List<string>();
@@ -322,7 +322,7 @@ public sealed class GenerateTestsUseCase(
     /// P07 §5.1: the run of <c>--resume</c>, or the newest unfinished <c>gen</c> run of the same project from the last 7 days, when
     /// the user agrees to resume it (<c>--yes</c> agrees; without a keyboard a new run starts). Null for a new run.
     /// </summary>
-    private async Task<(RunHandle Handle, RunInfo Info)?> FindResumeAsync(GenerateRequest request, IConfirmation confirm, CancellationToken ct)
+    private async Task<(RunHandle Handle, RunInfo Info)?> FindResumeAsync(GenerateRequest request, IConfirmation confirm, List<string> warnings, CancellationToken ct)
     {
         if (request.Options.ResumeRunId is { } named)
         {
@@ -348,9 +348,34 @@ public sealed class GenerateTestsUseCase(
         }
 
         var targets = candidate.Info.Targets;
+        if (!StillTheSame(candidate.Handle, candidate.Info, request))
+        {
+            // GĐ7: a found run of a project that changed since is not offered. GEN_RESUME_MISMATCH is only for --resume <id>: a found
+            // run would otherwise block every "arrow gen" of the project for 7 days, and the hint "run arrow gen without --resume"
+            // could not be followed.
+            warnings.Add($"Run {candidate.Info.RunId} chưa xong nhưng project đã thay đổi kể từ run đó: bắt đầu run mới.");
+            return null;
+        }
+
         var question = $"Run {candidate.Info.RunId} chưa xong ({targets.Count(t => t.State == TargetState.Done)}/{targets.Count} class). Chạy tiếp?";
         var yes = request.Options.Yes || (confirm.CanAsk && await confirm.ConfirmAsync(question, true, ct).ConfigureAwait(false));
         return yes ? candidate : null;
+    }
+
+    /// <summary>
+    /// Whether a found run can still be resumed: a folder with the same <c>source_tree_hash</c> (without the files the run wrote), a
+    /// repository at the same commit when <c>--ref</c> is a full SHA. A branch or tag is checked after the checkout (P07 §5.2).
+    /// </summary>
+    private bool StillTheSame(RunHandle handle, RunInfo info, GenerateRequest request)
+    {
+        if (request.Kind == ProjectSourceKind.GitRepository)
+        {
+            return request.GitRef is not { Length: 40 } sha || !sha.All(Uri.IsHexDigit) || string.Equals(sha, info.Project.GitCommit, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var root = Path.GetFullPath(request.Location);
+        return info.Project.SourceTreeHash is { } hash && Directory.Exists(root)
+            && LocalProjectTree.Scan(root).SourceTreeHashWithout(WrittenPaths(handle, info.Targets)) == hash;
     }
 
     /// <summary>The same local folder, or the same repository URL.</summary>

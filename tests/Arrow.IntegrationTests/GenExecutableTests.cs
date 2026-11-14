@@ -262,6 +262,17 @@ public sealed class GenExecutableTests : IDisposable
         var mismatch = await Arrow(Scenario("two-classes"), null, "gen", "--resume", id, "--project", _project.Root, "--no-metrics", "--plain", "--yes");
         Assert.Equal(2, mismatch.ExitCode);
         Assert.Contains("GEN_RESUME_MISMATCH", mismatch.Output, StringComparison.Ordinal);
+
+        // GD7: without --resume, an unfinished run of a project that changed is not resumed: a new run starts. It used to resume it
+        // and stop with GEN_RESUME_MISMATCH on every "arrow gen" of the project for 7 days.
+        var stoppedAgain = await Arrow(Scenario("stop-at-second"), null, "gen", "PriceCalculator", "Invoice", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--jobs", "1");
+        Assert.True(stoppedAgain.ExitCode == 2, stoppedAgain.Output);
+        await File.AppendAllTextAsync(Path.Combine(_project.Root, "src", "main", "java", "com", "acme", "billing", "Invoice.java"), "// changed again\n", TestContext.Current.CancellationToken);
+        var fresh = await Arrow(Scenario("two-classes"), null, "gen", "Invoice", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--dry-run");
+        Assert.DoesNotContain("GEN_RESUME_MISMATCH", fresh.Output, StringComparison.Ordinal);
+        Assert.Contains("project đã thay đổi kể từ run đó: bắt đầu run mới", fresh.Output, StringComparison.Ordinal);
+        Assert.NotEqual(RunDir(stoppedAgain), RunDir(fresh));
+        Assert.True(fresh.ExitCode == 0, fresh.Output);
     }
 
     // P07 §3 step 5: a query without a class is BLOCKED; the other class still runs, and the exit code is 1.
