@@ -1,0 +1,404 @@
+{
+  "seed": 20261114,
+  "source": "technical_eligible_manifest.jsonl (strict_eligible is empty in every shard)",
+  "sources": [
+    {
+      "shard": "01-DUNG",
+      "file": "technical_eligible_manifest.jsonl",
+      "sha256": "7e1a0651201e5e7b5bc589cd3c46a9335925ca7222b8bc72d12eba4a84462d46"
+    },
+    {
+      "shard": "02-KIEU_ANH",
+      "file": "technical_eligible_manifest.jsonl",
+      "sha256": "854f7b2bf65db016b9dbb217c4a81268d0d7cf888f89d341c5e16e1169378c89"
+    },
+    {
+      "shard": "03-QUANG",
+      "file": "technical_eligible_manifest.jsonl",
+      "sha256": "af1c2bd449503f4e7974b40727403eb2f5ae99de010fb923fae6612d36a948be"
+    },
+    {
+      "shard": "04-CHINH",
+      "file": "technical_eligible_manifest.jsonl",
+      "sha256": "68fc53ba6c0c61577be628f1450b014d34e6908df9a9dfc923f58f8147f2f6bf"
+    },
+    {
+      "shard": "05-HAN",
+      "file": "technical_eligible_manifest.jsonl",
+      "sha256": "08ec9796abb10b6137e1a13be293e2ba51a68419b4d697645442a370c9fc2df5"
+    }
+  ],
+  "repositories_available": 3336,
+  "repositories": [
+    {
+      "repo_url": "https://github.com/Johnnei/JavaTorrent",
+      "checkout_sha": "068069114c4edb8438087804fd96a5e352c078c1",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "03-QUANG",
+          "task_id": "7022775_01a01faf44f9579d",
+          "class_fqn": "org.johnnei.javatorrent.internal.torrent.TorrentManager",
+          "class_path": "bittorrent/src/main/java/org/johnnei/javatorrent/internal/torrent/TorrentManager.java",
+          "module_path": "bittorrent",
+          "build_tool": "maven",
+          "testing_framework": "junit5",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/billyean/acadia",
+      "checkout_sha": "68a3971c0a152b492ba7b9a2f3aa2e2ec7c05ff4",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "04-CHINH",
+          "task_id": "73936138_ae296dffa689e1d6",
+          "class_fqn": "com.haibo.yan.design.amazon.Amazon",
+          "class_path": "java/src/main/java/com/haibo/yan/design/amazon/Amazon.java",
+          "module_path": ".",
+          "build_tool": "maven",
+          "testing_framework": "testng",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/marschall/threeten-jpa",
+      "checkout_sha": "0e0f7a217630301ece2920507d9d201c46aa2bd7",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "01-DUNG",
+          "task_id": "18646035_09d3714a7bd9b103",
+          "class_fqn": "com.github.marschall.threeten.jpa.LocalTimeConverter",
+          "class_path": "threeten-jpa/src/main/java/com/github/marschall/threeten/jpa/LocalTimeConverter.java",
+          "module_path": "threeten-jpa",
+          "build_tool": "maven",
+          "testing_framework": "junit5",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/neo4j-contrib/neo4j-graph-algorithms",
+      "checkout_sha": "02122180daa262f4ed690b18fd3dfbeb17fa2f23",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "02-KIEU_ANH",
+          "task_id": "82291828_c85f7f92d5eb5ae9",
+          "class_fqn": "org.neo4j.graphalgo.ml.OneHotEncoding",
+          "class_path": "algo/src/main/java/org/neo4j/graphalgo/ml/OneHotEncoding.java",
+          "module_path": "algo",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/jencisopy/JavaBeanStack",
+      "checkout_sha": "2efc8bc75cba2f5b326bce7f64779fd3c22d60df",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "05-HAN",
+          "task_id": "86331365_999b155a22ca2fc5",
+          "class_fqn": "org.javabeanstack.crypto.DigestUtil",
+          "class_path": "commons/src/main/java/org/javabeanstack/crypto/DigestUtil.java",
+          "module_path": "commons",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/jtablesaw/tablesaw",
+      "checkout_sha": "21fba5078af636792d492313d3b56603674611a5",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "05-HAN",
+          "task_id": "48880766_8514cb8b60339e51",
+          "class_fqn": "tech.tablesaw.io.fixed.FixedWidthReader",
+          "class_path": "core/src/main/java/tech/tablesaw/io/fixed/FixedWidthReader.java",
+          "module_path": "core",
+          "build_tool": "maven",
+          "testing_framework": "junit5",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/traneio/ndbc",
+      "checkout_sha": "1bb256f6273a7e7c699f787b722013b8b008017c",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "02-KIEU_ANH",
+          "task_id": "84398452_fdc99eb4bcc4961e",
+          "class_fqn": "io.trane.ndbc.mysql.Connection",
+          "class_path": "ndbc-mysql/src/main/java/io/trane/ndbc/mysql/Connection.java",
+          "module_path": "ndbc-mysql",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/Teradata/jaqy",
+      "checkout_sha": "a38e35e2fee7a11d68650b7c67a5aba7691ad4c9",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "02-KIEU_ANH",
+          "task_id": "82007769_ba7c64d8d5cc5a70",
+          "class_fqn": "com.teradata.jaqy.parser.ArgumentParser",
+          "class_path": "jaqy-core/src/main/java/com/teradata/jaqy/parser/ArgumentParser.java",
+          "module_path": "jaqy-core",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        },
+        {
+          "shard": "02-KIEU_ANH",
+          "task_id": "82007769_d9a8a02317a4a641",
+          "class_fqn": "com.teradata.jaqy.utils.PathUtils",
+          "class_path": "jaqy-core/src/main/java/com/teradata/jaqy/utils/PathUtils.java",
+          "module_path": "jaqy-core",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/johnewart/gearman-java",
+      "checkout_sha": "020ed28574b88f6da571bc1a5bfd70fe04ecd49f",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "05-HAN",
+          "task_id": "6946733_ff5370820013fe9f",
+          "class_fqn": "net.johnewart.gearman.server.net.Encoder",
+          "class_path": "gearman-server/src/main/java/net/johnewart/gearman/server/net/Encoder.java",
+          "module_path": "gearman-server",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/Cosium/spring-data-jpa-entity-graph",
+      "checkout_sha": "680887bec70f5e1021565e41fcbc90f643f4e3b7",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "01-DUNG",
+          "task_id": "74491626_37aa780dda450a92",
+          "class_fqn": "com.cosium.spring.data.jpa.entity.graph.domain.DynamicEntityGraph",
+          "class_path": "core/src/main/java/com/cosium/spring/data/jpa/entity/graph/domain/DynamicEntityGraph.java",
+          "module_path": "core",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        },
+        {
+          "shard": "01-DUNG",
+          "task_id": "74491626_d7e46a4782a04cfb",
+          "class_fqn": "com.cosium.spring.data.jpa.entity.graph.domain.NamedEntityGraph",
+          "class_path": "core/src/main/java/com/cosium/spring/data/jpa/entity/graph/domain/NamedEntityGraph.java",
+          "module_path": "core",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/h908714124/jbock",
+      "checkout_sha": "98440d1c63fd9d19d454239af55b680e6d1e9c70",
+      "build_tool": "gradle",
+      "classes": [
+        {
+          "shard": "03-QUANG",
+          "task_id": "88063304_17a227f0c52aac63",
+          "class_fqn": "net.jbock.coerce.matching.Optionalish",
+          "class_path": "core/src/main/java/net/jbock/coerce/matching/Optionalish.java",
+          "module_path": "core",
+          "build_tool": "gradle",
+          "testing_framework": "junit5",
+          "java_version": "openjdk version \"1.8.0_504\""
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/voho/web",
+      "checkout_sha": "37f6b677c5b2888b87ffd85c48dd17a751bc9f00",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "01-DUNG",
+          "task_id": "78444970_1c9bde775671d668",
+          "class_fqn": "ds.stack.ArrayStack",
+          "class_path": "examples/structures/src/main/java/ds/stack/ArrayStack.java",
+          "module_path": "examples/structures",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/benwilcock/spring-cloud-stream-demo",
+      "checkout_sha": "fbdadd1b8d30c5f3d42c18e03835474aaa052f29",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "01-DUNG",
+          "task_id": "180961537_7911d67404ddcbcf",
+          "class_fqn": "io.pivotal.loansource.LoansourceApplication",
+          "class_path": "loansource/src/main/java/io/pivotal/loansource/LoansourceApplication.java",
+          "module_path": ".",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"1.8.0_504\""
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/graphhopper/jsprit",
+      "checkout_sha": "431e9cc1dd14b96a7ec6734c0dd6c4b0564d2d72",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "03-QUANG",
+          "task_id": "9054533_b348bc2ea5b7b1e7",
+          "class_fqn": "com.graphhopper.jsprit.instance.reader.SolomonReader",
+          "class_path": "jsprit-instances/src/main/java/com/graphhopper/jsprit/instance/reader/SolomonReader.java",
+          "module_path": "jsprit-instances",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/sterodium/selenium-grid-extensions",
+      "checkout_sha": "800e2c92e13bfe7d8f61f78b0cc29e32053cceb7",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "05-HAN",
+          "task_id": "43682339_0e147b35e1ec7f94",
+          "class_fqn": "io.sterodium.extensions.client.upload.ResourceUploadRequest",
+          "class_path": "extension-clients/file-extension-client/src/main/java/io/sterodium/extensions/client/upload/ResourceUploadRequest.java",
+          "module_path": "extension-clients/file-extension-client",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/aicis/fresco",
+      "checkout_sha": "bc066e1a5adb7825d681b62d92ddf3121543a20e",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "04-CHINH",
+          "task_id": "46789213_196578c85a1f099d",
+          "class_fqn": "dk.alexandra.fresco.tools.mascot.Mascot",
+          "class_path": "tools/mascot/src/main/java/dk/alexandra/fresco/tools/mascot/Mascot.java",
+          "module_path": "tools/mascot",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        },
+        {
+          "shard": "04-CHINH",
+          "task_id": "46789213_90fc11b3bb114e73",
+          "class_fqn": "dk.alexandra.fresco.tools.mascot.MascotResourcePoolImpl",
+          "class_path": "tools/mascot/src/main/java/dk/alexandra/fresco/tools/mascot/MascotResourcePoolImpl.java",
+          "module_path": "tools/mascot",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/DigitalTwin/steam-turbine-tutorial",
+      "checkout_sha": "9d7361dd2f465cbeb90682e0107d38fe12bae0a2",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "03-QUANG",
+          "task_id": "63894475_7b80f88866f2f6f9",
+          "class_fqn": "com.ge.digitaltwin.tutorial.simulator.SimulatorController",
+          "class_path": "tutorial-svcs/tutorial-simulator/src/main/java/com/ge/digitaltwin/tutorial/simulator/SimulatorController.java",
+          "module_path": "tutorial-simulator",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"17.0.20.1\" 2026-08-18 LTS"
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/google/auto",
+      "checkout_sha": "00cb81ed0959a55eb671e89768934094ca0e5e6f",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "01-DUNG",
+          "task_id": "10230369_39196601d2dfc862",
+          "class_fqn": "com.google.auto.common.AnnotationValues",
+          "class_path": "common/src/main/java/com/google/auto/common/AnnotationValues.java",
+          "module_path": ".",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"1.8.0_504\""
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/otros-systems/otroslogviewer",
+      "checkout_sha": "62e5a84498e3363ccf3c59d0aca6796078ac80ee",
+      "build_tool": "gradle",
+      "classes": [
+        {
+          "shard": "04-CHINH",
+          "task_id": "32377028_cb78745257b85abc",
+          "class_fqn": "pl.otros.logview.parser.json.JsonLogParser",
+          "class_path": "OtrosLogViewer-app/src/main/java/pl/otros/logview/parser/json/JsonLogParser.java",
+          "module_path": ".",
+          "build_tool": "gradle",
+          "testing_framework": "testng",
+          "java_version": "openjdk version \"1.8.0_504\""
+        }
+      ]
+    },
+    {
+      "repo_url": "https://github.com/redhat-developer-demos/istio-tutorial",
+      "checkout_sha": "0b4b5e61b8f2dbb47f91207e41c2a74a192d8127",
+      "build_tool": "maven",
+      "classes": [
+        {
+          "shard": "03-QUANG",
+          "task_id": "111042175_7199a847571a619b",
+          "class_fqn": "com.redhat.developer.demos.recommendation.RecommendationVerticle",
+          "class_path": "recommendation/java/vertx/src/main/java/com/redhat/developer/demos/recommendation/RecommendationVerticle.java",
+          "module_path": ".",
+          "build_tool": "maven",
+          "testing_framework": "junit4",
+          "java_version": "openjdk version \"1.8.0_504\""
+        }
+      ]
+    }
+  ]
+}

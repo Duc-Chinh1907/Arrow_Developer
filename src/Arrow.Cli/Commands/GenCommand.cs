@@ -103,6 +103,19 @@ internal static class GenCommand
         return result.ExitCode;
     }
 
+    /// <summary>The "Ghi file" column of the summary table.</summary>
+    internal static string DecisionText(ApplyDecision decision) => decision switch
+    {
+        ApplyDecision.Written => "đã ghi",
+        ApplyDecision.Declined => "không ghi (đã chọn)",
+        ApplyDecision.NotValid => "-",
+        ApplyDecision.RemoteProject => "chỉ trong runs/",
+        ApplyDecision.DryRun => "dry-run",
+        ApplyDecision.SkippedNonInteractive => "chưa ghi (cần --yes)",
+        ApplyDecision.Blocked => "bị chặn",
+        _ => decision.ToString(),
+    };
+
     private static string Percent(double? ratio) => ratio is { } r ? (r * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "-";
 
     private static void Print(IRenderer renderer, GenerateResult result)
@@ -169,7 +182,7 @@ internal static class GenCommand
                     Percent(t.Metrics?.Branch),
                     Percent(t.Metrics?.Mutation),
                     t.Metrics?.SmellDensity is { } density ? density.ToString("0.00", CultureInfo.InvariantCulture) : "-",
-                    t.Apply?.Decision is { } decision ? decision.ToString().ToLowerInvariant() : "-",
+                    t.Apply?.Decision is { } decision ? DecisionText(decision) : "-",
                 ]).ToList());
             renderer.Line($"{result.Targets.Count(t => t.Result == TargetOutcome.Valid)}/{result.Targets.Count} class VALID");
         }
