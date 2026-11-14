@@ -168,4 +168,10 @@ It is the product version of the team's research framework. There is **no resear
     - Rich mode with several classes draws a Spectre `Live` table from the first started class.
     - `SettlingConfirmation` prints the queue and ends the live table before any question.
     - `IRenderer.Ansi` exposes the Spectre console of rich mode. Ctrl+C was already exit 3 through the cancellation token.
+  - PR `gd6/repl` (14/11/2026), P08 §5:
+    - `arrow` alone opens the session when there is a keyboard and no `--json`; otherwise it prints the help. Inside a session, a line of options only prints the help instead of opening a second session.
+    - `ISessionUseCase` (`SessionUseCase`): banner from the build files of the root and of modules one folder below; class list from java-helper `list_classes` on every `src/main/java`; `HistoryFile` = `ARROW_HOME/repl_history`.
+    - `Arrow.Cli/Repl`: `LineEditor` (`IKeySource`; history ≤ 500 lines, Tab, `/` lists the commands), `InteractiveSession` (slash commands → CLI arguments with `--project` and the `/model` override), `SpectreClassPicker` (asks a filter first: Spectre 0.57 has no search in `MultiSelectionPrompt`).
+    - Ctrl+C: `Program` calls `CliApp.Interrupt()`, which cancels only the running command of the session; twice within 2 s leaves. `ConsoleKeySource` sets `Console.TreatControlCAsInput` while a line is edited.
+    - Tests use a scripted `IKeySource`, a fake `ISessionUseCase` and a fake runner (`InteractiveSessionTests`, `LineEditorTests`).
 - `docs.zip` in the root is a copy Chính made for the team. Keep it out of git.

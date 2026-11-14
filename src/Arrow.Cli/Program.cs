@@ -5,16 +5,21 @@ using Arrow.Cli;
 Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
 using var cancel = new CancellationTokenSource();
+var app = new CliApp(CliConsole.System());
 Console.CancelKeyPress += (_, e) =>
 {
-    // First Ctrl+C cancels the running command (exit code 3); the process ends on its own after cleanup.
+    // Ctrl+C cancels the running command (exit code 3); the process ends on its own after cleanup. Inside the interactive
+    // session it cancels only the command and the session goes on (P08 §5.4).
     e.Cancel = true;
-    cancel.Cancel();
+    if (!app.Interrupt())
+    {
+        cancel.Cancel();
+    }
 };
 
 try
 {
-    return await new CliApp(CliConsole.System()).RunAsync(args, cancel.Token).ConfigureAwait(false);
+    return await app.RunAsync(args, cancel.Token).ConfigureAwait(false);
 }
 catch (Exception ex)
 {
