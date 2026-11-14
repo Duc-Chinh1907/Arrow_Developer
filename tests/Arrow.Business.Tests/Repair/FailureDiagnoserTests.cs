@@ -184,6 +184,29 @@ public class FailureDiagnoserTests
         Assert.Equal(("", (ErrorGroup?)null), (valid.ErrorBlock, valid.Group));
     }
 
+    // GD7 (otroslogviewer): a parameterized TestNG test is named with the toString() of its arguments; 72,000 characters per name made
+    // a 400 KB repair prompt and 237k tokens for three calls.
+    [Fact]
+    public void LongParameterizedTestNamesAreCut()
+    {
+        var name = "pl.otros.LoadingRunnableTest#testLoadingAndPauseResume[0](Jul xml, Importer@72ee328a, [" + new string('x', 72_000) + "])";
+        var regression = _diagnoser.Diagnose(new VerifyResult
+        {
+            State = VerificationState.Regression,
+            Regressions = [.. Enumerable.Range(0, 7).Select(i => new RegressionInfo(name.Replace("[0]", $"[{i}]", StringComparison.Ordinal), RegressionKind.Failed, "java.lang.AssertionError", new string('m', 5_000)))],
+        }, Candidate(), M);
+        Assert.True(regression.ErrorBlock.Length < 5 * 600, regression.ErrorBlock.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Contains("- pl.otros.LoadingRunnableTest#testLoadingAndPauseResume[0](Jul xml, Importer@72ee328a, [xxx", regression.ErrorBlock, StringComparison.Ordinal);
+        Assert.True(regression.FirstError!.Length <= FailureDiagnoser.MaxFirstErrorChars);
+
+        var runtime = _diagnoser.Diagnose(new VerifyResult
+        {
+            State = VerificationState.Runtime,
+            Failures = [new FailureInfo(name, "java.lang.NullPointerException", null, null, null)],
+        }, Candidate(), M);
+        Assert.Equal(FailureDiagnoser.MaxTestNameChars, runtime.ErrorBlock.Split('\n')[0]["Test method: ".Length..].Length);
+    }
+
     [Fact]
     public void InfraHasNoDiagnosis() =>
         Assert.Throws<ArgumentException>(() => _diagnoser.Diagnose(new VerifyResult { InfraReason = "B3_TIMEOUT" }, Candidate(), M));

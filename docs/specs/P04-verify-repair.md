@@ -231,6 +231,8 @@ Tối đa 60 dòng; bỏ đường dẫn tuyệt đối của workspace, chỉ g
 | RUNTIME, ASSERTION | Mỗi method fail, tối đa 5: tên method, exception, thông điệp, 8 dòng đầu của stack trace |
 | REGRESSION | Mỗi test sẵn có bị hỏng, tối đa 5: tên, exception, thông điệp; cộng dòng "the generated test failed when run with the module" nếu có trường hợp (c) |
 
+Tên test trong khối lỗi, `first_error` và `extra_context` dài tối đa 200 ký tự (ký tự cuối là `…` khi bị cắt); thông điệp tối đa 300 ký tự. Thêm ở GĐ7: test có tham số của TestNG/JUnit mang `toString()` của tham số trong tên, có tên dài 72.000 ký tự, làm prompt repair nặng 400 KB.
+
 ### 4.3 First error
 
 Dạng **chưa chuẩn hoá**, tối đa 200 ký tự, chỉ để model đọc:

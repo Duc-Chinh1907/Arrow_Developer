@@ -352,8 +352,8 @@ public sealed partial class ExtraContextBuilder(IJavaHelperProvider javaHelpers)
         {
             var reason = regression.Kind == RegressionKind.Missing
                 ? "was not run"
-                : $"{regression.Type}{(string.IsNullOrWhiteSpace(regression.Message) ? "" : ": " + regression.Message.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')[0])}";
-            text.Append($"- {regression.Test}: {reason}\n");
+                : $"{regression.Type}{(string.IsNullOrWhiteSpace(regression.Message) ? "" : ": " + FailureDiagnoser.OneLine(regression.Message))}";
+            text.Append($"- {FailureDiagnoser.TestName(regression.Test)}: {reason}\n");
         }
 
         if (await CalledAsync(best, task, warnings, ct).ConfigureAwait(false) is { } called)
