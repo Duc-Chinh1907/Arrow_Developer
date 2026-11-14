@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using Arrow.Business;
 using Arrow.Business.UseCases;
+using Arrow.Cli.Prompts;
 using Arrow.Cli.Rendering;
 using Arrow.Common;
 using Arrow.Common.Errors;
@@ -69,13 +70,17 @@ internal static class GenCommand
         var command = new List<string> { "gen" };
         command.AddRange(tokens.Where(t => t != "gen"));
 
-        var result = await context.Get<IGenerateTestsUseCase>().RunAsync(
-            request,
-            command,
-            repo is null ? request.Location : context.ProjectRoot,
-            new EventPrinter(context.Renderer, context.Globals.Verbose),
-            context.Get<IConfirmation>(),
-            ct).ConfigureAwait(false);
+        GenerateResult result;
+        await using (var printer = new GenEventPrinter(context.Renderer, context.Globals.Verbose))
+        {
+            result = await context.Get<IGenerateTestsUseCase>().RunAsync(
+                request,
+                command,
+                repo is null ? request.Location : context.ProjectRoot,
+                printer,
+                new SettlingConfirmation(context.Get<IConfirmation>(), printer),
+                ct).ConfigureAwait(false);
+        }
 
         context.Renderer.Json(new { run_id = result.RunId, run_dir = result.RunDir, status = result.Status, exit_code = result.ExitCode, targets = result.Targets, totals = result.Totals, warnings = result.Warnings });
         if (context.Renderer.Mode != RenderMode.Json)

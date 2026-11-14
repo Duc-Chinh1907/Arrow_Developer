@@ -164,7 +164,7 @@ public sealed class ProjectAnalyzer(
 
         runs.WriteJson(run.Run, dir + "outcome.json", outcome);
         Report(run, ok ? ArrowEventTypes.B1Done : ArrowEventTypes.B1Blocked, cut.Fqn,
-            ok ? $"Khối 1 xong ({seconds:0.0} s)" : $"{outcome.Code}: {outcome.Message}", ok ? EventLevel.Info : EventLevel.Error);
+            ok ? Summary(metadata, module!.Baseline, seconds, sharedFrom) : $"{outcome.Code}: {outcome.Message}", ok ? EventLevel.Info : EventLevel.Error);
 
         var timings = new StepTimings(
             Math.Round(workspace.CheckoutSeconds, 1),
@@ -325,6 +325,23 @@ public sealed class ProjectAnalyzer(
     }
 
     private static string Relative(string root, string path) => Path.GetRelativePath(root, path).Replace('\\', '/');
+
+    /// <summary>The block 1 line of P08 §3.2: <c>Maven 3.9.6 · build root . · JDK 17 · JUnit 5 + Mockito · baseline 42 test ×2 · 38 s</c>.</summary>
+    public static string Summary(RepositoryMetadata? m, BaselineInfo? baseline, double seconds, string? sharedFrom)
+    {
+        if (m is null)
+        {
+            return $"{seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} s";
+        }
+
+        var tool = (m.BuildTool.Kind == BuildToolKind.Gradle ? "Gradle" : "Maven") + (m.BuildTool.Version.Length > 0 ? " " + m.BuildTool.Version : "");
+        var framework = m.TestFramework?.Name switch { "junit5" => "JUnit 5", "junit4" => "JUnit 4", "testng" => "TestNG", _ => "không rõ test framework" }
+                        + (m.TestFramework?.Mocking.Any(x => x.Contains("mockito", StringComparison.OrdinalIgnoreCase)) == true ? " + Mockito" : "");
+        var tests = baseline is null ? "" : $" · baseline {baseline.PassingInAllRuns.Count + baseline.Flaky.Count + baseline.FailingInAllRuns.Count} test ×{baseline.Runs}";
+        var shared = sharedFrom is null ? "" : $" · dùng chung với {sharedFrom[(sharedFrom.LastIndexOf('.') + 1)..]}";
+        return $"{tool} · build root {m.BuildTool.BuildRoot} · JDK {m.Java?.JdkMajor.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "?"} · {framework}{tests}{shared}"
+               + $" · {seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} s";
+    }
 
     private static void Report(RunContext run, string type, string? cut, string message, EventLevel level = EventLevel.Info) =>
         run.Progress.Report(new ArrowEvent(DateTimeOffset.UtcNow, type, cut, null, null, level, message, new Dictionary<string, object?>()));
