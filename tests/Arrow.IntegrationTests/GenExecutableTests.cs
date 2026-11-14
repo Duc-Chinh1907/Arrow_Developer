@@ -268,6 +268,15 @@ public sealed class GenExecutableTests : IDisposable
         Assert.Equal(1, run.ExitCode);
         Assert.Contains("B1_CUT_MISSING", run.Output, StringComparison.Ordinal);
         Assert.Contains("1/2 class VALID", run.Output, StringComparison.Ordinal);
+
+        // GD7: a pasted "\r" at the end of a name, and a missing name with characters a folder cannot have, used to end the run with
+        // CLI_INTERNAL. The first is trimmed; the second is blocked like any missing class.
+        var pasted = await Arrow(Scenario("valid-at-c0"), null, "gen", "PriceCalculator\r", "No:Such*Class", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--dry-run");
+        Assert.Equal(1, pasted.ExitCode);
+        Assert.DoesNotContain("CLI_INTERNAL", pasted.Output, StringComparison.Ordinal);
+        Assert.Contains("[OK] com.acme.billing.PriceCalculator: VALID", pasted.Output, StringComparison.Ordinal);
+        Assert.Contains("B1_CUT_MISSING", pasted.Output, StringComparison.Ordinal);
+        Assert.True(Directory.Exists(Path.Combine(RunDir(pasted), "targets", "No_Such_Class")));
     }
 
     // P06 §9: without a keyboard and without --yes nothing is written; --dry-run never writes.

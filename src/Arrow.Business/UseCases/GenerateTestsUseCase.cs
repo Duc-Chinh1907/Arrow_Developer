@@ -260,7 +260,7 @@ public sealed class GenerateTestsUseCase(
             }
 
             // P07 §6–7: the targets, at most `jobs` at a time.
-            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog, settings, repair, measure, workspace, runs, toolStore, processes);
+            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog.With("run_id", id).With("log_path", handle.Root), settings, repair, measure, workspace, runs, toolStore, processes);
             var runs2 = await RunTargetsAsync(cuts, run, shared, jobs, state, results, warnings, ct).ConfigureAwait(false);
 
             // P07 §9: the write step, then the end of the run.

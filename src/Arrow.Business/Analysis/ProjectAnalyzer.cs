@@ -125,8 +125,15 @@ public sealed class ProjectAnalyzer(
         await workspaces.DeleteAsync(run.WorkDir, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Folder of a CUT below the run, <c>targets/&lt;cut_fqn&gt;</c> (P09 §5.2).</summary>
-    public static string TargetDir(string cutFqn) => "targets/" + cutFqn;
+    /// <summary>
+    /// Folder of a CUT below the run, <c>targets/&lt;cut_fqn&gt;</c> (P09 §5.2). A FQN never has characters a folder name cannot have; a
+    /// class the user typed that was not found may (GĐ7: a pasted <c>\r</c> made the whole run fail), so those become <c>_</c>.
+    /// </summary>
+    public static string TargetDir(string cutFqn) =>
+        "targets/" + string.Concat(cutFqn.Select(c => char.IsControl(c) || InvalidNameChars.Contains(c) ? '_' : c));
+
+    // The Windows set on every OS, so that a run folder can be copied between machines.
+    private static readonly HashSet<char> InvalidNameChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     private ProjectAnalysis Finish(RunContext run, ProjectWorkspace workspace, ClassCandidate cut, BlockOutcome? failure, ModuleResult? module, List<string> warnings, Stopwatch watch, string? sharedFrom)
     {

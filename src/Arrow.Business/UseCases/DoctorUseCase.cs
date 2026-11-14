@@ -66,7 +66,7 @@ public sealed class JavaHelperProbe(ArrowHome home) : IJavaHelperProbe
 
 /// <summary>
 /// <see cref="IDoctorUseCase"/>: <c>ARROW_HOME</c>, configuration, git, JDKs, Maven and Gradle, java-helper, the default model (GĐ3) and,
-/// on Windows, long paths. The JaCoCo/PIT/tsDetect check comes with GĐ5.
+/// the JaCoCo/PIT/tsDetect files of <c>ARROW_HOME/tools</c> and, on Windows, long paths.
 /// </summary>
 public sealed class DoctorUseCase(
     IConfigStore config,
@@ -76,7 +76,8 @@ public sealed class DoctorUseCase(
     IJavaHelperProbe javaHelper,
     Func<string, long?>? freeBytes = null,
     Func<bool?>? longPaths = null,
-    IModelDiagnostics? models = null) : IDoctorUseCase
+    IModelDiagnostics? models = null,
+    IToolStore? measuringTools = null) : IDoctorUseCase
 {
     private const int NameWidth = 22;
 
@@ -154,7 +155,13 @@ public sealed class DoctorUseCase(
         // 6. java-helper.
         await CheckJavaHelperAsync(Add, machine, catalog, ct).ConfigureAwait(false);
 
-        // 7. The default model and, for Ollama, its context window (P03 §8).
+        // 7. JaCoCo, PIT and tsDetect (P08 §2.6). Missing or wrong files are only a warning: gen downloads them when it measures.
+        if (measuringTools is not null)
+        {
+            CheckMeasuringTools(Add, measuringTools.List());
+        }
+
+        // 8. The default model and, for Ollama, its context window (P03 §8).
         if (models is not null)
         {
             foreach (var item in await models.CheckAsync(projectRoot, ct).ConfigureAwait(false))
@@ -163,13 +170,54 @@ public sealed class DoctorUseCase(
             }
         }
 
-        // 8. Windows long paths.
+        // 9. Windows long paths.
         if ((longPaths ?? WindowsSettings.LongPathsEnabled)() == false)
         {
             Add(DoctorLevel.Warning, "Đường dẫn dài", "Windows chưa bật LongPathsEnabled", "Bật LongPathsEnabled (Local Group Policy hoặc registry), hoặc đặt ARROW_HOME ngắn như D:\\arrow.");
         }
 
         return new DoctorReport(items);
+    }
+
+    /// <summary>Tool groups of the doctor line, in order: the lock ids that start with each prefix.</summary>
+    private static readonly (string Name, string Prefix)[] ToolGroups = [("JaCoCo", "jacoco"), ("PIT", "pitest"), ("tsDetect", "tsdetect")];
+
+    private static void CheckMeasuringTools(Action<DoctorLevel, string, string, string?> add, IReadOnlyList<ToolState> states)
+    {
+        const string name = "JaCoCo / PIT / tsDetect";
+        var versions = ToolGroups.Select(g => states.FirstOrDefault(s => s.Entry.Id.StartsWith(g.Prefix, StringComparison.Ordinal)) is { } s ? VersionOf(s.Entry) : "—");
+        var missing = states.Count(s => s.Problem == "chưa tải");
+        var broken = states.Where(s => !s.Installed && s.Problem != "chưa tải").Select(s => s.Entry.Id).ToList();
+        var detail = string.Join(" / ", versions);
+        if (broken.Count > 0)
+        {
+            add(DoctorLevel.Warning, name, $"{detail} · sai sha256: {string.Join(", ", broken)}", "Chạy \"arrow tools install\" để tải lại; nếu vẫn sai thì kiểm tra proxy hoặc ARROW_MAVEN_MIRROR.");
+        }
+        else if (missing == states.Count)
+        {
+            add(DoctorLevel.Warning, name, $"{detail} · chưa tải", "Chạy \"arrow tools install\" (hoặc để arrow gen tự tải khi đo).");
+        }
+        else if (missing > 0)
+        {
+            // Some files (a PIT plugin for JUnit 5 or TestNG) are needed only by some projects; gen downloads them when it needs them.
+            add(DoctorLevel.Ok, name, $"{detail} · {states.Count - missing}/{states.Count} file đã tải, sha256 khớp; phần còn lại tải khi cần", null);
+        }
+        else
+        {
+            add(DoctorLevel.Ok, name, $"{detail} · sha256 khớp", null);
+        }
+    }
+
+    /// <summary>The version of a lock entry: the third part of its Maven coordinates, else the suffix of its folder (<c>tsdetect-2.2</c>).</summary>
+    private static string VersionOf(ToolEntry entry)
+    {
+        if (entry.Maven?.Split(':') is { Length: >= 3 } parts)
+        {
+            return parts[2];
+        }
+
+        var folder = entry.File.Split('/')[0];
+        return folder.Contains('-', StringComparison.Ordinal) ? folder[(folder.LastIndexOf('-') + 1)..] : "?";
     }
 
     private void CheckHome(Action<DoctorLevel, string, string, string?> add, ErrorCatalog catalog)

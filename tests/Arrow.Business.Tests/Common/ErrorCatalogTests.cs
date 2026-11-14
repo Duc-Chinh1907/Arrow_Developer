@@ -103,6 +103,26 @@ public class ErrorCatalogTests
         Assert.Equal(expected, ErrorCatalog.For(requested).Language);
     }
 
+    // GD7: "arrow gen --resume {run_id}" and "file log: {log_path}" were printed with the raw placeholder.
+    [Fact]
+    public void ContextValuesFillHintsThatTheCallerLeftOpen()
+    {
+        var catalog = ErrorCatalog.For("vi").With("run_id", "20261114-1200-abcd");
+
+        var budget = catalog.Describe(ErrorCodes.B2TokenBudget, "Đã dùng 10 token.");
+        Assert.Equal("Đã dùng 10 token.", budget.Message);
+        Assert.Contains("arrow gen --resume 20261114-1200-abcd", budget.Hint, StringComparison.Ordinal);
+
+        var own = catalog.Describe(ErrorCodes.B2TokenBudget, args: new Dictionary<string, string> { ["run_id"] = "other" });
+        Assert.Contains("--resume other", own.Hint, StringComparison.Ordinal);
+
+        var internalError = ErrorCatalog.For("vi").Describe(ErrorCodes.CliInternal, "boom", log: "logs/x.log");
+        Assert.Contains("logs/x.log", internalError.Hint, StringComparison.Ordinal);
+
+        // The shared catalog is unchanged, and a value nobody gave stays visible.
+        Assert.Contains("{run_id}", ErrorCatalog.For("vi").Describe(ErrorCodes.B2TokenBudget).Hint, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ErrorInfoUsesTheResultJsonShape()
     {

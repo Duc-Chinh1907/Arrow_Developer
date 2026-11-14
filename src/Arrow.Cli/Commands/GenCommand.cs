@@ -38,7 +38,9 @@ internal static class GenCommand
         {
             var options = new GenerateOptions(parse.GetValue(model), parse.GetValue(rounds), parse.GetValue(noRepair), parse.GetValue(noMetrics),
                 context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume));
-            return RunAsync(context, parse.GetValue(classes) ?? [], parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
+            // A pasted list may carry spaces or a "\r" at the end of a name (GĐ7).
+            var names = (parse.GetValue(classes) ?? []).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
+            return RunAsync(context, names, parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
                 parse.Tokens.Select(t => t.Value).ToList(), token);
         }));
         return command;

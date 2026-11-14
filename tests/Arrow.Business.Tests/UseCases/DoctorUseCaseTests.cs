@@ -1,6 +1,7 @@
 using Arrow.Business.UseCases;
 using Arrow.Common.Errors;
 using Arrow.DataAccess.JavaHelper;
+using Arrow.DataAccess.Tools;
 
 namespace Arrow.Business.Tests.UseCases;
 
@@ -199,5 +200,54 @@ public class DoctorUseCaseTests
 
         // java-helper runs on the smallest JDK >= 17 (P10 §3.1).
         Assert.Equal(machine.Environment["JAVA_HOME_17_X64"], Path.GetDirectoryName(Path.GetDirectoryName(probe.Java))!);
+    }
+
+    private sealed class FakeTools(params (string Id, string? Maven, string File, string? Problem)[] tools) : IToolStore
+    {
+        public IReadOnlyList<ToolState> List() =>
+            [.. tools.Select(t => new ToolState(new ToolEntry(t.Id, t.File, t.Maven, null, false, "00"), "/tools/" + t.File, t.Problem is null, t.Problem))];
+
+        public Task<string> EnsureAsync(string id, IProgress<string>? progress, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<string> EnsureMavenArtifactAsync(string group, string artifact, string version, string folder, IProgress<string>? progress, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
+    private static readonly (string, string?, string)[] Lock =
+    [
+        ("jacoco-agent", "org.jacoco:org.jacoco.agent:0.8.12:jar:runtime", "jacoco-0.8.12/agent.jar"),
+        ("pitest", "org.pitest:pitest:1.17.4", "pitest-1.17.4/pitest.jar"),
+        ("pitest-testng-plugin", "org.pitest:pitest-testng-plugin:1.0.0", "pitest-1.17.4/testng.jar"),
+        ("tsdetect", null, "tsdetect-2.2/TestSmellDetector.jar"),
+    ];
+
+    private static async Task<DoctorItem> ToolsLine(params string?[] problems)
+    {
+        using var machine = Complete();
+        var tools = new FakeTools([.. Lock.Select((t, i) => (t.Item1, t.Item2, t.Item3, problems[i]))]);
+        var doctor = new DoctorUseCase(machine.Config, machine.Home, machine.Discovery, machine.Runner, new FakeProbe(), _ => 50L * 1024 * 1024 * 1024, () => null, measuringTools: tools);
+        var report = await doctor.RunAsync(null, null, TestContext.Current.CancellationToken);
+        return Assert.Single(report.Items, i => i.Name == "JaCoCo / PIT / tsDetect");
+    }
+
+    // P08 §2.6, added in GD7: the doctor had no line for the measuring tools.
+    [Fact]
+    public async Task MeasuringToolsLineShowsVersionsAndState()
+    {
+        var ok = await ToolsLine(null, null, null, null);
+        Assert.Equal((DoctorLevel.Ok, "0.8.12 / 1.17.4 / 2.2 · sha256 khớp"), (ok.Level, ok.Detail));
+
+        // A plugin only some projects need is not a warning.
+        var partial = await ToolsLine(null, null, "chưa tải", null);
+        Assert.Equal(DoctorLevel.Ok, partial.Level);
+        Assert.Contains("3/4 file đã tải", partial.Detail, StringComparison.Ordinal);
+
+        var none = await ToolsLine("chưa tải", "chưa tải", "chưa tải", "chưa tải");
+        Assert.Equal(DoctorLevel.Warning, none.Level);
+        Assert.Contains("arrow tools install", none.Hint, StringComparison.Ordinal);
+
+        var wrong = await ToolsLine(null, "sai sha256", null, null);
+        Assert.Equal(DoctorLevel.Warning, wrong.Level);
+        Assert.Contains("sai sha256: pitest", wrong.Detail, StringComparison.Ordinal);
     }
 }
