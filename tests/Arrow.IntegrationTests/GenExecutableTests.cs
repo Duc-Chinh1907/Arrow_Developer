@@ -134,6 +134,24 @@ public sealed class GenExecutableTests : IDisposable
         Assert.Equal([1, 1, 2, 1, 2], levels);
         using var final = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(dir, "block3/final.json"), TestContext.Current.CancellationToken));
         Assert.Equal((5, "valid", "COMPILE"), (final.RootElement.GetProperty("success_round").GetInt32(), final.RootElement.GetProperty("stop_reason").GetString(), final.RootElement.GetProperty("c0_state").GetString()));
+
+        // P08 §2.7: arrow show prints the run and the rounds of the class; arrow history lists the run.
+        var id = Path.GetFileName(dir);
+        var show = await Arrow(null, null, "show", id[..15], "--plain");
+        Assert.True(show.ExitCode == 0, show.Output);
+        Assert.Contains($"Run {id} · COMPLETED", show.Output, StringComparison.Ordinal);
+        Assert.Contains("PriceCalculator", show.Output, StringComparison.Ordinal);
+
+        var rounds = await Arrow(null, null, "show", id, "PriceCalculator", "--plain");
+        Assert.True(rounds.ExitCode == 0, rounds.Output);
+        Assert.Contains("checkpoint = c0", rounds.Output, StringComparison.Ordinal);
+        Assert.Contains("mã trùng vòng 1", rounds.Output, StringComparison.Ordinal);
+        Assert.Contains("tốt hơn · checkpoint", rounds.Output, StringComparison.Ordinal);
+        Assert.Contains("thành công", rounds.Output, StringComparison.Ordinal);
+
+        var history = await Arrow(null, null, "history", "--json");
+        using var json = JsonDocument.Parse(history.Output[history.Output.IndexOf('{', StringComparison.Ordinal)..]);
+        Assert.Equal(id, json.RootElement.GetProperty("runs")[0].GetProperty("run_id").GetString());
     }
 
     // P05 §10 "nghiệm thu": without --no-metrics, gen measures the VALID suite and prints line, branch, mutation and smell.

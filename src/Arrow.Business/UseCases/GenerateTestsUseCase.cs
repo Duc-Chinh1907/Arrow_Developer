@@ -192,6 +192,8 @@ public sealed class GenerateTestsUseCase(
 
         var state = new RunState(runs, handle, info);
         ProjectWorkspace? workspace = null;
+        var results = new Dictionary<string, TargetResult>(StringComparer.Ordinal);
+        IReadOnlyList<string> order = [];
         try
         {
             var target = new ProjectTarget(request.Kind, request.Location, resume?.Info.Project.GitCommit ?? request.GitRef, request.CutQueries.FirstOrDefault() ?? "");
@@ -215,7 +217,6 @@ public sealed class GenerateTestsUseCase(
             warnings.AddRange(workspace.Warnings);
 
             // P07 §3 steps 4–6: the classes; a resumed run keeps its finished targets (P07 §5.3).
-            var results = new Dictionary<string, TargetResult>(StringComparer.Ordinal);
             var kept = new List<TargetRun>();
             var selection = request;
             if (resume is not null)
@@ -235,7 +236,7 @@ public sealed class GenerateTestsUseCase(
             }
 
             var (cuts, blocked) = await SelectAsync(host.Analyzer, workspace, selection, catalog, confirm, warnings, ct).ConfigureAwait(false);
-            var order = (resume is null ? [] : state.Info.Targets.Select(t => t.CutFqn).ToList())
+            order = (resume is null ? [] : state.Info.Targets.Select(t => t.CutFqn).ToList())
                 .Concat(cuts.Select(c => c.Fqn)).Concat(blocked.Select(b => b.CutFqn)).Distinct(StringComparer.Ordinal).ToList();
             state.Update(i => i with
             {
@@ -286,12 +287,15 @@ public sealed class GenerateTestsUseCase(
         }
         catch (OperationCanceledException)
         {
+            // P07 §8: whatever ends the run, run.json and history.jsonl record it.
             state.Update(i => i with { Status = RunStatus.Cancelled, FinishedAt = DateTimeOffset.UtcNow });
+            Finish(state, state.Info.Project, order.Count > 0 ? order : state.Info.Targets.Select(t => t.CutFqn).ToList(), results);
             throw;
         }
         catch (Exception)
         {
             state.Update(i => i with { Status = RunStatus.Failed, FinishedAt = DateTimeOffset.UtcNow });
+            Finish(state, state.Info.Project, order.Count > 0 ? order : state.Info.Targets.Select(t => t.CutFqn).ToList(), results);
             throw;
         }
         finally

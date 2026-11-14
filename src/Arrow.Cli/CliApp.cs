@@ -98,6 +98,8 @@ public sealed class CliApp
         root.Subcommands.Add(GenCommand.Build(this));
         root.Subcommands.Add(InspectCommand.Build(this));
         root.Subcommands.Add(ToolsCommand.Build(this));
+        root.Subcommands.Add(ShowCommand.BuildHistory(this));
+        root.Subcommands.Add(ShowCommand.BuildShow(this));
         root.Subcommands.Add(DoctorCommand.Build(this));
         root.Subcommands.Add(ConfigCommand.Build(this));
         root.Subcommands.Add(SecretsCommand.Build(this));
