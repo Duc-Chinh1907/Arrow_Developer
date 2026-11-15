@@ -2,7 +2,23 @@
   <!-- Commands, interactive session and rendering. Uses Arrow.DataAccess only in CompositionRoot. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- Packaging (P11 §7; Chính, 15/11/2026): dotnet tool ArrowDev, command arrow, MIT. The assembly stays Arrow.Cli. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>arrow</ToolCommandName>
+    <PackageId>ArrowDev</PackageId>
+    <Title>ARROW Developer CLI</Title>
+    <Description>Generates JUnit/TestNG unit tests for a Java class with an LLM, verifies them on the real Maven/Gradle build, repairs them, measures JaCoCo, PIT and tsDetect, and writes the test into the project only with consent.</Description>
+    <PackageTags>java;junit;testng;unit-test;llm;test-generation;maven;gradle</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Duc-Chinh1907/Arrow_Developer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Duc-Chinh1907/Arrow_Developer</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Self-contained single file (P11 §7): no trimming or AOT (the defaults), which System.Text.Json reflection and Spectre.Console
+         do not fully support. Setting them to false explicitly makes the .NET 10 SDK build RID-specific tool packages. -->
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Arrow.Common\Arrow.Common.csproj" />
     <ProjectReference Include="..\Arrow.Business\Arrow.Business.csproj" />

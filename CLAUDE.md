@@ -55,7 +55,8 @@ It is the product version of the team's research framework. There is **no resear
   - maven-compiler-plugin 2.x javac format (GĐ4);
   - error-message class names for COMPILE `extra_context` (GĐ4);
   - extra `count_assertions` kinds (GĐ1).
-- Still open, waiting for the team review: N/P defaults, command name and `PackageId`, license, a `--no-pit` flag. Do not decide these alone.
+- Decided 15/11/2026: command `arrow`, `PackageId` `ArrowDev` (assembly stays `Arrow.Cli`), license MIT, releases on GitHub only (no NuGet.org).
+- Still open, waiting for the team review: N/P defaults, a `--no-pit` flag. Do not decide these alone.
 
 ## Secrets
 
