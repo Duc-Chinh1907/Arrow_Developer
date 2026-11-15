@@ -11,7 +11,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Deterministic>true</Deterministic>
     <!-- SemVer of the release (P11 §7); the release tag is v$(Version). -->
-    <Version>0.1.0-rc.1</Version>
+    <Version>0.1.0-rc.2</Version>
     <Authors>SET490_G2</Authors>
     <Product>ARROW Developer CLI</Product>
     <Copyright>Copyright (c) 2026 SET490_G2</Copyright>

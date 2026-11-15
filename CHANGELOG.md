@@ -2,7 +2,11 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
-## [0.1.0-rc.1] - 2026-11-15
+## [0.1.0-rc.2] - 2026-11-15
+
+Bản chạy thử thứ hai của 0.1.0: sửa bước kiểm `--version` của `release.yml` trên Windows. Nội dung như mục 0.1.0 bên dưới.
+
+## [0.1.0-rc.1] - 2026-11-15 (không phát hành)
 
 Bản chạy thử của 0.1.0, để kiểm quy trình phát hành (`release.yml`). Nội dung như mục 0.1.0 bên dưới.
 
