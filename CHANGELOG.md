@@ -2,6 +2,10 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
+## [0.1.0-rc.1] - 2026-11-15
+
+Bản chạy thử của 0.1.0, để kiểm quy trình phát hành (`release.yml`). Nội dung như mục 0.1.0 bên dưới.
+
 ## [0.1.0] - chưa phát hành
 
 Bản đầu tiên.

@@ -43,7 +43,11 @@ public sealed class CliApp
         environment.GetValueOrDefault(FakeLlmVariable) is { Length: > 0 } path ? Path.GetFullPath(path) : null;
 
     /// <summary>Version written into <c>run.json</c> (<c>arrow_version</c>).</summary>
-    public static string Version { get; } = typeof(CliApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+    /// <remarks>The informational version keeps a pre-release suffix such as <c>-rc.1</c>, which the assembly version drops.</remarks>
+    public static string Version { get; } =
+        typeof(CliApp).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0]
+        ?? typeof(CliApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     /// <summary>Short commit of the build; <c>unknown</c> when it was built without git.</summary>
     public static string Commit { get; } = Metadata("ArrowCommit");
