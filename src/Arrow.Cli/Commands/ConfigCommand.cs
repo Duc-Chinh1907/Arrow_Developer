@@ -11,7 +11,7 @@ internal static class ConfigCommand
 {
     public static Command Build(CliApp app)
     {
-        var command = new Command("config", "Xem và sửa cấu hình (P09 §3)");
+        var command = new Command("config", "Xem và sửa cấu hình: list, get, set, unset, path");
 
         var origin = new Option<bool>("--origin") { Description = "In thêm nguồn của từng khoá: default, user, project, env, cli" };
         var list = new Command("list", "In cấu hình hiệu lực") { origin };
