@@ -137,7 +137,7 @@ Khác thì báo `GEN_RESUME_MISMATCH` (`Project đã thay đổi kể từ run <
 - **Run do ARROW tự tìm ra** (không có `--resume`): project được so **trước khi hỏi**. Khác thì không hỏi, in `[!] Run <id> chưa xong nhưng project đã thay đổi kể từ run đó: bắt đầu run mới.`, rồi tạo run mới. `GEN_RESUME_MISMATCH` chỉ dành cho `--resume <id>`. Thêm ở GĐ7 (14/11/2026): trước đó, một run tự tìm ra của project đã đổi làm mọi lần `arrow gen --yes` của project đó dừng với `GEN_RESUME_MISMATCH` trong 7 ngày, và gợi ý "chạy `arrow gen` mới, không dùng `--resume`" không làm theo được.
 - Repo GitHub: `--ref` là SHA đầy đủ khác commit của run cũ thì coi là project đã đổi. `--ref` là nhánh hay tag thì chạy tiếp lấy đúng commit của run cũ.
 
-Tham số ảnh hưởng tới kết quả (model, N, `early_stop_p`, có sửa hay không, có đo hay không) **lấy theo `run.json` cũ**. Người dùng truyền giá trị khác thì in `[!] Dùng cấu hình của run cũ: …`.
+Tham số ảnh hưởng tới kết quả (model, N, `early_stop_p`, có sửa hay không, có đo hay không, có đo PIT hay không) **lấy theo `run.json` cũ**. Người dùng truyền giá trị khác thì in `[!] Dùng cấu hình của run cũ: …`.
 
 ### 5.3 Làm lại những gì
 

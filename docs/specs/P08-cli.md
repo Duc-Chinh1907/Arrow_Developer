@@ -47,7 +47,7 @@
 
 ```
 arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <pkg>]
-          [--model <tên>] [--rounds <N>] [--no-repair] [--no-metrics]
+          [--model <tên>] [--rounds <N>] [--no-repair] [--no-metrics] [--no-pit]
           [--yes] [--dry-run] [--jobs <n>] [--max-tokens <n>] [--resume <run>] [--json] [--plain]
 ```
 
@@ -62,6 +62,7 @@ arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <
 | `--rounds <N>` | `repair.rounds` (5) | Số vòng sửa tối đa, 1–10 |
 | `--no-repair` | — | Chỉ sinh và xác minh c0 |
 | `--no-metrics` | — | Bỏ khối 4 |
+| `--no-pit` | — | Khối 4 không chạy PIT (bước đo lâu nhất); vẫn đo JaCoCo và tsDetect. Thêm 15/11/2026 |
 | `--yes` | — | Không hỏi: tự đồng ý ghi file và chấp nhận chi phí ước tính |
 | `--dry-run` | — | Chạy đủ nhưng không ghi vào project; in đường dẫn file kết quả trong `runs/` |
 | `--jobs <n>` | `run.jobs` (1) | Số class chạy song song, 1–8 |
