@@ -1,0 +1,140 @@
+# Release of P11 §5.3: on a tag v*, run the whole CI, package (P11 §7) and create a GitHub Release.
+# Releases are on GitHub only, not on NuGet.org (Chính, 15/11/2026).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # The tag must be v<Version of Directory.Build.props>.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: read
+        shell: bash
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match <Version>$version</Version> in Directory.Build.props"
+            exit 1
+          fi
+          grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section ## [$version]"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # One runner per OS: osx-arm64 is built on macOS, where the SDK signs the single file ad hoc (macOS refuses unsigned arm64 binaries).
+  package:
+    needs: [ci, version]
+    name: package (${{ matrix.rid }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64, exe: arrow.exe, archive: zip }
+          - { os: ubuntu-latest, rid: linux-x64, exe: arrow, archive: tar.gz }
+          - { os: macos-latest, rid: osx-arm64, exe: arrow, archive: tar.gz }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # java-helper.jar is embedded into Arrow.DataAccess only when target/java-helper.jar exists (P10 §2).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: java-helper (mvn package)
+        shell: bash
+        run: mvn -B -ntp -q -f tools/java-helper/pom.xml package -DskipTests
+
+      # Self-contained single file, no trimming or AOT (P11 §7); no .pdb or .xml next to it.
+      - name: Publish
+        shell: bash
+        run: >-
+          dotnet publish src/Arrow.Cli -c Release -r ${{ matrix.rid }} --self-contained
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=none -p:GenerateDocumentationFile=false
+          -o publish/${{ matrix.rid }}
+
+      # The assembly stays Arrow.Cli; the command is arrow.
+      - name: Rename, smoke test and archive
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}
+          src=Arrow.Cli; [ "${{ matrix.rid }}" = win-x64 ] && src=Arrow.Cli.exe
+          mv "$src" "${{ matrix.exe }}"
+          ./${{ matrix.exe }} --version | tee /dev/stderr | grep -q "^arrow $VERSION "
+          cp ../../LICENSE ../../README.md .
+          name="arrow-$VERSION-${{ matrix.rid }}"
+          mkdir -p ../../dist
+          if [ "${{ matrix.archive }}" = zip ]; then
+            7z a -tzip "../../dist/$name.zip" ${{ matrix.exe }} LICENSE README.md > /dev/null
+          else
+            chmod +x ${{ matrix.exe }}
+            tar -czf "../../dist/$name.tar.gz" ${{ matrix.exe }} LICENSE README.md
+          fi
+
+      - name: dotnet tool package
+        if: matrix.rid == 'linux-x64'
+        run: dotnet pack src/Arrow.Cli -c Release -o dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.rid }}
+          path: dist/
+          retention-days: 7
+
+  release:
+    needs: [version, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: SHA256SUMS.txt and release notes
+        shell: bash
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          # The section "## [<version>]" of CHANGELOG.md, without its heading, up to the next "## [".
+          awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } on && /^## \[/ { exit } on' CHANGELOG.md > notes.md
+          test -s notes.md
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "ARROW Developer CLI $VERSION" --notes-file notes.md --verify-tag
