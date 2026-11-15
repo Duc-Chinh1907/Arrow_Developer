@@ -37,6 +37,9 @@ public sealed class ArrowHome
     /// <summary><c>logs/</c>: the tool log <c>arrow-&lt;yyyyMMdd&gt;.log</c> (P09 §7).</summary>
     public string LogsDir => Path.Combine(Root, "logs");
 
+    /// <summary><c>cache/</c>: results reused across runs, e.g. <c>cache/baseline/</c> (P09 §2).</summary>
+    public string CacheDir => Path.Combine(Root, "cache");
+
     /// <summary><c>history.jsonl</c>: one line per finished run (P09 §5.4).</summary>
     public string HistoryFile => Path.Combine(Root, "history.jsonl");
 

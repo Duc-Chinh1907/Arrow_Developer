@@ -41,6 +41,7 @@ public sealed record BlockOutcome(
 /// <param name="Flaky">Tests that passed in some runs only.</param>
 /// <param name="FailingInAllRuns">Tests that failed in every run; never used to conclude a regression.</param>
 /// <param name="DurationsSeconds">Time of each step.</param>
+/// <param name="ReusedFrom">Set when the groups come from the baseline cache (P01 §6.2) instead of runs of this run.</param>
 public sealed record BaselineInfo(
     int Runs,
     BaselineCommands Commands,
@@ -48,7 +49,37 @@ public sealed record BaselineInfo(
     IReadOnlyList<string> PassingInAllRuns,
     IReadOnlyList<string> Flaky,
     IReadOnlyList<string> FailingInAllRuns,
-    BaselineDurations DurationsSeconds);
+    BaselineDurations DurationsSeconds,
+    BaselineReuse? ReusedFrom = null);
+
+/// <summary>Where a reused baseline was measured.</summary>
+/// <param name="RunId">The run that measured it.</param>
+/// <param name="MeasuredAt">When.</param>
+public sealed record BaselineReuse(string RunId, DateTimeOffset MeasuredAt);
+
+/// <summary>
+/// An entry of <c>ARROW_HOME/cache/baseline/&lt;key&gt;.json</c> (P01 §6.2): the groups of a baseline measured by a run, kept so that a
+/// later run of the same project, build and JDK can use them instead of running the module tests again.
+/// </summary>
+/// <param name="Key">The cache key (sha256 of the inputs that decide the outcome of the baseline).</param>
+/// <param name="RunId">The run that measured it.</param>
+/// <param name="MeasuredAt">When.</param>
+/// <param name="ArrowVersion">Version of ARROW that measured it.</param>
+/// <param name="Runs">Number of baseline runs.</param>
+/// <param name="PassingInAllRuns">Tests that passed in every run.</param>
+/// <param name="Flaky">Tests that passed in some runs only.</param>
+/// <param name="FailingInAllRuns">Tests that failed in every run.</param>
+/// <param name="ModuleTestSeconds">Time of each run, to show what reuse saved.</param>
+public sealed record BaselineCacheEntry(
+    string Key,
+    string RunId,
+    DateTimeOffset MeasuredAt,
+    string ArrowVersion,
+    int Runs,
+    IReadOnlyList<string> PassingInAllRuns,
+    IReadOnlyList<string> Flaky,
+    IReadOnlyList<string> FailingInAllRuns,
+    IReadOnlyList<double> ModuleTestSeconds);
 
 /// <summary>Commands of <see cref="BaselineInfo"/>, program first.</summary>
 public sealed record BaselineCommands(IReadOnlyList<string> Compile, IReadOnlyList<string> ModuleTest);

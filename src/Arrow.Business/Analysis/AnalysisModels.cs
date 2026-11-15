@@ -24,6 +24,8 @@ public sealed record RunContext(string RunId, string HomeRoot, string WorkDir, R
 /// <param name="StepTimeout"><c>verification.step_timeout_seconds</c>.</param>
 /// <param name="InfraAttempts"><c>verification.infra_attempts</c>.</param>
 /// <param name="InfraWait"><c>verification.infra_wait_seconds</c>.</param>
+/// <param name="BaselineCache"><c>verification.baseline_cache</c>: reuse a baseline measured by an earlier run (P01 §6.2).</param>
+/// <param name="FreshBaseline"><c>--fresh-baseline</c>: measure even when a cached baseline matches.</param>
 public sealed record AnalysisOptions(
     IReadOnlyDictionary<int, string> JdkHomes,
     string? Maven,
@@ -31,12 +33,17 @@ public sealed record AnalysisOptions(
     int BaselineRuns,
     TimeSpan StepTimeout,
     int InfraAttempts,
-    TimeSpan InfraWait)
+    TimeSpan InfraWait,
+    bool BaselineCache = false,
+    bool FreshBaseline = false)
 {
-    /// <summary>Options from the configuration and the tools found on the machine.</summary>
-    public static AnalysisOptions From(VerificationSettings verification, IReadOnlyDictionary<int, string> jdkHomes, string? maven, string? gradle) =>
+    /// <summary>
+    /// Options from the configuration and the tools found on the machine. <paramref name="freshBaseline"/> is <c>--fresh-baseline</c>:
+    /// measure the baseline even when a cached one matches (it is still stored for the next run).
+    /// </summary>
+    public static AnalysisOptions From(VerificationSettings verification, IReadOnlyDictionary<int, string> jdkHomes, string? maven, string? gradle, bool freshBaseline = false) =>
         new(jdkHomes, maven, gradle, verification.BaselineRuns, TimeSpan.FromSeconds(verification.StepTimeoutSeconds),
-            verification.InfraAttempts, TimeSpan.FromSeconds(verification.InfraWaitSeconds));
+            verification.InfraAttempts, TimeSpan.FromSeconds(verification.InfraWaitSeconds), verification.BaselineCache, freshBaseline);
 }
 
 /// <summary>Seconds spent in each step of block 1, shown by <c>arrow inspect</c> (P08 §2.3).</summary>

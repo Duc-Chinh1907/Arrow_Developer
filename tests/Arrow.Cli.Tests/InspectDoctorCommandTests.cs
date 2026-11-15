@@ -21,9 +21,11 @@ public class InspectDoctorCommandTests
 
         public string? ProjectRoot { get; private set; }
 
-        public Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct)
+        public bool FreshBaseline { get; private set; }
+
+        public Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct, bool freshBaseline = false)
         {
-            (Target, Command, ProjectRoot) = (target, command, projectRoot);
+            (Target, Command, ProjectRoot, FreshBaseline) = (target, command, projectRoot, freshBaseline);
             progress?.Report(new ArrowEvent(DateTimeOffset.UtcNow, ArrowEventTypes.B1Compile, "x", null, null, EventLevel.Info, "Biên dịch với JDK 11", new Dictionary<string, object?>()));
             progress?.Report(new ArrowEvent(DateTimeOffset.UtcNow, ArrowEventTypes.RunStarted, null, null, null, EventLevel.Info, "run-level", new Dictionary<string, object?>()));
             return Task.FromResult(result(target));

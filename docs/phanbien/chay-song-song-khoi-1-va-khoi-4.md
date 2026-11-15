@@ -115,5 +115,5 @@ PIT tự biên dịch lại mất 8–23 s, thường lâu hơn chính PIT; biê
 |---|---|---|
 | Bỏ PIT khi line 0% | xong | — |
 | Biên dịch một lần cho JaCoCo và PIT | xong | `maven-verify-junit4`: PIT 4,0 s → 1,5 s (hai lần đo), số đo không đổi (line 67%, mutation 67%, 4/6) |
-| Cache baseline | đang làm | |
+| Cache baseline | xong | `maven-verify-junit4` qua `arrow inspect`: lần hai "baseline dùng lại" thay cho 2 lượt (2,8 s + 2,7 s); với otroslogviewer tiết kiệm khoảng 6 phút mỗi lần chạy lại |
 

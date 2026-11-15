@@ -25,6 +25,7 @@ internal static class GenCommand
         var rounds = new Option<int?>("--rounds") { Description = "Số vòng sửa tối đa, 1–10 (mặc định: repair.rounds)" };
         var noRepair = new Option<bool>("--no-repair") { Description = "Chỉ sinh và xác minh c0" };
         var noMetrics = new Option<bool>("--no-metrics") { Description = "Bỏ khối 4 (đo chất lượng)" };
+        var freshBaseline = new Option<bool>("--fresh-baseline") { Description = "Đo baseline lại, không dùng kết quả đã lưu của lần chạy trước" };
         var noPit = new Option<bool>("--no-pit") { Description = "Không đo mutation bằng PIT (bước đo lâu nhất); vẫn đo JaCoCo và tsDetect" };
         var dryRun = new Option<bool>("--dry-run") { Description = "Chạy đủ nhưng không ghi vào project" };
         var maxTokens = new Option<long?>("--max-tokens") { Description = "Ngân sách token của cả run" };
@@ -33,12 +34,12 @@ internal static class GenCommand
         var resume = new Option<string?>("--resume") { Description = "Chạy tiếp một run bị ngắt (id hoặc tiền tố của id)" };
         var command = new Command("gen", "Sinh unit test cho một hoặc nhiều class, xác minh trên build thật, sửa tự động, đo chất lượng, rồi hỏi ghi file")
         {
-            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, noPit, dryRun, jobs, maxTokens, resume,
+            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, noPit, freshBaseline, dryRun, jobs, maxTokens, resume,
         };
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, token) =>
         {
             var options = new GenerateOptions(parse.GetValue(model), parse.GetValue(rounds), parse.GetValue(noRepair), parse.GetValue(noMetrics),
-                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume), parse.GetValue(noPit));
+                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume), parse.GetValue(noPit), parse.GetValue(freshBaseline));
             // A pasted list may carry spaces or a "\r" at the end of a name (GĐ7).
             var names = (parse.GetValue(classes) ?? []).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
             return RunAsync(context, names, parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,

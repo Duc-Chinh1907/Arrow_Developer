@@ -26,12 +26,13 @@ namespace Arrow.Business.UseCases;
 /// <param name="NoRepair"><c>--no-repair</c>.</param>
 /// <param name="NoMetrics"><c>--no-metrics</c>.</param>
 /// <param name="NoPit"><c>--no-pit</c>: block 4 measures JaCoCo and tsDetect only.</param>
+/// <param name="FreshBaseline"><c>--fresh-baseline</c>: measure the baseline even when a cached one matches (P01 §6.2).</param>
 /// <param name="Yes"><c>--yes</c>: accept the cost estimate and write the files without asking.</param>
 /// <param name="DryRun"><c>--dry-run</c>: never write into the project.</param>
 /// <param name="MaxTokens"><c>--max-tokens</c>.</param>
 /// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
 /// <param name="ResumeRunId"><c>--resume</c>: the run to resume (P07 §5).</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false);
+public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false, bool FreshBaseline = false);
 
 /// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
 /// <param name="Kind">Local folder or GitHub repository.</param>
@@ -164,7 +165,7 @@ public sealed class GenerateTestsUseCase(
             throw new ArrowException(ErrorCodes.CfgDiskFull);
         }
 
-        var analysisOptions = AnalysisOptions.From(settings.Verification, machine.BuildJdkHomes, machine.Maven, machine.Gradle);
+        var analysisOptions = AnalysisOptions.From(settings.Verification, machine.BuildJdkHomes, machine.Maven, machine.Gradle, options.FreshBaseline);
         await using var host = await hosts.StartAsync(new AnalyzerSetup(java, machine.Git, analysisOptions, catalog, jobs), ct).ConfigureAwait(false);
 
         // P07 §3: the run (a resumed one keeps its id).

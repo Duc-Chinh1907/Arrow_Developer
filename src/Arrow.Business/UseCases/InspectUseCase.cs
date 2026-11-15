@@ -34,8 +34,9 @@ public interface IInspectUseCase
     /// <summary>
     /// Checks the environment, gets the code, finds the class and runs block 1. Environment and project problems raise
     /// <see cref="ArrowException"/> (exit 2); a class that is missing or cannot be tested gives a BLOCKED result.
+    /// <c>freshBaseline</c> is <c>--fresh-baseline</c>: measure the baseline even when a cached one matches (P01 §6.2).
     /// </summary>
-    Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct);
+    Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct, bool freshBaseline = false);
 }
 
 /// <summary>
@@ -56,7 +57,7 @@ public sealed class InspectUseCase(
 
     private static readonly Dictionary<string, string?> NoOverrides = [];
 
-    public async Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct)
+    public async Task<InspectResult> RunAsync(ProjectTarget target, IReadOnlyList<string> command, string? projectRoot, IProgress<ArrowEvent>? progress, IConfirmation confirm, CancellationToken ct, bool freshBaseline = false)
     {
         // Steps 1, 2, 4, 5, 6 of P07 §2: nothing is created until they pass.
         var remote = target.Kind == ProjectSourceKind.GitRepository ? GitRemote.Parse(target.Location) : null;
@@ -89,7 +90,7 @@ public sealed class InspectUseCase(
             throw new ArrowException(ErrorCodes.CfgDiskFull);
         }
 
-        var options = AnalysisOptions.From(settings.Verification, buildJdks, machine.Maven, machine.Gradle);
+        var options = AnalysisOptions.From(settings.Verification, buildJdks, machine.Maven, machine.Gradle, freshBaseline);
         await using var host = await hosts.StartAsync(new AnalyzerSetup(java, machine.Git, options, catalog), ct).ConfigureAwait(false);
 
         var id = runs.NewUniqueRunId(DateTime.Now);
