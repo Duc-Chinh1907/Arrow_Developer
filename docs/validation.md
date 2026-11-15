@@ -1,6 +1,6 @@
 # Chạy thử trên repo thật (GĐ7)
 
-Bản nháp, cập nhật 14/11/2026. Nhóm cần xem và đồng ý bảng này (PLAN GĐ7, "xong khi").
+Cập nhật 14/11/2026. **Nhóm đã xem và đồng ý (15/11/2026)**, theo tiêu chí "xong khi" của PLAN GĐ7.
 
 ## 1. Bộ repo
 
@@ -18,7 +18,7 @@ arrow gen <FQN…> --repo <url> --ref <checkout_sha> --plain --yes --max-tokens 
 - Model: `gpt-6-luna` qua TeamoRouter, `temperature=0`; repair adaptive N = 5.
 - Đủ 4 khối (có đo JaCoCo, PIT, tsDetect). Project từ GitHub nên test chỉ lưu trong `runs/`.
 - Máy: Windows 11, Maven 3.9.16, Gradle 8.14.3, JDK 8/11/17/21.
-- Ollama: chưa có trên máy, chưa chạy.
+- Ollama: không chạy (Chính quyết định, 15/11/2026).
 
 ## 3. Kết quả
 
@@ -145,7 +145,7 @@ Bối cảnh của ba câu hỏi:
 2. **Thử lại khi baseline quá thời gian:** `acadia` tốn 46 phút cho 3 lần thử baseline quá giờ, trong khi một test treo gần như chắc chắn sẽ treo lại. Có nên dừng ngay sau lần quá giờ đầu tiên của baseline không?
 3. **VALID nhưng test yếu:** có nên cảnh báo khi một bộ test VALID có line < 30% hoặc mutation = 0% không (thêm một dòng `[!]` trước câu hỏi ghi file)?
 
-## 7. Còn lại
+## 7. Không làm trong GĐ7
 
-- 10 repo còn lại của `validation-set.json`: chưa chạy (Chính chọn chạy 10 repo).
-- Ollama: chưa có trên máy.
+- 10 repo còn lại của `validation-set.json`: không chạy (Chính chọn chạy 10 repo).
+- Ollama: không chạy (Chính quyết định, 15/11/2026).
