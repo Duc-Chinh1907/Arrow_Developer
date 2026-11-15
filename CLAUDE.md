@@ -56,7 +56,8 @@ It is the product version of the team's research framework. There is **no resear
   - error-message class names for COMPILE `extra_context` (GĐ4);
   - extra `count_assertions` kinds (GĐ1).
 - Decided 15/11/2026: command `arrow`, `PackageId` `ArrowDev` (assembly stays `Arrow.Cli`), license MIT, releases on GitHub only (no NuGet.org).
-- Still open, waiting for the team review: N/P defaults, a `--no-pit` flag. Do not decide these alone.
+- Decided 15/11/2026: repair defaults stay N = 5, P = 3; `arrow gen --no-pit` skips PIT (`GenerateTestsUseCase.MeasuredTools`, `RunConfig.NoPit`).
+- Nothing is open for the team review any more.
 
 ## Secrets
 

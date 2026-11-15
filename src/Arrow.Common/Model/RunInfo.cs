@@ -56,13 +56,15 @@ public sealed record RunProject(
 /// <param name="EarlyStopP">P of the early stop rule; null when off.</param>
 /// <param name="Repair">False with <c>--no-repair</c>.</param>
 /// <param name="Quality">False with <c>--no-metrics</c> or <c>quality.enabled = false</c>.</param>
+/// <param name="NoPit">True with <c>--no-pit</c>; false in a <c>run.json</c> written before the flag existed.</param>
 public sealed record RunConfig(
     string Model,
     string ProviderHost,
     int Rounds,
     int? EarlyStopP,
     bool Repair,
-    bool Quality);
+    bool Quality,
+    bool NoPit = false);
 
 /// <summary>One CUT of a run and its progress.</summary>
 public sealed record RunTarget(string CutFqn, TargetState State);

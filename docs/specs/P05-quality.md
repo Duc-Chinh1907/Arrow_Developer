@@ -49,6 +49,7 @@ flowchart LR
 
 **Khi nào chạy:**
 - chỉ khi `quality.enabled = true`, không có `--no-metrics`, và `final_state = VALID`;
+- `--no-pit` (Chính quyết định, 15/11/2026) bỏ `pit` khỏi `quality.tools` cho run đó: PIT không chạy, `result.json` không có mục `pit`, `mutation` là `null`, và `run.json` ghi `config.no_pit = true` để chạy tiếp vẫn giữ lựa chọn này;
 - CUT khác trạng thái thì không có thư mục `block4/`, và `result.json` ghi `metrics: null`;
 - người dùng tắt đo thì `result.json` ghi `metrics_skipped: "disabled"`.
 

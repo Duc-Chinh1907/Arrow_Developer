@@ -169,6 +169,23 @@ public sealed class GenExecutableTests : IDisposable
         Assert.True(File.Exists(TargetFile(RunDir(run), "block4/pit.json")));
     }
 
+    // --no-pit (Chính, 15/11/2026): JaCoCo and tsDetect are measured, PIT is not run at all.
+    [Fact]
+    public async Task GenWithoutPitMeasuresTheOtherTools()
+    {
+        await ConfigureAsync();
+        var run = await Arrow(Scenario("valid-at-c0"), null, "gen", "PriceCalculator", "--project", _project.Root, "--plain", "--yes", "--no-pit", "--dry-run");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Matches(@"Chất lượng: line \d+% · branch \d+% · method \d+% · mutation - ", run.Output);
+        using var result = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(RunDir(run), "result.json"), TestContext.Current.CancellationToken));
+        var tools = result.RootElement.GetProperty("tools");
+        Assert.Equal(("OK", "OK"), (tools.GetProperty("jacoco").GetString(), tools.GetProperty("tsdetect").GetString()));
+        Assert.False(tools.TryGetProperty("pit", out _));
+        Assert.False(File.Exists(TargetFile(RunDir(run), "block4/pit.json")));
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(RunDir(run), "run.json"), TestContext.Current.CancellationToken));
+        Assert.True(runJson.RootElement.GetProperty("config").GetProperty("no_pit").GetBoolean());
+    }
+
     // P07 §7, §13: two classes of one module with --jobs 2; block 1 runs once for the module, both files are written.
     [Fact]
     public async Task TwoClassesOfOneModuleShareBlockOne()

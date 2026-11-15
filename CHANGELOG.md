@@ -2,6 +2,12 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
+## [Chưa phát hành]
+
+### Thêm
+
+- `arrow gen --no-pit`: không đo mutation bằng PIT (bước đo lâu nhất); JaCoCo và tsDetect vẫn đo. Chạy tiếp một run giữ đúng lựa chọn này.
+
 ## [0.1.0] - 2026-11-15
 
 Bản đầu tiên. Đã thử trên máy sạch Windows: [`docs/release-check.md`](docs/release-check.md).

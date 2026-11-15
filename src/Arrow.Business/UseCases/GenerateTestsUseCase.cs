@@ -25,12 +25,13 @@ namespace Arrow.Business.UseCases;
 /// <param name="Rounds"><c>--rounds</c>; null for <c>repair.rounds</c>.</param>
 /// <param name="NoRepair"><c>--no-repair</c>.</param>
 /// <param name="NoMetrics"><c>--no-metrics</c>.</param>
+/// <param name="NoPit"><c>--no-pit</c>: block 4 measures JaCoCo and tsDetect only.</param>
 /// <param name="Yes"><c>--yes</c>: accept the cost estimate and write the files without asking.</param>
 /// <param name="DryRun"><c>--dry-run</c>: never write into the project.</param>
 /// <param name="MaxTokens"><c>--max-tokens</c>.</param>
 /// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
 /// <param name="ResumeRunId"><c>--resume</c>: the run to resume (P07 §5).</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null);
+public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false);
 
 /// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
 /// <param name="Kind">Local folder or GitHub repository.</param>
@@ -125,12 +126,13 @@ public sealed class GenerateTestsUseCase(
             if (options.Rounds is { } n && n != old.Rounds) { changed.Add($"N = {old.Rounds}"); }
             if (options.NoRepair == old.Repair) { changed.Add(old.Repair ? "có sửa" : "không sửa"); }
             if (options.NoMetrics == old.Quality) { changed.Add(old.Quality ? "có đo" : "không đo"); }
+            if (old.Quality && options.NoPit != old.NoPit) { changed.Add(old.NoPit ? "không đo PIT" : "có đo PIT"); }
             if (changed.Count > 0)
             {
                 warnings.Add("Dùng cấu hình của run cũ: " + string.Join(", ", changed));
             }
 
-            options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality };
+            options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality, NoPit = old.NoPit };
             settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP } };
         }
 
@@ -169,7 +171,7 @@ public sealed class GenerateTestsUseCase(
         var id = resume?.Handle.RunId ?? runs.NewUniqueRunId(DateTime.Now);
         var repair = settings.Repair with { Enabled = settings.Repair.Enabled && !options.NoRepair, Rounds = options.Rounds ?? settings.Repair.Rounds };
         var measure = !options.NoMetrics && settings.Quality.Enabled
-            ? new QualityOptions(settings.Quality.Tools, machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
+            ? new QualityOptions(MeasuredTools(settings.Quality.Tools, options.NoPit), machine.BuildJdkHomes, java, TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds),
                 TimeSpan.FromSeconds(settings.Quality.PitTimeoutSeconds), TimeSpan.FromSeconds(settings.Quality.TsdetectTimeoutSeconds),
                 settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces)
             : null;
@@ -178,7 +180,7 @@ public sealed class GenerateTestsUseCase(
         var info = resume is { } r
             ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
             : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null),
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit),
                 templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = resume?.Handle ?? runs.Create(info);
         if (resume is not null)
@@ -377,6 +379,10 @@ public sealed class GenerateTestsUseCase(
         return info.Project.SourceTreeHash is { } hash && Directory.Exists(root)
             && LocalProjectTree.Scan(root).SourceTreeHashWithout(WrittenPaths(handle, info.Targets)) == hash;
     }
+
+    /// <summary>The tools of block 4: <c>quality.tools</c>, without PIT for <c>--no-pit</c> (Chính, 15/11/2026).</summary>
+    public static IReadOnlyList<string> MeasuredTools(IReadOnlyList<string> configured, bool noPit) =>
+        noPit ? configured.Where(t => !string.Equals(t, "pit", StringComparison.OrdinalIgnoreCase)).ToList() : configured;
 
     /// <summary>The same local folder, or the same repository URL.</summary>
     private static bool SameProject(RunProject project, GenerateRequest request) =>

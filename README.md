@@ -64,6 +64,7 @@ arrow gen --package com.myshop.service                 # mọi class cụ thể 
 arrow gen OrderService --repo https://github.com/<owner>/<repo> --ref <sha đầy đủ>   # repo GitHub, test chỉ lưu trong ARROW_HOME/runs
 arrow gen OrderService --dry-run                       # chạy đủ nhưng không ghi vào project
 arrow gen OrderService --no-metrics --rounds 3         # bỏ đo chất lượng, tối đa 3 vòng sửa
+arrow gen OrderService --no-pit                        # không đo mutation (PIT, bước đo lâu nhất)
 arrow gen OrderService --max-tokens 50000              # ngân sách token của cả run
 arrow inspect OrderService                             # chỉ phân tích project, không gọi model
 arrow history                                          # các run đã chạy
