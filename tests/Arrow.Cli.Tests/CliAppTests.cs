@@ -25,6 +25,17 @@ public class CliAppTests
         }
     }
 
+    // P11 §7: arrow --version prints the version, the commit and the build date.
+    [Fact]
+    public async Task VersionPrintsVersionCommitAndBuildDate()
+    {
+        using var cli = new CliRunner();
+        var run = await cli.RunAsync("--version");
+        Assert.Equal(0, run.ExitCode);
+        Assert.Matches(@"^arrow \d+\.\d+\.\d+ \(commit ([0-9a-f]{7,40}|unknown), build \d{4}-\d{2}-\d{2}\)\s*$", run.Out);
+        Assert.Equal(CliApp.VersionLine, run.Out.Trim());
+    }
+
     /// <summary>
     /// Parity: <c>ARROW_Framework/tests/Arrow.IntegrationTests/EndToEndC1Tests.UnknownCommandFailsWithCode2</c>, in-process here;
     /// the real executable is checked in Arrow.IntegrationTests. P08 §2.2: the error ends with how to get help.

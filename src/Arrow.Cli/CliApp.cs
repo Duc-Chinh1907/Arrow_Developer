@@ -45,6 +45,29 @@ public sealed class CliApp
     /// <summary>Version written into <c>run.json</c> (<c>arrow_version</c>).</summary>
     public static string Version { get; } = typeof(CliApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
+    /// <summary>Short commit of the build; <c>unknown</c> when it was built without git.</summary>
+    public static string Commit { get; } = Metadata("ArrowCommit");
+
+    /// <summary>UTC date of the build, <c>yyyy-MM-dd</c>.</summary>
+    public static string BuildDate { get; } = Metadata("ArrowBuildDate");
+
+    /// <summary>What <c>arrow --version</c> prints (P11 §7): version, commit and build date.</summary>
+    public static string VersionLine => $"{CommandName} {Version} (commit {Commit}, build {BuildDate})";
+
+    private static string Metadata(string key) =>
+        typeof(CliApp).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value ?? "unknown";
+
+    /// <summary>The action of <c>--version</c>.</summary>
+    private sealed class PrintVersion : SynchronousCommandLineAction
+    {
+        public override int Invoke(ParseResult parseResult)
+        {
+            parseResult.InvocationConfiguration.Output.WriteLine(VersionLine);
+            return 0;
+        }
+    }
+
     private readonly CliConsole _console;
     private readonly Func<CliConsole, GlobalOptions, IServiceProvider> _compose;
 
@@ -85,10 +108,10 @@ public sealed class CliApp
     private Command BuildCommands()
     {
         // A plain Command named "arrow" rather than RootCommand, whose name would be the assembly name (Arrow.Cli).
-        // The final command name and PackageId are still open (CLAUDE.md); change CommandName when they are decided.
+        // The command name is arrow and the package ArrowDev (Chính, 15/11/2026).
         var root = new Command(CommandName, "ARROW: sinh unit test Java bằng LLM, xác minh trên build thật và sửa tự động.");
         root.Options.Add(new HelpOption());
-        root.Options.Add(new VersionOption());
+        root.Options.Add(new VersionOption { Action = new PrintVersion() });
         foreach (var option in new Option[] { _plain, _json, _verbose, _yes, _home })
         {
             root.Options.Add(option);

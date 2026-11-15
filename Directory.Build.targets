@@ -1,0 +1,23 @@
+<Project>
+  <!-- Commit and build date printed by the version option (P11 §7); "unknown" without git, e.g. from a source archive. -->
+  <Target Name="ArrowBuildInfo" BeforeTargets="GetAssemblyAttributes" Condition="'$(MSBuildProjectName)' == 'Arrow.Cli'">
+    <Exec Command="git rev-parse --short=12 HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" IgnoreExitCode="true" ContinueOnError="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="ArrowCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="ArrowGitExit" />
+    </Exec>
+    <PropertyGroup>
+      <ArrowCommit Condition="'$(ArrowGitExit)' != '0' Or '$(ArrowCommit)' == ''">unknown</ArrowCommit>
+      <ArrowBuildDate>$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</ArrowBuildDate>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ArrowCommit</_Parameter1>
+        <_Parameter2>$(ArrowCommit)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ArrowBuildDate</_Parameter1>
+        <_Parameter2>$(ArrowBuildDate)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+</Project>
