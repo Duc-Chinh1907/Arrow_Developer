@@ -65,7 +65,7 @@ public class DoctorUseCaseTests
         Assert.True(report.Ready);
         var jdk8 = Assert.Single(report.Items, i => i.Name == "JDK 8");
         Assert.Equal(DoctorLevel.Warning, jdk8.Level);
-        Assert.Contains("chỉ cần cho project Java 8", jdk8.Detail, StringComparison.Ordinal);
+        Assert.Contains("nên có cho project Java 8; thiếu thì ARROW thử JDK khác", jdk8.Detail, StringComparison.Ordinal);
         Assert.Contains("— / 11.0.24 / 17.0.12 / —", report.Items.Single(i => i.Name == "JDK 8 / 11 / 17 / 21").Detail, StringComparison.Ordinal);
 
         using var empty = new FakeMachine();

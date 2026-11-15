@@ -134,7 +134,7 @@ Kiểm tra môi trường
 ✓ ARROW_HOME       C:\Users\a\AppData\Local\arrow · 84 GB trống
 ✓ git              2.46.0
 ✓ JDK 8 / 11 / 17 / 21   1.8.0_422 / 11.0.24 / 17.0.12 / —
-! JDK 21           không tìm thấy (chỉ cần cho project Java 21)
+! JDK 21           không tìm thấy (nên có cho project Java 21; thiếu thì ARROW thử JDK khác)
 ✓ Maven            3.9.9 · Gradle 8.10
 ✓ java-helper      1.1.0 (JDK 17)
 ✓ JaCoCo / PIT / tsDetect   0.8.12 / 1.17.4 / 2.2 · sha256 khớp

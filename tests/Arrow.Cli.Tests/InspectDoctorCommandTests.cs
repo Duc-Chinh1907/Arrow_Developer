@@ -210,7 +210,7 @@ public class InspectDoctorCommandTests
     {
         var report = Report(
             new DoctorItem(DoctorLevel.Ok, "git", "2.46.0", null),
-            new DoctorItem(DoctorLevel.Warning, "JDK 21", "không tìm thấy (chỉ cần cho project Java 21)", null));
+            new DoctorItem(DoctorLevel.Warning, "JDK 21", "không tìm thấy (nên có cho project Java 21; thiếu thì ARROW thử JDK khác)", null));
         using var cli = Cli(doctor: new FakeDoctor(report));
         var run = await cli.RunAsync("doctor");
 
