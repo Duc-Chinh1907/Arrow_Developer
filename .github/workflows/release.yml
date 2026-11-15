@@ -86,7 +86,10 @@ jobs:
           cd publish/${{ matrix.rid }}
           src=Arrow.Cli; [ "${{ matrix.rid }}" = win-x64 ] && src=Arrow.Cli.exe
           mv "$src" "${{ matrix.exe }}"
-          ./${{ matrix.exe }} --version | tee /dev/stderr | grep -q "^arrow $VERSION "
+          # No tee /dev/stderr: Git Bash on the Windows runner has no /dev/stderr (v0.1.0-rc.1 failed there).
+          out=$(./${{ matrix.exe }} --version)
+          echo "$out"
+          case "$out" in "arrow $VERSION "*) ;; *) echo "::error::--version printed '$out', expected arrow $VERSION"; exit 1;; esac
           cp ../../LICENSE ../../README.md .
           name="arrow-$VERSION-${{ matrix.rid }}"
           mkdir -p ../../dist
