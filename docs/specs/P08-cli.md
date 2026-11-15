@@ -63,6 +63,7 @@ arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <
 | `--no-repair` | — | Chỉ sinh và xác minh c0 |
 | `--no-metrics` | — | Bỏ khối 4 |
 | `--no-pit` | — | Khối 4 không chạy PIT (bước đo lâu nhất); vẫn đo JaCoCo và tsDetect. Thêm 15/11/2026 |
+| `--fresh-baseline` | — | Đo baseline lại, không dùng kết quả đã lưu (P01 §6.2). Có ở cả `gen` và `inspect`. Thêm 16/11/2026 |
 | `--yes` | — | Không hỏi: tự đồng ý ghi file và chấp nhận chi phí ước tính |
 | `--dry-run` | — | Chạy đủ nhưng không ghi vào project; in đường dẫn file kết quả trong `runs/` |
 | `--jobs <n>` | `run.jobs` (1) | Số class chạy song song, 1–8 |

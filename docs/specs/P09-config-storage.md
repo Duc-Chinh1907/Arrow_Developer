@@ -42,6 +42,7 @@ ARROW_HOME/
   tools/                         công cụ ngoài đã tải (Mục 6)
     tools.installed.json
   mirrors/<host>/<owner>/<repo>.git   bản sao git dùng chung (P01)
+  cache/baseline/<khoá>.json     baseline đã đo, dùng lại tối đa 7 ngày (P01 §6.2); xoá thư mục này an toàn
   work/<run_id>/                 workspace tạm: base, snapshot, bản sao xác minh; xoá khi run xong
   runs/<run_id>/                 kết quả từng lần chạy (Mục 5)
   logs/arrow-<yyyyMMdd>.log      log của công cụ (Mục 7)
@@ -123,6 +124,7 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 | `repair.rounds` | int 1–10 | 5 | N |
 | `repair.early_stop_p` | int? ≥ 3 | 3 | `null` = không dừng sớm. Đặt nhỏ hơn 3 thì báo `CFG_INVALID` (P04) |
 | `verification.*` | | như trên | P01, P04 |
+| `verification.baseline_cache` | bool | true | Dùng lại baseline đã đo của lần chạy trước (P01 §6.2); `false` = luôn đo. Thêm 16/11/2026 |
 | `quality.enabled` | bool | true | `false` giống `--no-metrics` |
 | `quality.tools` | list | cả ba | Bỏ bớt công cụ |
 | `apply.confirm` | bool | true | `false` giống `--yes` |

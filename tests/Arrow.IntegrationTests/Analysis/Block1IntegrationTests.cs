@@ -36,6 +36,48 @@ public class Block1IntegrationTests
         Assert.Null(harness.Block1File(run, "com.acme.billing.PriceCalculator", "logs/baseline-1-try2.log"));
     }
 
+    // P01 §6.2 (16/11/2026): the next analysis of an unchanged project reuses the baseline; --fresh-baseline and a changed source
+    // measure it again. Each analysis uses a new harness on the same ARROW_HOME, like separate "arrow" commands: inside one analyzer,
+    // the module result of a run is shared anyway (AnalysisCache).
+    [Fact]
+    public async Task AnUnchangedProjectReusesItsBaseline()
+    {
+        using var project = new UserProject("maven-verify-junit4");
+        const string Cut = "com.acme.billing.PriceCalculator";
+        await using var first = await Block1Harness.CreateAsync(baselineCache: true);
+        var home = first.Home.Root;
+
+        var (measured, measuredRun) = await first.InspectAsync(project.Root, "PriceCalculator");
+        Assert.True(measured.Outcome.Outcome == BlockOutcomeKind.Ok, measured.Outcome.Message);
+        Assert.Null(measured.Baseline!.ReusedFrom);
+        Assert.NotNull(first.Block1File(measuredRun, Cut, "logs/baseline-1.log"));
+
+        await using (var second = await Block1Harness.CreateAsync(homeRoot: home, baselineCache: true))
+        {
+            var (reused, reusedRun) = await second.InspectAsync(project.Root, "PriceCalculator");
+            Assert.True(reused.Outcome.Outcome == BlockOutcomeKind.Ok, reused.Outcome.Message);
+            Assert.Equal(measuredRun.RunId, reused.Baseline!.ReusedFrom?.RunId);
+            Assert.Equal(measured.Baseline.PassingInAllRuns, reused.Baseline.PassingInAllRuns);
+            Assert.Empty(reused.Baseline.DurationsSeconds.ModuleTest);
+            Assert.Null(second.Block1File(reusedRun, Cut, "logs/baseline-1.log"));
+            Assert.Contains("(dùng lại, đo ", ProjectAnalyzer.Summary(reused.Metadata, reused.Baseline, 1, null), StringComparison.Ordinal);
+        }
+
+        await using (var fresh = await Block1Harness.CreateAsync(homeRoot: home, baselineCache: true, freshBaseline: true))
+        {
+            var (again, againRun) = await fresh.InspectAsync(project.Root, "PriceCalculator");
+            Assert.Null(again.Baseline!.ReusedFrom);
+            Assert.NotNull(fresh.Block1File(againRun, Cut, "logs/baseline-1.log"));
+        }
+
+        await File.AppendAllTextAsync(Path.Combine(project.Root, "src", "main", "java", "com", "acme", "billing", "PriceCalculator.java"), "\n// changed\n", TestContext.Current.CancellationToken);
+        await using (var changed = await Block1Harness.CreateAsync(homeRoot: home, baselineCache: true))
+        {
+            var (after, _) = await changed.InspectAsync(project.Root, "PriceCalculator");
+            Assert.Null(after.Baseline!.ReusedFrom);
+        }
+    }
+
     [Fact]
     public async Task SubdirectoryBuildRootJUnit4()
     {

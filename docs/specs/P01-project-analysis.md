@@ -353,6 +353,14 @@ Khối M dạng chữ, sinh bằng `MetadataPromptRenderer`, rồi điền vào 
 7. **Lỗi hạ tầng** (timeout, tải dependency, công cụ không chạy): thử 3 lần, cách nhau 30 s. Vẫn lỗi thì `INFRA`, `B1_BASELINE_TIMEOUT` hoặc `B1_DEPENDENCY_RESOLUTION`.
    - **Riêng baseline quá thời gian thì không thử lại** (Chính quyết định, 14/11/2026, GĐ7): test đã treo thì gần như chắc chắn treo lại. `acadia` mất 46 phút cho 3 lần thử. Baseline vẫn được thử lại khi lỗi mạng.
 
+8. **Dùng lại baseline đã đo** (Chính quyết định, 16/11/2026; **khác R01 §6.2**, vì R01 đo baseline mới ở mỗi lần chạy):
+   - Sau khi biên dịch xong, ARROW tính **khoá cache** = sha256 của: mã nguồn (`source_tree_hash` của thư mục, hoặc commit của repo), build root, chế độ, bộ chọn module (hoặc project Gradle), build tool, chương trình (wrapper hay cài trên máy) và phiên bản, JDK (major và home), lệnh chạy test của module, classpath test đã phân giải (mỗi jar kèm kích thước và giờ sửa, để bắt jar `SNAPSHOT` thay ruột), `baseline_runs`, phiên bản ARROW.
+   - Có mục cache khớp khoá, cùng `baseline_runs`, đo trong vòng **7 ngày** → dùng lại phân loại của nó, **không chạy test của module**. Báo `[>] Baseline: dùng lại kết quả đo lúc <dd/MM HH:mm> (run <id>)`; `baseline.json` ghi `reused_from` (run và thời điểm đo), `durations_seconds.module_test` rỗng.
+   - Không có hoặc đã cũ → đo như bước 1–7, rồi lưu vào `ARROW_HOME/cache/baseline/<khoá>.json` (P09 §2), ghi nguyên tử. File hỏng thì coi như không có.
+   - `--fresh-baseline` (`gen`, `inspect`) buộc đo lại (kết quả mới vẫn được lưu); `verification.baseline_cache = false` tắt hẳn.
+   - Khi ARROW vừa ghi `<CUT>_ArrowTest` vào project, `source_tree_hash` đổi nên lần sau đo lại: test vừa ghi đã là test sẵn có của module.
+   - Chỉ lưu phân loại (vài KB), không lưu bản biên dịch: bước biên dịch vẫn chạy, vì khối 3 và khối 4 cần `compiled_snapshot`.
+
 ### 6.3 `baseline.json`
 
 ```json

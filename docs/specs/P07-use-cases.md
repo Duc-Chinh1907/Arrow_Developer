@@ -148,7 +148,7 @@ Tham số ảnh hưởng tới kết quả (model, N, `early_stop_p`, có sửa 
 | `DONE`, `result` khác `BLOCKED` và `INFRA` | Giữ nguyên, không chạy lại. Chưa có `apply.json` thì vẫn đưa vào bước ghi file |
 | `DONE`, `result` là `BLOCKED` hoặc `INFRA` | Chạy lại từ đầu, vì lỗi có thể đã được sửa |
 | `PENDING` | Chạy từ đầu |
-| `RUNNING` (bị ngắt bởi Ctrl+C hoặc P03 dừng run) | Xoá `block2/`, `block3/`, `block4/` của target rồi chạy lại từ khối 2. Khối 1 dùng lại nếu đã có `block1/outcome.json` và snapshot còn; không thì làm lại khối 1. Các lượt gọi model đã có trong `llm_cache/` được **phát lại, không tốn tiền** (P03 §5) |
+| `RUNNING` (bị ngắt bởi Ctrl+C hoặc P03 dừng run) | Xoá `block2/`, `block3/`, `block4/` của target rồi chạy lại từ khối 2. Khối 1 dùng lại nếu đã có `block1/outcome.json` và snapshot còn; không thì làm lại khối 1. Khi làm lại, baseline đã đo được dùng lại từ cache nếu project không đổi (P01 §6.2), nên chỉ tốn thời gian biên dịch. Các lượt gọi model đã có trong `llm_cache/` được **phát lại, không tốn tiền** (P03 §5) |
 
 ## 6. Chạy một CUT
 

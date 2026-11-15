@@ -63,7 +63,7 @@ public sealed class AnalyzerHostFactory(ArrowHome home, IProcessRunner runner, I
             var analyzer = new ProjectAnalyzer(
                 new ProjectSource(home.MirrorsDir, setup.Git is null ? null : new GitClient(runner, setup.Git), workspaces),
                 token => pool.RentAsync(token),
-                new ModuleAnalyzer(builds, workspaces, setup.Options, setup.Catalog),
+                new ModuleAnalyzer(builds, workspaces, setup.Options, setup.Catalog, new BaselineCacheStore(home)),
                 workspaces,
                 runs,
                 setup.Catalog);

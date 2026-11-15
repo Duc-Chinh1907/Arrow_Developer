@@ -12,6 +12,7 @@
 
 - Khối 4 biên dịch bộ test **một lần** cho cả JaCoCo và PIT; trước đây PIT biên dịch lại (8–23 s mỗi class trên repo thật). Số đo không đổi.
 - Khối 4 bỏ PIT khi JaCoCo đo được line 0%: test không chạy dòng nào của class thì mọi mutant đều sống.
+- Khối 1 **dùng lại baseline** đã đo của lần chạy trước khi project, build và JDK không đổi (tối đa 7 ngày): lần `inspect` hay `gen` thứ hai trên cùng project không chạy lại test sẵn có. `--fresh-baseline` buộc đo lại; `verification.baseline_cache = false` tắt hẳn.
 
 ## [0.1.0] - 2026-11-15
 

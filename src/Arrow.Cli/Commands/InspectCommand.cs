@@ -20,13 +20,14 @@ internal static class InspectCommand
         var project = new Option<string?>("--project") { Description = "Thư mục project (mặc định: thư mục hiện tại)" };
         var repo = new Option<string?>("--repo") { Description = "URL https của repo GitHub" };
         var gitRef = new Option<string?>("--ref") { Description = "Nhánh, tag hoặc SHA đầy đủ của repo (mặc định: nhánh mặc định)" };
-        var command = new Command("inspect", "Phân tích project và class: build root, JDK, test framework, baseline. Không gọi model.") { cls, project, repo, gitRef };
+        var fresh = new Option<bool>("--fresh-baseline") { Description = "Đo baseline lại, không dùng kết quả đã lưu của lần chạy trước" };
+        var command = new Command("inspect", "Phân tích project và class: build root, JDK, test framework, baseline. Không gọi model.") { cls, project, repo, gitRef, fresh };
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, token) =>
-            RunAsync(context, parse.GetValue(cls)!, parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), parse.Tokens.Select(t => t.Value).ToList(), token)));
+            RunAsync(context, parse.GetValue(cls)!, parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), parse.GetValue(fresh), parse.Tokens.Select(t => t.Value).ToList(), token)));
         return command;
     }
 
-    private static async Task<int> RunAsync(CommandContext context, string cls, string? project, string? repo, string? gitRef, IReadOnlyList<string> tokens, CancellationToken ct)
+    private static async Task<int> RunAsync(CommandContext context, string cls, string? project, string? repo, string? gitRef, bool freshBaseline, IReadOnlyList<string> tokens, CancellationToken ct)
     {
         // P08 §2.2: argument checks come first and create nothing.
         static void Usage(string detail) =>
@@ -53,7 +54,8 @@ internal static class InspectCommand
             repo is null ? target.Location : context.ProjectRoot,
             new EventPrinter(context.Renderer, context.Globals.Verbose),
             context.Get<IConfirmation>(),
-            ct).ConfigureAwait(false);
+            ct,
+            freshBaseline).ConfigureAwait(false);
 
         context.Renderer.Json(new { run_id = result.RunId, run_dir = result.RunDir, outcome = result.Outcome, analysis = result.Analysis, suggestions = result.Suggestions, warnings = result.Warnings });
         if (context.Renderer.Mode != RenderMode.Json)
@@ -108,12 +110,13 @@ internal static class InspectCommand
         Row(renderer, "Test mới", m.Paths.GeneratedTestPath + (m.Paths.NameMatchesTestIncludes ? "" : "  (không khớp mẫu tên test của project)"));
         if (analysis.Baseline is { } b)
         {
-            Row(renderer, "Baseline", $"{b.PassingInAllRuns.Count} pass · {b.Flaky.Count} flaky · {b.FailingInAllRuns.Count} fail ({b.Runs} lần chạy)");
+            Row(renderer, "Baseline", $"{b.PassingInAllRuns.Count} pass · {b.Flaky.Count} flaky · {b.FailingInAllRuns.Count} fail ({b.Runs} lần chạy)"
+                + (b.ReusedFrom is { } r ? $" · dùng lại kết quả đo lúc {r.MeasuredAt.ToLocalTime():dd/MM HH:mm} (run {r.RunId}); đo lại: --fresh-baseline" : ""));
         }
 
         var t = analysis.Timings;
         Row(renderer, "Thời gian", $"lấy mã {Seconds(t.Checkout)} · liệt kê class {Seconds(t.Locate)} · tìm cấu hình {Seconds(t.Plan)} · biên dịch {Seconds(t.Compile)}"
-            + $" · baseline {string.Join(" + ", t.Baseline.Select(Seconds))}");
+            + (t.Baseline.Count > 0 ? $" · baseline {string.Join(" + ", t.Baseline.Select(Seconds))}" : " · baseline dùng lại"));
         if (analysis.SharedFrom is not null)
         {
             Row(renderer, "Dùng chung", "kết quả module của " + analysis.SharedFrom);

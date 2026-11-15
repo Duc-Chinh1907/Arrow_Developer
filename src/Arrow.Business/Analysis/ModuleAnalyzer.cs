@@ -7,6 +7,7 @@ using Arrow.Common.Analysis;
 using Arrow.Common.Errors;
 using Arrow.Common.Events;
 using Arrow.DataAccess.Build;
+using Arrow.DataAccess.Storage;
 using Arrow.DataAccess.Source;
 
 namespace Arrow.Business.Analysis;
@@ -80,8 +81,10 @@ public sealed class ModuleResult
 /// The module part of block 1 (P01 §4.1–§4.5, §6): build plan, build tool, declared Java level, JDK, compile with the dependency list
 /// and classpath, <c>compiled_snapshot</c>, and the baseline runs.
 /// </summary>
-public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager workspaces, AnalysisOptions options, ErrorCatalog catalog)
+public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager workspaces, AnalysisOptions options, ErrorCatalog catalog, IBaselineCache? cache = null, TimeProvider? time = null)
 {
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     private static readonly bool Windows = OperatingSystem.IsWindows();
 
     /// <summary>Test files read to choose between several frameworks (P01 §4.5).</summary>
@@ -213,14 +216,26 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
             await workspaces.DeleteAsync(snapshot, job.Ct).ConfigureAwait(false);
             MoveDirectory(build, snapshot);
 
-            var canSwitch = !lastChance && options.JdkHomes.Keys.Except(skip).Any(j => j != compiled.Jdk);
-            var baseline = await BaselineAsync(job, plan, setup, snapshot, hash, compiled.Jdk, canSwitch).ConfigureAwait(false);
-            if (baseline is null)
+            // P01 §6.2 (16/11/2026, khác R01): a baseline measured by an earlier run of the same code, build and JDK is reused.
+            var cacheKey = CacheKey(job, plan, setup, tool, compiled.Jdk, classpath);
+            var reused = cacheKey is null || options.FreshBaseline ? null : CachedBaseline(cacheKey);
+            BaselineRuns? baseline = null;
+            if (reused is not null)
             {
-                job.Warnings.Add($"JVM chạy test không khởi động được với JDK {compiled.Jdk}; thử JDK khác.");
-                skip.Add(compiled.Jdk);
-                await workspaces.DeleteAsync(snapshot, job.Ct).ConfigureAwait(false);
-                continue;
+                job.Report(ArrowEventTypes.B1Baseline, $"Baseline: dùng lại kết quả đo lúc {reused.MeasuredAt.ToLocalTime():dd/MM HH:mm} (run {reused.RunId})",
+                    ("reused_from", reused.RunId));
+            }
+            else
+            {
+                var canSwitch = !lastChance && options.JdkHomes.Keys.Except(skip).Any(j => j != compiled.Jdk);
+                baseline = await BaselineAsync(job, plan, setup, snapshot, hash, compiled.Jdk, canSwitch).ConfigureAwait(false);
+                if (baseline is null)
+                {
+                    job.Warnings.Add($"JVM chạy test không khởi động được với JDK {compiled.Jdk}; thử JDK khác.");
+                    skip.Add(compiled.Jdk);
+                    await workspaces.DeleteAsync(snapshot, job.Ct).ConfigureAwait(false);
+                    continue;
+                }
             }
 
             var testRoot = TestRoot(job, plan, pom, gradle, build, moduleRoot);
@@ -236,7 +251,15 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
                 job.Warnings.Add("Không thấy JUnit hay TestNG trong dependency test; nên thêm JUnit vào project.");
             }
 
-            var groups = BaselineEvaluator.Classify(baseline.Runs);
+            var groups = reused is not null
+                ? new BaselineGroups(reused.PassingInAllRuns, reused.Flaky, reused.FailingInAllRuns)
+                : BaselineEvaluator.Classify(baseline!.Runs);
+            if (reused is null && cacheKey is not null)
+            {
+                cache!.Put(new BaselineCacheEntry(cacheKey, job.Run.RunId, _time.GetUtcNow(), BaselineCacheKey.ArrowVersion, options.BaselineRuns,
+                    groups.Passing, groups.Flaky, groups.Failing, baseline!.Seconds.Select(s => Math.Round(s, 1)).ToList()));
+            }
+
             if (groups.Passing.Count + groups.Flaky.Count + groups.Failing.Count == 0)
             {
                 job.Warnings.Add("Module chưa có test sẵn; bước 5 chỉ kiểm tra test mới.");
@@ -272,7 +295,8 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
                 groups.Passing,
                 groups.Flaky,
                 groups.Failing,
-                new BaselineDurations(Math.Round(compiled.CopySeconds, 1), Math.Round(compileSeconds, 1), baseline.Seconds.Select(s => Math.Round(s, 1)).ToList()));
+                new BaselineDurations(Math.Round(compiled.CopySeconds, 1), Math.Round(compileSeconds, 1), baseline?.Seconds.Select(s => Math.Round(s, 1)).ToList() ?? []),
+                reused is null ? null : new BaselineReuse(reused.RunId, reused.MeasuredAt));
 
             return new ModuleResult
             {
@@ -303,12 +327,37 @@ public sealed class ModuleAnalyzer(IBuildExecutor builds, IWorkspaceManager work
                 Warnings = job.Warnings,
                 PlanSeconds = planSeconds,
                 CompileSeconds = compileSeconds,
-                BaselineSeconds = baseline.Seconds,
+                BaselineSeconds = baseline?.Seconds ?? [],
             };
         }
     }
 
     private sealed record Tool(BuildSetup Setup, string Version, bool Wrapper, bool Fallback, int ProbeJdk);
+
+    /// <summary>The cache key of this module's baseline; null when the cache is off or the code has no identity.</summary>
+    private string? CacheKey(Job job, BuildPlan plan, BuildSetup setup, Tool tool, int jdk, IReadOnlyList<string> classpath)
+    {
+        var code = job.Workspace.Checkout.SourceTreeHash ?? job.Workspace.Checkout.GitCommit;
+        if (cache is null || !options.BaselineCache || code is null)
+        {
+            return null;
+        }
+
+        return BaselineCacheKey.Compute(new BaselineCacheInputs(
+            code,
+            plan.BuildRoot,
+            plan.Mode.ToString(),
+            plan.Tool == BuildToolKind.Gradle ? setup.GradleProject ?? "" : string.Join(' ', BuildCommands.MavenSelector(setup)),
+            $"{plan.Tool} {setup.Executable} {tool.Version}",
+            $"{jdk} {options.JdkHomes[jdk]}",
+            Shown(setup, BuildCommands.ModuleTest(setup)),
+            classpath,
+            options.BaselineRuns));
+    }
+
+    /// <summary>The cached baseline of <paramref name="key"/> when it is recent enough and was measured with as many runs.</summary>
+    private BaselineCacheEntry? CachedBaseline(string key) =>
+        cache?.Get(key) is { } entry && entry.Runs == options.BaselineRuns && BaselineCacheKey.Fresh(entry.MeasuredAt, _time.GetUtcNow()) ? entry : null;
 
     /// <summary>Wrapper first, the machine's tool otherwise or when the wrapper fails (P01 §4.2).</summary>
     private async Task<Tool> ResolveToolAsync(Job job, BuildPlan plan, string build, string moduleWork)
