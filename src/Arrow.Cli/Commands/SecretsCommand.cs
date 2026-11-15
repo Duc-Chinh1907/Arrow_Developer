@@ -10,7 +10,7 @@ internal static class SecretsCommand
 {
     public static Command Build(CliApp app)
     {
-        var command = new Command("secrets", "Quản lý khoá API (P09 §4)");
+        var command = new Command("secrets", "Quản lý khoá API trong kho khoá của máy");
 
         var list = new Command("list", "In tên khoá và 4 ký tự cuối");
         list.SetAction((parse, ct) => app.Execute(parse, ct, (context, _) => Task.FromResult(List(context))));

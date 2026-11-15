@@ -10,7 +10,7 @@ internal static class ModelsCommand
 {
     public static Command Build(CliApp app)
     {
-        var command = new Command("models", "Các model đã cấu hình: xem, thử, thêm, đặt mặc định (P03 §10)");
+        var command = new Command("models", "Các model đã cấu hình: xem, thử, thêm, đặt mặc định");
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, _) => Task.FromResult(List(context))));
 
         var testName = new Argument<string?>("name") { Description = "Tên model (mặc định: model mặc định)", Arity = ArgumentArity.ZeroOrOne };
