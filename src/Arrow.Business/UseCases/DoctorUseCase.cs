@@ -262,7 +262,7 @@ public sealed class DoctorUseCase(
             null);
         foreach (var major in supported.Where(m => !byMajor.ContainsKey(m)))
         {
-            add(DoctorLevel.Warning, $"JDK {major}", $"không tìm thấy (chỉ cần cho project Java {major})", null);
+            add(DoctorLevel.Warning, $"JDK {major}", $"không tìm thấy (nên có cho project Java {major}; thiếu thì ARROW thử JDK khác)", null);
         }
 
         if (!byMajor.Keys.Any(m => m >= JavaHelperJar.MinimumJdk))

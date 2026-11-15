@@ -44,6 +44,10 @@ public sealed partial class TroubleshootingDocTests
 
         Bản chạy độc lập chưa được ký mã. Chọn **More info → Run anyway**, hoặc cài bằng `dotnet tool install -g ArrowDev`.
 
+        ### Chữ tiếng Việt bị lỗi trong cửa sổ `cmd`
+
+        `cmd` cũ dùng bảng mã của Windows, không phải UTF-8. Chạy `chcp 65001` một lần trong cửa sổ đó, hoặc dùng Windows Terminal hay PowerShell 7, vốn hiện đúng sẵn.
+
         ### macOS báo "cannot be opened because the developer cannot be verified"
 
         File tải về bị gắn cờ quarantine. Chạy `xattr -d com.apple.quarantine ./arrow` trong thư mục giải nén.

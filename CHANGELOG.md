@@ -2,17 +2,9 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
-## [0.1.0-rc.2] - 2026-11-15
+## [0.1.0] - 2026-11-15
 
-Bản chạy thử thứ hai của 0.1.0: sửa bước kiểm `--version` của `release.yml` trên Windows. Nội dung như mục 0.1.0 bên dưới.
-
-## [0.1.0-rc.1] - 2026-11-15 (không phát hành)
-
-Bản chạy thử của 0.1.0, để kiểm quy trình phát hành (`release.yml`). Nội dung như mục 0.1.0 bên dưới.
-
-## [0.1.0] - chưa phát hành
-
-Bản đầu tiên.
+Bản đầu tiên. Đã thử trên máy sạch Windows: [`docs/release-check.md`](docs/release-check.md).
 
 ### Có trong bản này
 
@@ -28,3 +20,16 @@ Bản đầu tiên.
 ### Đã kiểm trên repo thật (GĐ7)
 
 13 class của 10 repo GitHub: 10 class cho bộ test VALID, 4 class đạt line và mutation từ 50% trở lên. Chi tiết và giới hạn của kết quả: [`docs/validation.md`](docs/validation.md).
+
+### Sau 0.1.0-rc.2
+
+- `setup`: câu hỏi tên nhà cung cấp nói rõ đó không phải tên model.
+- `doctor`: JDK còn thiếu là "nên có", vì ARROW thử JDK khác khi thiếu.
+
+## [0.1.0-rc.2] - 2026-11-15
+
+Bản chạy thử thứ hai của 0.1.0: sửa bước kiểm `--version` của `release.yml` trên Windows. Nội dung như mục 0.1.0 bên dưới.
+
+## [0.1.0-rc.1] - 2026-11-15 (không phát hành)
+
+Bản chạy thử của 0.1.0, để kiểm quy trình phát hành (`release.yml`). Nội dung như mục 0.1.0 bên dưới.

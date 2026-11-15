@@ -78,7 +78,7 @@ internal sealed partial class ModelWizard(CommandContext context)
             }
         }
 
-        var name = preset.Id == "custom" ? _ask.Ask("Tên cho nhà cung cấp này (ví dụ teamo)", Slug(HostLabel(url))) : preset.Name;
+        var name = preset.Id == "custom" ? _ask.Ask("Tên ngắn để gọi nhà cung cấp này trong ARROW, không phải tên model (ví dụ teamo)", Slug(HostLabel(url))) : preset.Name;
         if (name is null)
         {
             return null;
