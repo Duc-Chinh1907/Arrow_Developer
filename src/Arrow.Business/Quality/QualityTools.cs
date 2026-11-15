@@ -62,14 +62,56 @@ public sealed record PreparedSuite(string Copy, string ModuleDir, string Product
 /// <summary>
 /// P05 §3: a new copy of the compiled snapshot, the suite written into it, then the tests compiled and the classpath printed in one
 /// build call. A failure is tried on a new copy, at most 3 times, then <c>B4_SUITE_COMPILE</c>.
+/// <para>
+/// One preparer serves one suite of one CUT: the first tool that needs the compiled copy prepares it, and the others use the same copy
+/// (P05 §3, 16/11/2026). JaCoCo runs its agent at run time and leaves the classes unchanged, so PIT can mutate them; PIT used to compile
+/// the suite again, 8–23 s per class in GĐ7. A failed preparation is remembered too, so it is not tried 3 more times.
+/// <see cref="ReleaseAsync"/> deletes the copy at the end of block 4.
+/// </para>
 /// </summary>
 public sealed class SuitePreparer(IBuildExecutor builds, IWorkspaceManager workspaces)
 {
     /// <summary>Attempts of the preparation.</summary>
     public const int Attempts = 3;
 
-    /// <summary>The prepared copy; the caller deletes <see cref="PreparedSuite.Copy"/>.</summary>
+    private PreparedSuite? _prepared;
+    private ToolFailure? _failed;
+
+    /// <summary>The compiled copy for <paramref name="suite"/>, prepared once; <see cref="ReleaseAsync"/> deletes it.</summary>
     public async Task<PreparedSuite> PrepareAsync(SuiteToMeasure suite, TaskContext task, string tool, QualityOptions options, CancellationToken ct)
+    {
+        if (_failed is not null)
+        {
+            throw new ToolFailure(_failed.Code, _failed.Message);
+        }
+
+        if (_prepared is { } ready && Directory.Exists(ready.Copy))
+        {
+            return ready;
+        }
+
+        try
+        {
+            return _prepared = await PrepareNewAsync(suite, task, tool, options, ct).ConfigureAwait(false);
+        }
+        catch (ToolFailure failure)
+        {
+            _failed = failure;
+            throw;
+        }
+    }
+
+    /// <summary>Deletes the prepared copy unless <paramref name="keep"/> (<c>run.keep_workspaces</c>).</summary>
+    public async Task ReleaseAsync(bool keep)
+    {
+        if (_prepared is { } prepared)
+        {
+            _prepared = null;
+            await QualityService.DeleteQuietlyAsync(workspaces, prepared.Copy, keep).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<PreparedSuite> PrepareNewAsync(SuiteToMeasure suite, TaskContext task, string tool, QualityOptions options, CancellationToken ct)
     {
         var m = task.Metadata;
         var setup = Verifier.SetupOf(task.Workspace, task.Run.HomeRoot);
@@ -152,7 +194,7 @@ public sealed class JavaRunner(IProcessRunner runner)
 }
 
 /// <summary>JaCoCo (P05 §4): the test run of step 2 with the agent in <c>JAVA_TOOL_OPTIONS</c>, then <c>jacococli report --csv</c>.</summary>
-public sealed class JacocoTool(SuitePreparer preparer, IBuildExecutor builds, IToolStore tools, JavaRunner java, IWorkspaceManager workspaces, IRunStore runs) : IQualityTool
+public sealed class JacocoTool(SuitePreparer preparer, IBuildExecutor builds, IToolStore tools, JavaRunner java, IRunStore runs) : IQualityTool
 {
     public string Name => "jacoco";
 
@@ -161,10 +203,11 @@ public sealed class JacocoTool(SuitePreparer preparer, IBuildExecutor builds, IT
         var agent = await tools.EnsureAsync("jacoco-agent", null, ct).ConfigureAwait(false);
         var cli = await tools.EnsureAsync("jacoco-cli", null, ct).ConfigureAwait(false);
         var prepared = await preparer.PrepareAsync(suite, task, Name, options, ct).ConfigureAwait(false);
-        try
         {
             var fqn = task.Metadata.Cut.Fqn;
             var exec = Path.Combine(prepared.Copy, "arrow-jacoco.exec");
+            // The agent appends (append=true): an attempt again on the same copy starts from an empty file.
+            File.Delete(exec);
             var setup = Verifier.SetupOf(task.Workspace, task.Run.HomeRoot);
             var run = await builds.RunAsync(setup, prepared.Copy, Verifier.RunTargetArguments(setup, suite.TestFqn), task.Workspace.JdkHome, options.StepTimeout,
                 QualityService.LogPath(task, "jacoco-test"), ct, JacocoSetup.AgentOption(agent, exec, fqn)).ConfigureAwait(false);
@@ -191,15 +234,11 @@ public sealed class JacocoTool(SuitePreparer preparer, IBuildExecutor builds, IT
             runs.WriteText(task.Run.Run, $"{task.TargetDir}/block4/jacoco.csv", text);
             return JacocoCsvParser.Parse(text, fqn) ?? throw new ToolFailure(ErrorCodes.B4JacocoFailed, $"báo cáo JaCoCo không có {fqn}");
         }
-        finally
-        {
-            await QualityService.DeleteQuietlyAsync(workspaces, prepared.Copy, options.KeepWorkspaces).ConfigureAwait(false);
-        }
     }
 }
 
 /// <summary>PIT (P05 §5).</summary>
-public sealed class PitTool(SuitePreparer preparer, IToolStore tools, JavaRunner java, IWorkspaceManager workspaces, IRunStore runs) : IQualityTool
+public sealed class PitTool(SuitePreparer preparer, IToolStore tools, JavaRunner java, IRunStore runs) : IQualityTool
 {
     /// <summary>JUnit Platform used when the module's version cannot be read.</summary>
     public const string DefaultPlatformVersion = "1.10.2";
@@ -223,7 +262,6 @@ public sealed class PitTool(SuitePreparer preparer, IToolStore tools, JavaRunner
         }
 
         var prepared = await preparer.PrepareAsync(suite, task, Name, options, ct).ConfigureAwait(false);
-        try
         {
             var extra = new List<string>();
             if (framework == "junit5" && !PitSetup.HasLauncher(prepared.Classpath))
@@ -257,10 +295,6 @@ public sealed class PitTool(SuitePreparer preparer, IToolStore tools, JavaRunner
             }
 
             return mutation;
-        }
-        finally
-        {
-            await QualityService.DeleteQuietlyAsync(workspaces, prepared.Copy, options.KeepWorkspaces).ConfigureAwait(false);
         }
     }
 }
@@ -321,8 +355,14 @@ public interface IQualityService
 /// environment failure is tried again (at most <c>infra_attempts</c>, <c>infra_wait</c> apart); a tool that cannot be downloaded
 /// is SKIPPED with <c>CFG_TOOL_MISSING</c>. Writes <c>block4/&lt;tool&gt;.json</c> and <c>block4/outcome.json</c>.
 /// </summary>
-public sealed class QualityService(IReadOnlyList<IQualityTool> tools, IRunStore runs, ErrorCatalog catalog, TimeProvider? time = null) : IQualityService
+public sealed class QualityService(IReadOnlyList<IQualityTool> tools, IRunStore runs, ErrorCatalog catalog, TimeProvider? time = null, SuitePreparer? preparer = null) : IQualityService
 {
+    /// <summary>
+    /// <c>outcome.json</c> message of a PIT run skipped because JaCoCo found no covered line of the CUT (P05 §7, 16/11/2026): every
+    /// mutant would survive, so the run would only cost time.
+    /// </summary>
+    public const string PitSkippedNoCoverage = "bỏ qua vì line 0%: test không chạy dòng nào của class, mọi mutant đều sống";
+
     /// <summary>Order of P05 §7.</summary>
     public static readonly IReadOnlyList<string> Order = ["jacoco", "pit", "tsdetect"];
 
@@ -335,6 +375,21 @@ public sealed class QualityService(IReadOnlyList<IQualityTool> tools, IRunStore 
 
     public async Task<QualityResult> MeasureAsync(SuiteToMeasure suite, TaskContext task, QualityOptions options, CancellationToken ct)
     {
+        try
+        {
+            return await MeasureAllAsync(suite, task, options, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (preparer is not null)
+            {
+                await preparer.ReleaseAsync(options.KeepWorkspaces).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<QualityResult> MeasureAllAsync(SuiteToMeasure suite, TaskContext task, QualityOptions options, CancellationToken ct)
+    {
         CoverageResult? coverage = null;
         MutationResult? mutation = null;
         SmellResult? smells = null;
@@ -344,6 +399,14 @@ public sealed class QualityService(IReadOnlyList<IQualityTool> tools, IRunStore 
             var tool = tools.FirstOrDefault(t => t.Name == name);
             if (tool is null)
             {
+                continue;
+            }
+
+            if (name == "pit" && coverage?.Line is 0)
+            {
+                // A measured line coverage of exactly 0: no covered line, so no mutant can be killed. Unknown coverage still runs PIT.
+                outcomes[name] = new ToolOutcome(ToolStatus.Skipped, null, PitSkippedNoCoverage);
+                Report(task, ArrowEventTypes.B4ToolDone, EventLevel.Info, "pit: " + PitSkippedNoCoverage, ("tool", name), ("skipped", true));
                 continue;
             }
 

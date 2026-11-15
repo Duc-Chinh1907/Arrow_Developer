@@ -153,6 +153,38 @@ public sealed class QualityServiceTests : IDisposable
         Assert.Contains("\"status\": \"SKIPPED\"", _runs.ReadText(_run, "targets/a.Order/block4/outcome.json"), StringComparison.Ordinal);
     }
 
+    // P05 §7 (16/11/2026): line coverage of exactly 0 means no mutant can be killed, so PIT is skipped on purpose (no error code).
+    [Fact]
+    public async Task PitIsSkippedWhenNoLineIsCovered()
+    {
+        var pit = new FakeTool("pit", Mutation);
+        var noLine = Coverage with { Line = 0 };
+        var service = new QualityService([new FakeTool("jacoco", noLine), pit, new FakeTool("tsdetect", Smells)], _runs, ErrorCatalog.For("vi"));
+        var result = await service.MeasureAsync(Suite, Task(), Options(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, pit.Calls);
+        Assert.Equal((ToolStatus.Skipped, (string?)null, QualityService.PitSkippedNoCoverage), (result.Tools["pit"].Status, result.Tools["pit"].Code, result.Tools["pit"].Message));
+        Assert.Null(result.Metrics.Mutation);
+        Assert.Equal(ToolStatus.Ok, result.Tools["tsdetect"].Status);
+        Assert.Contains(_events, e => e.Type == ArrowEventTypes.B4ToolDone && e.Level == EventLevel.Info && e.Message.StartsWith("pit: bỏ qua vì line 0%", StringComparison.Ordinal));
+        Assert.DoesNotContain(_events, e => e.Type == ArrowEventTypes.B4ToolFailed);
+    }
+
+    // Unknown coverage (JaCoCo failed) or a low but non-zero one still runs PIT.
+    [Fact]
+    public async Task PitRunsWhenCoverageIsUnknownOrNotZero()
+    {
+        var pitAfterFailure = new FakeTool("pit", Mutation);
+        var failed = new QualityService([new FakeTool("jacoco", new ToolFailure(ErrorCodes.B4JacocoFailed, "lỗi")), pitAfterFailure], _runs, ErrorCatalog.For("vi"));
+        await failed.MeasureAsync(Suite, Task(), Options("jacoco", "pit"), TestContext.Current.CancellationToken);
+        Assert.Equal(1, pitAfterFailure.Calls);
+
+        var pitAfterLow = new FakeTool("pit", Mutation);
+        var low = new QualityService([new FakeTool("jacoco", Coverage with { Line = 0.06 }), pitAfterLow], _runs, ErrorCatalog.For("vi"));
+        await low.MeasureAsync(Suite, Task(), Options("jacoco", "pit"), TestContext.Current.CancellationToken);
+        Assert.Equal(1, pitAfterLow.Calls);
+    }
+
     [Fact]
     public void PercentsAreWholeNumbers()
     {

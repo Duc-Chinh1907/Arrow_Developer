@@ -8,6 +8,11 @@
 
 - `arrow gen --no-pit`: không đo mutation bằng PIT (bước đo lâu nhất); JaCoCo và tsDetect vẫn đo. Chạy tiếp một run giữ đúng lựa chọn này.
 
+### Nhanh hơn
+
+- Khối 4 biên dịch bộ test **một lần** cho cả JaCoCo và PIT; trước đây PIT biên dịch lại (8–23 s mỗi class trên repo thật). Số đo không đổi.
+- Khối 4 bỏ PIT khi JaCoCo đo được line 0%: test không chạy dòng nào của class thì mọi mutant đều sống.
+
 ## [0.1.0] - 2026-11-15
 
 Bản đầu tiên. Đã thử trên máy sạch Windows: [`docs/release-check.md`](docs/release-check.md).

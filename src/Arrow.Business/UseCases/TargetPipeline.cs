@@ -154,7 +154,8 @@ public static class TargetPipeline
             var suite = new SuiteToMeasure(final.Candidate.TestFqn, final.Candidate.TestPath, final.Candidate.Code!);
             quality = await QualityServiceOf(shared).MeasureAsync(suite, task, shared.Measure, ct).ConfigureAwait(false);
             block4 = watch.Elapsed.TotalSeconds;
-            foreach (var (tool, state) in quality.Tools.Where(t => t.Value.Status != ToolStatus.Ok))
+            // A tool skipped on purpose (no code: PIT with line 0%) is not a failure to report.
+            foreach (var (tool, state) in quality.Tools.Where(t => t.Value.Status != ToolStatus.Ok && !(t.Value.Status == ToolStatus.Skipped && t.Value.Code is null)))
             {
                 warnings.Add($"{m.Cut.SimpleName}: chưa đo được {tool} ({state.Code}); xem {Path.Combine(run.Run.Root, "targets", m.Cut.Fqn, "block4", "logs")}");
             }
@@ -225,10 +226,10 @@ public static class TargetPipeline
         var preparer = new SuitePreparer(host.Builds, host.Workspaces);
         return new QualityService(
         [
-            new JacocoTool(preparer, host.Builds, shared.Tools, java, host.Workspaces, shared.Runs),
-            new PitTool(preparer, shared.Tools, java, host.Workspaces, shared.Runs),
+            new JacocoTool(preparer, host.Builds, shared.Tools, java, shared.Runs),
+            new PitTool(preparer, shared.Tools, java, shared.Runs),
             new TsDetectTool(shared.Tools, host.JavaHelpers, java, host.Workspaces, shared.Runs),
-        ], shared.Runs, shared.Catalog);
+        ], shared.Runs, shared.Catalog, preparer: preparer);
     }
 
     /// <summary>Model calls, tokens and cost of a target.</summary>
