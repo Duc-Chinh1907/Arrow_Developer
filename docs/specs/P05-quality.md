@@ -55,7 +55,10 @@ flowchart LR
 
 ## 3. Chuẩn bị chung (`SuitePreparer`)
 
-1. **Mỗi công cụ chạy trên một bản sao mới** của `compiled_snapshot`. Lần chạy JaCoCo không để lại file ảnh hưởng tới PIT, và ngược lại.
+1. **JaCoCo và PIT dùng chung một bản sao** của `compiled_snapshot`, **biên dịch một lần** (Chính quyết định, 16/11/2026; trước đó mỗi công cụ một bản sao). Công cụ đầu tiên cần bản sao thì chuẩn bị nó, công cụ sau dùng lại; bản sao bị xoá khi khối 4 xong.
+   - Dùng chung được vì JaCoCo gắn agent lúc chạy, không sửa file `.class`; PIT đột biến bytecode trong bộ nhớ, không ghi lại. JaCoCo xoá `arrow-jacoco.exec` trước mỗi lần chạy, vì agent ghi kiểu `append=true`.
+   - Trước đây PIT tự biên dịch lại: 8–23 s mỗi class ở GĐ7, thường lâu hơn chính PIT. Đo trên `maven-verify-junit4`: PIT 4,0 s → 1,5 s, số đo không đổi.
+   - Chuẩn bị thất bại (`B4_SUITE_COMPILE`) cũng được nhớ: công cụ sau báo cùng lỗi, không biên dịch lại thêm 3 lần.
 2. Snapshot được tạo **trước khi** có bộ test, nên chưa có `.class` của bộ test. Mỗi bản sao vì vậy phải **chuẩn bị bộ test** trước khi đo:
    1. ghi `final.java` vào `test_path`;
    2. **biên dịch test và lấy classpath trong một lần gọi**, từ build root với bộ chọn module:
@@ -151,6 +154,7 @@ java -cp <thư viện PIT> org.pitest.mutationtest.commandline.MutationCoverageR
 - **Một công cụ lỗi không chặn công cụ khác.**
 - **Lỗi môi trường** (timeout, công cụ không chạy) được chạy lại, tối đa 3 lần, chờ 30 s giữa hai lần. Vẫn lỗi thì ghi vào `block4/outcome.json`.
 - **Công cụ chưa tải và không tải được** (P09 §6.2): công cụ đó có kết quả `skipped`, lý do `CFG_TOOL_MISSING`.
+- **PIT bị bỏ khi JaCoCo đo được line đúng 0%** (Chính quyết định, 16/11/2026): không dòng nào của CUT được chạy thì không mutant nào bị diệt. `outcome.json` ghi `pit: SKIPPED`, `code: null`, kèm lý do; `mutation` là `null`; không có cảnh báo "chưa đo được". JaCoCo lỗi (không biết coverage) hoặc line > 0 thì PIT vẫn chạy.
 - **Lỗi đo không làm CUT thất bại:** bộ test vẫn VALID và vẫn được đề nghị ghi vào project (P06). Chỉ có chỉ số là thiếu.
 - **JUnit Platform cũ** (1.0–1.1): `pitest-junit5-plugin` 1.2.1 không chạy, PIT báo `B4_PIT_FAILED`. Không thêm bản plugin cũ hơn vào `tools.lock.json` (Chính quyết định, 14/11/2026, GĐ7); JaCoCo và tsDetect vẫn đo.
 - **Bộ test VALID nhưng yếu** (thêm ở GĐ7, Chính quyết định 14/11/2026): line < 30% hoặc mutation = 0% (khi PIT đo được) thì phát sự kiện `B4.WeakSuite` mức cảnh báo, in ngay trước câu hỏi ghi file: `[!] <Class>: bộ test VALID nhưng kiểm tra rất ít (line 22%, mutation 0%); xem lại trước khi ghi vào project.` Bộ test vẫn được đề nghị ghi.

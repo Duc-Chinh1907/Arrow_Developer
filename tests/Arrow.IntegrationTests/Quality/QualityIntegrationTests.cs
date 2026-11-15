@@ -47,10 +47,10 @@ public class QualityIntegrationTests
         var preparer = new SuitePreparer(builds, workspaces);
         var service = new QualityService(
         [
-            new JacocoTool(preparer, builds, store, java, workspaces, harness.Runs),
-            new PitTool(preparer, store, java, workspaces, harness.Runs),
+            new JacocoTool(preparer, builds, store, java, harness.Runs),
+            new PitTool(preparer, store, java, harness.Runs),
             new TsDetectTool(store, pool, java, workspaces, harness.Runs),
-        ], harness.Runs, ErrorCatalog.For("vi"));
+        ], harness.Runs, ErrorCatalog.For("vi"), preparer: preparer);
 
         var code = File.ReadAllText(Path.Combine(FixtureRepo.FixturesDir, fixture, ".arrow-sample", sample));
         var options = new QualityOptions(QualityService.Order, harness.Jdks, helper.JavaExecutable,
@@ -91,6 +91,9 @@ public class QualityIntegrationTests
         Assert.Equal(4, result.Smells!.TestMethods);
         Assert.True(harness.Runs.Exists(task.Run.Run, $"{task.TargetDir}/block4/outcome.json"));
         Assert.True(harness.Runs.Exists(task.Run.Run, $"{task.TargetDir}/block4/pit.json"));
+        // P05 §3 (16/11/2026): the suite is compiled once; PIT mutates the classes of JaCoCo's copy instead of compiling again.
+        Assert.True(harness.Runs.Exists(task.Run.Run, $"{task.TargetDir}/block4/logs/jacoco-prepare.log"));
+        Assert.False(harness.Runs.Exists(task.Run.Run, $"{task.TargetDir}/block4/logs/pit-prepare.log"));
         await FinishAsync(harness, project, task);
     }
 
