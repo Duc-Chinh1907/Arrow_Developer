@@ -2,7 +2,7 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
-## [Chưa phát hành]
+## [0.2.0] - 2026-11-16
 
 ### Thêm
 
