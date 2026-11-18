@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "selected_on": "2026-10-13",
+  "rule": "pool: technical_eligible + CONTENT_MATCHED of Classes2Test preflight, minus every repository of the excluded manifests; per framework (junit4, junit5): candidates sorted by task_id, shuffled with System.Random(seed) (Fisher-Yates), first candidate that meets all conditions is chosen: CUT 30-150 lines, human test 20-120 lines, >= 2 test methods and >= 2 assertions (java-analyzer), no Mockito, no external service or container markers in the test (Spring/Micronaut/Quarkus context, @ExtendWith, @RunWith, injection, Testcontainers, JDBC, SQL, database, HTTP URL, sockets, temporary folders, environment variables, sleeps)",
+  "seed": 42,
+  "excluded_manifests": [
+    "classes2test_200_seed42.jsonl",
+    "classes2test_pilot_50_seed42.jsonl",
+    "classes2test_pilot_50_seed42_v2.jsonl",
+    "classes2test_pilot_reserve_50_seed42.jsonl"
+  ],
+  "candidates": 4805,
+  "embedded_in": "generation/system/few_shot.md",
+  "examples": [
+    {
+      "task_id": "166116543_f6b6c10d343d5bb1",
+      "repo_url": "https://github.com/shekhargulati/conduit-on-kubernetes",
+      "checkout_sha": "2e2aed6daf3fc420f650a3ccd19423a8cb856cb0",
+      "testing_framework": "junit4",
+      "cut_path": "conduit-api/src/main/java/io/spring/infrastructure/service/DefaultJwtService.java",
+      "test_path": "conduit-api/src/test/java/io/spring/infrastructure/service/DefaultJwtServiceTest.java",
+      "cut_sha256": "56c6397ba55ff5369c7e3c6b80865ff088d0429c8bac3edeb4b5d8de92ae389d",
+      "test_sha256": "89be35b77f979ff12f321fbbf67b565f9e78613779f0e0cf625ad15418c826a4",
+      "verbatim_in_prompt": true,
+      "verification": {
+        "status": "PASS",
+        "method": "arrow screen (tiêu chí B, spec 01 Mục 6.3), run screen-fewshot; manifest = bản ghi preflight của task trong preflight_manifest/0*/technical_eligible_manifest.jsonl",
+        "date": "2026-10-14",
+        "machine": "Dung-mac (osx-arm64)",
+        "jdk": 8,
+        "build": "Gradle 4.7 (gradlew), project :conduit-api",
+        "tests_run": [
+          3,
+          3
+        ],
+        "checksums": "cut_sha256 khớp; test_sha256 khớp khi chuẩn hóa LF và thêm newline cuối (file ở commit không có newline cuối)"
+      }
+    },
+    {
+      "task_id": "48880766_962a909932e57aca",
+      "repo_url": "https://github.com/jtablesaw/tablesaw",
+      "checkout_sha": "93f7dd53f172e855b8ea8a9ba56bcb256c271d70",
+      "testing_framework": "junit5",
+      "cut_path": "saw/src/main/java/tech/tablesaw/io/saw/ReadOptions.java",
+      "test_path": "saw/src/test/java/tech/tablesaw/io/saw/ReadOptionsTest.java",
+      "cut_sha256": "863776b954cd3a27fbd8af3658e43160464d0a022305421e7a3990e15597b96a",
+      "test_sha256": "fb43529f118a928905bf85cf757b9e634ed43dc0b290c9c30fc1fbc645b5949f",
+      "verbatim_in_prompt": true,
+      "verification": {
+        "status": "PASS",
+        "method": "arrow screen (tiêu chí B, spec 01 Mục 6.3), run screen-fewshot; manifest = bản ghi preflight của task trong preflight_manifest/0*/technical_eligible_manifest.jsonl",
+        "date": "2026-10-14",
+        "machine": "Dung-mac (osx-arm64)",
+        "jdk": 8,
+        "build": "Maven 3.9.16, reactor -pl saw -am",
+        "tests_run": [
+          3,
+          3
+        ],
+        "checksums": "cut_sha256 và test_sha256 khớp"
+      }
+    }
+  ]
+}
