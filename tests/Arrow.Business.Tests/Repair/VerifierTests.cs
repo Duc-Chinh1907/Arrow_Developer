@@ -195,6 +195,80 @@ public sealed class VerifierTests : IDisposable
         Assert.True(File.Exists(Path.Combine(task.Run.Run.Root, "targets", "com.acme.billing.PriceCalculator", "block3", "round_1", "reports", "run_target", $"TEST-{Fqn}.xml")));
     }
 
+    private const string TotalsFails = """<testcase name="appliesDefaultRate" classname="com.acme.billing.TotalsTest"><failure message="expected:&lt;110&gt; but was:&lt;120&gt;" type="java.lang.AssertionError"/></testcase>""";
+    private const string GeneratedFails = """<testcase name="adds" classname="com.acme.billing.PriceCalculator_ArrowTest"><failure message="boom" type="java.lang.AssertionError"/></testcase>""";
+
+    /// <summary>A build whose step 5 answers each run with the next pair (TotalsTest, generated test) of <paramref name="runs"/>.</summary>
+    private static FakeBuild ModuleRuns(params (string Totals, string Generated)[] runs)
+    {
+        var run = 0;
+        return new FakeBuild()
+            .On("test-compile", _ => Ok())
+            .On("-Dtest=", copy => Report(copy, Fqn, Pass))
+            .On("test", copy =>
+            {
+                var (totals, generated) = runs[Math.Min(run++, runs.Length - 1)];
+                return Report(copy, "com.acme.billing.TotalsTest", totals, Report(copy, Fqn, generated));
+            });
+    }
+
+    private static int ModuleTestRuns(FakeBuild build) =>
+        build.Arguments.Count(a => a.Count > 0 && a[^1] == "test" && !a.Any(x => x.StartsWith("-Dtest=", StringComparison.Ordinal)));
+
+    // P04 §3.5 (Chính, 18/11/2026; khác R03): with regression_runs = 3 a test that fails once and then passes is flaky, not a regression.
+    [Fact]
+    public async Task WithThreeRunsAnExistingTestThatPassesAgainIsFlaky()
+    {
+        var build = ModuleRuns((TotalsFails, Pass), (Totals, Pass));
+        var task = NewTask();
+        var result = await VerifyAsync(NewVerifier(build), task, Options() with { RegressionRuns = 3 });
+
+        Assert.Equal(VerificationState.Valid, result.State);
+        Assert.Equal(["com.acme.billing.TotalsTest#appliesDefaultRate"], result.ModuleFlaky);
+        Assert.Equal(2, result.ModuleRuns);
+        Assert.Equal(2, ModuleTestRuns(build)); // stops as soon as nothing is left to confirm
+        Assert.Contains(result.Steps, s => s.Log == "logs/module_tests-run2.log");
+        Assert.True(File.Exists(Path.Combine(task.Run.Run.Root, "targets", "com.acme.billing.PriceCalculator", "block3", "round_1", "reports", "module_tests-run2", "TEST-com.acme.billing.TotalsTest.xml")));
+    }
+
+    [Fact]
+    public async Task WithThreeRunsATestThatFailsEveryTimeIsARegression()
+    {
+        var build = ModuleRuns((TotalsFails, Pass));
+        var result = await VerifyAsync(NewVerifier(build), options: Options() with { RegressionRuns = 3 });
+
+        Assert.Equal(VerificationState.Regression, result.State);
+        Assert.Equal(("com.acme.billing.TotalsTest#appliesDefaultRate", RegressionKind.Failed), (Assert.Single(result.Regressions).Test, result.Regressions[0].Kind));
+        Assert.Empty(result.ModuleFlaky);
+        Assert.Equal((3, 3), (result.ModuleRuns!.Value, ModuleTestRuns(build)));
+    }
+
+    // The default (1 run) keeps the R03 behaviour: the first failure is the result.
+    [Fact]
+    public async Task WithOneRunTheFirstFailureIsTheResult()
+    {
+        var build = ModuleRuns((TotalsFails, Pass), (Totals, Pass));
+        var result = await VerifyAsync(NewVerifier(build));
+        Assert.Equal((VerificationState.Regression, 1, 1), (result.State, result.ModuleRuns!.Value, ModuleTestRuns(build)));
+    }
+
+    // A generated test that fails with the module is never written: it is not run again, and failing in a later run is a regression too.
+    [Fact]
+    public async Task AGeneratedTestThatFailsWithTheModuleInAnyRunIsARegression()
+    {
+        var first = ModuleRuns((Totals, GeneratedFails));
+        var once = await VerifyAsync(NewVerifier(first), options: Options() with { RegressionRuns = 3 });
+        Assert.Equal((VerificationState.Regression, 1), (once.State, ModuleTestRuns(first)));
+        Assert.Equal(RegressionKind.GeneratedFailedInModule, Assert.Single(once.Regressions).Kind);
+
+        var later = ModuleRuns((TotalsFails, Pass), (Totals, GeneratedFails));
+        var result = await VerifyAsync(NewVerifier(later), options: Options() with { RegressionRuns = 3 });
+        Assert.Equal(VerificationState.Regression, result.State);
+        Assert.Equal(RegressionKind.GeneratedFailedInModule, Assert.Single(result.Regressions).Kind);
+        Assert.Equal(["com.acme.billing.TotalsTest#appliesDefaultRate"], result.ModuleFlaky);
+        Assert.Equal(2, ModuleTestRuns(later));
+    }
+
     [Fact]
     public async Task AGeneratedTestThatDoesNotRunInTheModuleIsValidWithAWarningFlag()
     {

@@ -57,6 +57,7 @@ public sealed record RunProject(
 /// <param name="Repair">False with <c>--no-repair</c>.</param>
 /// <param name="Quality">False with <c>--no-metrics</c> or <c>quality.enabled = false</c>.</param>
 /// <param name="NoPit">True with <c>--no-pit</c>; false in a <c>run.json</c> written before the flag existed.</param>
+/// <param name="RegressionRuns">Runs of step 5 at most (<c>--regression-runs</c>); 1 in a <c>run.json</c> written before the option existed.</param>
 /// <param name="Strategy">Prompting strategy of c0 (<c>prompts.strategy</c>); the default in a <c>run.json</c> written before the setting existed.</param>
 public sealed record RunConfig(
     string Model,
@@ -66,7 +67,8 @@ public sealed record RunConfig(
     bool Repair,
     bool Quality,
     bool NoPit = false,
-    string Strategy = Generation.GenerationStrategies.Default);
+    string Strategy = Generation.GenerationStrategies.Default,
+    int RegressionRuns = 1);
 
 /// <summary>One CUT of a run and its progress.</summary>
 public sealed record RunTarget(string CutFqn, TargetState State);

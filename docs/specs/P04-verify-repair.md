@@ -131,6 +131,15 @@ Kết quả là `REGRESSION` khi xảy ra một trong ba trường hợp:
 - (b) một test đó **biến mất** khỏi báo cáo, tức không được chạy;
 - (c) **chính test sinh ra** pass khi chạy riêng nhưng **fail** khi chạy cùng module.
 
+**Chạy lại để xác nhận** (`verification.regression_runs` hoặc `--regression-runs`, mặc định 1; thêm 18/11/2026, Chính chọn; **khác R03**, nơi bước 5 chạy một lần):
+- Mặc định 1: lần chạy đầu cho kết quả, đúng như R03.
+- Với n > 1 (tối đa 5): bước 5 chạy lần đầu như trên. Không có regression thì xong, **không** chạy thêm. Có regression của test sẵn có ((a) hoặc (b)) thì chạy lại bước 5 trên bản sao mới, tối đa n lần tính cả lần đầu, và dừng sớm khi không còn test nào cần xác nhận.
+- Test sẵn có là regression chỉ khi **fail ở mọi lần chạy**. Test fail ở một vài lần rồi pass là flaky: không tính, ghi vào `module_flaky` của `verify.json` và in `[!] <Class>: test sẵn có lúc pass lúc fail khi chạy cùng test mới (không tính là regression): …`.
+- Trường hợp (c), **test sinh ra** fail khi chạy cùng module, ở **bất kỳ** lần nào vẫn là regression: test lúc pass lúc fail không được ghi vào project. Lần đầu đã có (c) thì không chạy lại.
+- `verify.json` có `module_runs` (số lần đã chạy bước 5). Log và báo cáo của lần thứ k nằm ở `logs/module_tests-run<k>.log` và `reports/module_tests-run<k>/`.
+- Mỗi lần xác minh tự xác nhận lại; test flaky tìm thấy ở vòng này không được nhớ sang vòng sau.
+- Số lần chạy được ghi vào `run.json` (`config.regression_runs`); `--resume` giữ giá trị của run cũ.
+
 **Không** kết luận regression từ:
 - test `flaky` hay `failing_in_all_runs` của baseline;
 - test sinh ra **không được chạy** ở bước 5, ví dụ vì project cấu hình `<includes>` khác mẫu tên. Trường hợp này ghi `generated_test_ran_in_module: false` để P06 cảnh báo.
