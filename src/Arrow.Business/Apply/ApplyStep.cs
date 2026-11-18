@@ -27,7 +27,7 @@ public sealed record ApplyRecord(
 /// <param name="StepTimeout">Timeout of a verification step, for the verification after renaming.</param>
 /// <param name="InfraAttempts">Attempts for an infrastructure failure.</param>
 /// <param name="InfraWait">Wait between them.</param>
-/// <param name="RegressionRuns"><c>verification.regression_runs</c>, for the verification after renaming.</param>
+/// <param name="ConfirmRegression"><c>verification.confirm_regression</c>, for the verification after renaming.</param>
 public sealed record ApplyContext(
     RunContext Run,
     string? ProjectRoot,
@@ -37,7 +37,7 @@ public sealed record ApplyContext(
     TimeSpan StepTimeout,
     int InfraAttempts,
     TimeSpan InfraWait,
-    int RegressionRuns = 1);
+    bool ConfirmRegression = true);
 
 /// <summary>
 /// P06 §4: one question for the run. One class is asked yes/no (§4.1), or name-or-skip when its name is taken (§4.2); several

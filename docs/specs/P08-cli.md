@@ -47,7 +47,7 @@
 
 ```
 arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <pkg>]
-          [--model <tên>] [--rounds <N>] [--no-repair] [--no-metrics] [--no-pit] [--regression-runs <n>]
+          [--model <tên>] [--rounds <N>] [--no-repair] [--no-metrics] [--no-pit] [--no-confirm-regression]
           [--yes] [--dry-run] [--jobs <n>] [--max-tokens <n>] [--resume <run>] [--json] [--plain]
 ```
 
@@ -63,7 +63,7 @@ arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <
 | `--no-repair` | — | Chỉ sinh và xác minh c0 |
 | `--no-metrics` | — | Bỏ khối 4 |
 | `--no-pit` | — | Khối 4 không chạy PIT (bước đo lâu nhất); vẫn đo JaCoCo và tsDetect. Thêm 15/11/2026 |
-| `--regression-runs <n>` | `verification.regression_runs` (1) | Số lần chạy tối đa của bước 5, 1–5: lần đầu có test sẵn có bị hỏng thì chạy lại để xác nhận (P04 §3.5). Thêm 18/11/2026 |
+| `--no-confirm-regression` | `verification.confirm_regression` (bật) | Không xác nhận regression: test sẵn có fail ở bước 5 là REGRESSION ngay, như R03 (P04 §3.5). Thêm 18/11/2026 |
 | `--fresh-baseline` | — | Đo baseline lại, không dùng kết quả đã lưu (P01 §6.2). Có ở cả `gen` và `inspect`. Thêm 16/11/2026 |
 | `--yes` | — | Không hỏi: tự đồng ý ghi file và chấp nhận chi phí ước tính |
 | `--dry-run` | — | Chạy đủ nhưng không ghi vào project; in đường dẫn file kết quả trong `runs/` |

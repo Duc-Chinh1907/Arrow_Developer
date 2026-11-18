@@ -7,7 +7,7 @@
 ### Thêm
 
 - Chọn quy trình sinh test c0 bằng `arrow config set prompts.strategy <tên>`: `zero_shot_project_aware` (mặc định, có cấu hình project), `zero_shot` hoặc `few_shot` (2 ví dụ cố định). Hai quy trình sau không cho model biết test framework của project nên dễ lỗi biên dịch hơn; ARROW cảnh báo khi dùng chúng. `arrow show` và khung đầu phiên tương tác hiện quy trình đã dùng; chạy tiếp một run giữ quy trình cũ.
-- `arrow gen --regression-runs <n>` (hoặc `verification.regression_runs`, mặc định 1): khi bước 5 thấy test sẵn có bị hỏng, chạy lại tối đa n lần để xác nhận. Test chỉ fail ở một vài lần là flaky: không tính là regression, chỉ cảnh báo. Test sinh ra fail ở bất kỳ lần nào vẫn là regression.
+- Bước 5 **xác nhận regression** trước khi ghi: test sẵn có bị fail được chạy riêng 3 lần, không có test mới; fail ít nhất một lần thì nghi chập chờn, không tính (chỉ cảnh báo); đạt cả 3 lần thì chạy lại module cùng test mới, vẫn fail mới là REGRESSION. Bật mặc định; tắt bằng `arrow gen --no-confirm-regression` hoặc `verification.confirm_regression = false`.
 
 ## [0.2.0] - 2026-11-16
 

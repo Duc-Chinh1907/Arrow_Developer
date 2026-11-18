@@ -22,7 +22,7 @@ namespace Arrow.Business.Repair;
 /// <param name="InfraAttempts"><c>verification.infra_attempts</c>.</param>
 /// <param name="InfraWait"><c>verification.infra_wait_seconds</c>.</param>
 /// <param name="KeepWorkspaces"><c>run.keep_workspaces</c>.</param>
-/// <param name="RegressionRuns"><c>verification.regression_runs</c> or <c>--regression-runs</c> (P04 §3.5).</param>
+/// <param name="ConfirmRegression"><c>verification.confirm_regression</c>; false with <c>--no-confirm-regression</c> (P04 §3.5).</param>
 public sealed record RepairOptions(
     bool Enabled,
     int Rounds,
@@ -33,11 +33,11 @@ public sealed record RepairOptions(
     int InfraAttempts,
     TimeSpan InfraWait,
     bool KeepWorkspaces,
-    int RegressionRuns = 1)
+    bool ConfirmRegression = true)
 {
     /// <summary>The settings of the verification of round <paramref name="round"/> (0 for c0).</summary>
     public VerifyOptions Verify(string outputDir, int round, CandidateTest candidate) =>
-        new(outputDir, round, StepTimeout, InfraAttempts, InfraWait, KeepWorkspaces, candidate.CodeHash, candidate.AssertionCount, RegressionRuns);
+        new(outputDir, round, StepTimeout, InfraAttempts, InfraWait, KeepWorkspaces, candidate.CodeHash, candidate.AssertionCount, ConfirmRegression);
 }
 
 /// <summary><c>final.json</c> of a CUT (P04 §7), with the final suite for the caller.</summary>

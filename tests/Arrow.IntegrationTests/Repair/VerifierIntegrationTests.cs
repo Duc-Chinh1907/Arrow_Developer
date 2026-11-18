@@ -149,6 +149,14 @@ public class VerifierIntegrationTests
         Assert.Equal(RegressionKind.Failed, Assert.Single(regression.Regressions).Kind);
         Assert.True(regression.GeneratedTestRanInModule);
 
+        // P04 §3.5: TotalsTest ran alone 3 times without the generated test and passed, so the module ran once more with it.
+        Assert.Equal(3, regression.Steps.Count(s => s.Step == VerifySteps.IsolatedTests));
+        Assert.Equal(2, regression.Steps.Count(s => s.Step == VerifySteps.ModuleTests));
+        var alone = Path.Combine(session.Task.Run.Run.Root, "targets", "com.acme.billing.PriceCalculator", "block3", "round_5", "reports", "isolated_tests-run1");
+        var report = Assert.Single(Directory.GetFiles(alone, "TEST-*.xml"));
+        Assert.Contains("TotalsTest", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("<failure", File.ReadAllText(report), StringComparison.Ordinal);
+
         var valid = await session.VerifyAsync(BillingPath, BillingFqn, Billing("""
                 @Test
                 public void adds() {

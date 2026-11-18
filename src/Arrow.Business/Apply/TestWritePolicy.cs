@@ -241,7 +241,7 @@ public sealed class TestWritePolicy(IProjectFileWriter writer, IVerifier verifie
         var final = plan.Target.Final!;
         var result = await verifier.VerifyAsync(
             SuiteFiles.Single(next.Fqn, next.Path, code), task,
-            new VerifyOptions($"{dir}/reverify", 0, context.StepTimeout, context.InfraAttempts, context.InfraWait, false, final.Candidate.CodeHash, final.Candidate.AssertionCount, context.RegressionRuns),
+            new VerifyOptions($"{dir}/reverify", 0, context.StepTimeout, context.InfraAttempts, context.InfraWait, false, final.Candidate.CodeHash, final.Candidate.AssertionCount, context.ConfirmRegression),
             ct).ConfigureAwait(false);
         runs.WriteJson(context.Run.Run, $"{dir}/reverify.json", result);
         var valid = result.State == VerificationState.Valid;
