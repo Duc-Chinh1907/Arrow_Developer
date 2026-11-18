@@ -9,6 +9,10 @@
 - Chọn quy trình sinh test c0 bằng `arrow config set prompts.strategy <tên>`: `zero_shot_project_aware` (mặc định, có cấu hình project), `zero_shot` hoặc `few_shot` (2 ví dụ cố định). Hai quy trình sau không cho model biết test framework của project nên dễ lỗi biên dịch hơn; ARROW cảnh báo khi dùng chúng. `arrow show` và khung đầu phiên tương tác hiện quy trình đã dùng; chạy tiếp một run giữ quy trình cũ.
 - Bước 5 **xác nhận regression** trước khi ghi: test sẵn có bị fail được chạy riêng 3 lần, không có test mới; fail ít nhất một lần thì nghi chập chờn, không tính (chỉ cảnh báo); đạt cả 3 lần thì chạy lại module cùng test mới, vẫn fail mới là REGRESSION. Bật mặc định; tắt bằng `arrow gen --no-confirm-regression` hoặc `verification.confirm_regression = false`.
 
+### Thay đổi
+
+- Prompt sinh test c0 (cả 3 quy trình) dùng bản `team-v1` nhóm đã chốt, thay bản nháp `v2-draft`: câu ngắn và rõ hơn, thêm quy tắc tránh lỗi biên dịch (chỉ dùng thư viện có trong project, `assertThrows` theo phiên bản JUnit, tính năng theo phiên bản Java) và tránh làm hỏng test khác. Prompt sửa không đổi.
+
 ## [0.2.0] - 2026-11-16
 
 ### Thêm
