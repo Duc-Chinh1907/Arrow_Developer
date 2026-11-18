@@ -51,6 +51,7 @@ public sealed record TaskContext(
 /// <param name="KeepWorkspaces"><c>run.keep_workspaces</c>: the copies are not deleted.</param>
 /// <param name="CodeHash">Hash of the candidate, from block 2.</param>
 /// <param name="AssertionCount">Assertions of the candidate, from block 2.</param>
+/// <param name="RegressionRuns"><c>verification.regression_runs</c>: runs of step 5 at most, to confirm a regression (P04 §3.5).</param>
 public sealed record VerifyOptions(
     string OutputDir,
     int Round,
@@ -59,7 +60,8 @@ public sealed record VerifyOptions(
     TimeSpan InfraWait,
     bool KeepWorkspaces,
     string? CodeHash,
-    int AssertionCount);
+    int AssertionCount,
+    int RegressionRuns = 1);
 
 /// <summary>Verification in 5 steps (P04 §3).</summary>
 public interface IVerifier
@@ -229,27 +231,84 @@ public sealed class Verifier(IBuildExecutor builds, IWorkspaceManager workspaces
         var (_, moduleCopy) = await RunStepAsync(job, VerifySteps.ModuleTests, BuildCommands.ModuleTest(job.Setup), null, generated).ConfigureAwait(false);
         var moduleRoot = job.Setup.WorkingDirectory(moduleCopy);
         var check = RegressionChecker.Check(job.Task.Baseline.PassingInAllRuns, TestReportReader.Read(moduleRoot), fqn);
-        if (check.Regressions.Count > 0)
+        IReadOnlyList<RegressionInfo> regressions = Stripped(check.Regressions, moduleCopy);
+        IReadOnlyList<string> flaky = [];
+        var moduleRuns = 1;
+        if (regressions.Count > 0)
         {
             SaveReports(job, moduleRoot, VerifySteps.ModuleTests, _ => true);
-            var regressions = check.Regressions
-                .Select(r => r with { Message = r.Message is null ? null : BuildErrorExtractor.StripRoot(r.Message, moduleCopy) })
-                .ToList();
+            (regressions, flaky, moduleRuns) = await ConfirmAsync(job, regressions, fqn, generated).ConfigureAwait(false);
+        }
+
+        if (regressions.Count > 0)
+        {
             return new VerifyResult
             {
                 State = VerificationState.Regression, TestMethods = target.Counts, Regressions = regressions,
                 GeneratedTestRanInModule = check.GeneratedTestRan, ErrorSignature = SignatureBuilder.Regression(regressions),
+                ModuleRuns = moduleRuns, ModuleFlaky = flaky,
             };
         }
 
-        return new VerifyResult { State = VerificationState.Valid, TestMethods = target.Counts, GeneratedTestRanInModule = check.GeneratedTestRan };
+        return new VerifyResult
+        {
+            State = VerificationState.Valid, TestMethods = target.Counts, GeneratedTestRanInModule = check.GeneratedTestRan,
+            ModuleRuns = moduleRuns, ModuleFlaky = flaky,
+        };
     }
+
+    /// <summary>
+    /// P04 §3.5 (Chính, 18/11/2026; khác R03, which runs step 5 once): with <c>verification.regression_runs</c> = n &gt; 1, a
+    /// regression of existing tests found by the first run is checked again on new copies, at most n runs in all. An existing test
+    /// is a regression only when it fails in every run; one that passes in a later run is flaky and only reported. A generated test
+    /// that fails with the module in any run stays a regression (case c): a flaky test must not be written into the project, so a
+    /// first run where it fails is not run again.
+    /// </summary>
+    private async Task<(IReadOnlyList<RegressionInfo> Regressions, IReadOnlyList<string> Flaky, int Runs)> ConfirmAsync(
+        Job job, IReadOnlyList<RegressionInfo> first, string fqn, IReadOnlyCollection<string> generated)
+    {
+        var runs = job.Options.RegressionRuns;
+        if (runs <= 1 || first.Any(r => r.Kind == RegressionKind.GeneratedFailedInModule))
+        {
+            return (first, [], 1);
+        }
+
+        var still = first.ToList();
+        var flaky = new SortedSet<string>(StringComparer.Ordinal);
+        var run = 1;
+        while (run < runs && still.Count > 0)
+        {
+            run++;
+            job.Report(ArrowEventTypes.B3VerifyStep, $"{VerifySteps.ModuleTests}: chạy lại lần {run}/{runs} để xác nhận {still.Count} test sẵn có bị hỏng",
+                ("step", VerifySteps.ModuleTests), ("run", run), ("runs", runs));
+            var (_, copy) = await RunStepAsync(job, VerifySteps.ModuleTests, BuildCommands.ModuleTest(job.Setup), null, generated, run).ConfigureAwait(false);
+            var root = job.Setup.WorkingDirectory(copy);
+            var again = RegressionChecker.Check(job.Task.Baseline.PassingInAllRuns, TestReportReader.Read(root), fqn);
+            SaveReports(job, root, $"{VerifySteps.ModuleTests}-run{run}", _ => true);
+
+            var failing = again.Regressions.Where(r => r.Kind != RegressionKind.GeneratedFailedInModule).Select(r => r.Test).ToHashSet(StringComparer.Ordinal);
+            flaky.UnionWith(still.Where(r => !failing.Contains(r.Test)).Select(r => r.Test));
+            flaky.UnionWith(failing.Where(id => still.TrueForAll(r => r.Test != id)));
+            still = still.Where(r => failing.Contains(r.Test)).ToList();
+
+            var generatedFailures = again.Regressions.Where(r => r.Kind == RegressionKind.GeneratedFailedInModule).ToList();
+            if (generatedFailures.Count > 0)
+            {
+                return ([.. still, .. Stripped(generatedFailures, copy)], [.. flaky], run);
+            }
+        }
+
+        return (still, [.. flaky], run);
+    }
+
+    private static List<RegressionInfo> Stripped(IEnumerable<RegressionInfo> regressions, string copy) =>
+        regressions.Select(r => r with { Message = r.Message is null ? null : BuildErrorExtractor.StripRoot(r.Message, copy) }).ToList();
 
     /// <summary>
     /// Runs a step and writes its log; an infrastructure failure retries it on a new copy (P04 §3.6). The first attempt of
     /// step 2 reuses the copy of step 1 (<paramref name="reuseCopy"/>).
     /// </summary>
-    private async Task<(BuildResult Result, string Copy)> RunStepAsync(Job job, string step, IReadOnlyList<string> arguments, string? reuseCopy, IReadOnlyCollection<string> generated)
+    private async Task<(BuildResult Result, string Copy)> RunStepAsync(Job job, string step, IReadOnlyList<string> arguments, string? reuseCopy, IReadOnlyCollection<string> generated, int run = 1)
     {
         var attempts = Math.Max(1, job.Options.InfraAttempts);
         string code = ErrorCodes.B3ToolError, reason = "";
@@ -278,7 +337,7 @@ public sealed class Verifier(IBuildExecutor builds, IWorkspaceManager workspaces
                 continue;
             }
 
-            var log = $"logs/{step}{(attempt > 1 ? $"-try{attempt}" : "")}.log";
+            var log = $"logs/{step}{(run > 1 ? $"-run{run}" : "")}{(attempt > 1 ? $"-try{attempt}" : "")}.log";
             var logPath = Path.Combine(job.OutputPath, log.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
             job.Report(ArrowEventTypes.B3VerifyStep, $"{step} (lần {attempt})", ("step", step), ("attempt", attempt));
