@@ -66,7 +66,8 @@ public sealed class PromptTests : IDisposable
 
         var user = Store.Get("generation/user/project_aware.md");
         Assert.Equal(new[] { "cut_fqn", "cut_path", "test_package", "test_class_name", "repository_configuration", "cut_source" }.Order(), user.Placeholders.Order());
-        Assert.StartsWith("Generate a unit test class", user.Body, StringComparison.Ordinal);
+        Assert.Equal("team-v1", user.Version);
+        Assert.StartsWith("The class under test is {{cut_fqn}} (file {{cut_path}}).", user.Body, StringComparison.Ordinal);
         Assert.Empty(Store.Get("repair/system.md").Placeholders);
         Assert.Throws<ArrowException>(() => Store.Get("generation/user/nope.md"));
     }
@@ -163,11 +164,11 @@ public sealed class PromptTests : IDisposable
         Assert.Equal(Store.Get("generation/user/project_aware.md").Sha256, prompt.Templates[1].Sha256);
         var user = prompt.Messages[1].Content;
         Assert.DoesNotContain("{{", user, StringComparison.Ordinal);
-        Assert.Contains("- Fully qualified name: com.acme.shop.OrderService", user, StringComparison.Ordinal);
-        Assert.Contains("- Source file: shop-core/src/main/java/com/acme/shop/OrderService.java", user, StringComparison.Ordinal);
-        Assert.Contains("- Package: com.acme.shop\n- Class name: OrderService_ArrowTest", user, StringComparison.Ordinal);
-        Assert.Contains("Repository configuration (compatibility constraints):\n- Build tool: Maven 3.9.6", user, StringComparison.Ordinal);
-        Assert.Contains("```java\npackage com.acme.shop;\npublic class OrderService { public long totalPrice(long id) { return 0; } }\n```", user, StringComparison.Ordinal);
+        Assert.Contains("The class under test is com.acme.shop.OrderService (file shop-core/src/main/java/com/acme/shop/OrderService.java).", user, StringComparison.Ordinal);
+        Assert.Contains("- Package of the test class: com.acme.shop\n- Test class name: OrderService_ArrowTest", user, StringComparison.Ordinal);
+        Assert.Contains("<project>\n- Build tool: Maven 3.9.6", user, StringComparison.Ordinal);
+        Assert.Contains("<source>\npackage com.acme.shop;\npublic class OrderService { public long totalPrice(long id) { return 0; } }\n</source>", user, StringComparison.Ordinal);
+        Assert.Contains("Technique: using the source code and the project information", prompt.Messages[0].Content, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", prompt.Messages[0].Content, StringComparison.Ordinal);
     }
 
@@ -182,9 +183,9 @@ public sealed class PromptTests : IDisposable
         Assert.Equal([systemId, "generation.user.default"], prompt.Templates.Select(t => t.Id));
         var user = prompt.Messages[1].Content;
         Assert.DoesNotContain("{{", user, StringComparison.Ordinal);
-        Assert.Contains("- Fully qualified name: com.acme.shop.OrderService", user, StringComparison.Ordinal);
-        Assert.Contains("- Package: com.acme.shop\n- Class name: OrderService_ArrowTest", user, StringComparison.Ordinal);
-        Assert.DoesNotContain("Repository configuration (compatibility constraints)", user, StringComparison.Ordinal);
+        Assert.Contains("The class under test is com.acme.shop.OrderService (file shop-core/src/main/java/com/acme/shop/OrderService.java).", user, StringComparison.Ordinal);
+        Assert.Contains("- Package of the test class: com.acme.shop\n- Test class name: OrderService_ArrowTest", user, StringComparison.Ordinal);
+        Assert.DoesNotContain("<project>", user, StringComparison.Ordinal);
         Assert.DoesNotContain("Maven 3.9.6", user, StringComparison.Ordinal);
         Assert.Equal(strategy == GenerationStrategies.FewShot, prompt.Messages[0].Content.Contains("public class DefaultJwtServiceTest", StringComparison.Ordinal));
     }
