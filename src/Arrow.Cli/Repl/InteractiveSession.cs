@@ -48,7 +48,7 @@ internal sealed class InteractiveSession(
     ];
 
     private static readonly string[] GenOptions =
-        ["--package", "--model", "--rounds", "--no-repair", "--no-metrics", "--no-pit", "--fresh-baseline", "--regression-runs", "--dry-run", "--jobs", "--max-tokens", "--resume", "--yes"];
+        ["--package", "--model", "--rounds", "--no-repair", "--no-metrics", "--no-pit", "--fresh-baseline", "--no-confirm-regression", "--dry-run", "--jobs", "--max-tokens", "--resume", "--yes"];
 
     private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.UtcNow);
     private readonly object _gate = new();

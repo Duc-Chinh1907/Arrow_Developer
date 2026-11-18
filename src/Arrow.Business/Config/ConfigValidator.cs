@@ -71,7 +71,6 @@ public static class ConfigValidator
         Check(verification.BaselineRuns >= 1, "verification.baseline_runs", verification.BaselineRuns, "số nguyên ≥ 1");
         Check(verification.StepTimeoutSeconds >= 1, "verification.step_timeout_seconds", verification.StepTimeoutSeconds, "số nguyên ≥ 1");
         Check(verification.InfraAttempts >= 1, "verification.infra_attempts", verification.InfraAttempts, "số nguyên ≥ 1");
-        Check(verification.RegressionRuns is >= 1 and <= 5, "verification.regression_runs", verification.RegressionRuns, "số nguyên từ 1 đến 5");
         Check(verification.InfraWaitSeconds >= 0, "verification.infra_wait_seconds", verification.InfraWaitSeconds, "số nguyên ≥ 0");
 
         var quality = config.Quality;

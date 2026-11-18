@@ -131,14 +131,25 @@ Kết quả là `REGRESSION` khi xảy ra một trong ba trường hợp:
 - (b) một test đó **biến mất** khỏi báo cáo, tức không được chạy;
 - (c) **chính test sinh ra** pass khi chạy riêng nhưng **fail** khi chạy cùng module.
 
-**Chạy lại để xác nhận** (`verification.regression_runs` hoặc `--regression-runs`, mặc định 1; thêm 18/11/2026, Chính chọn; **khác R03**, nơi bước 5 chạy một lần):
-- Mặc định 1: lần chạy đầu cho kết quả, đúng như R03.
-- Với n > 1 (tối đa 5): bước 5 chạy lần đầu như trên. Không có regression thì xong, **không** chạy thêm. Có regression của test sẵn có ((a) hoặc (b)) thì chạy lại bước 5 trên bản sao mới, tối đa n lần tính cả lần đầu, và dừng sớm khi không còn test nào cần xác nhận.
-- Test sẵn có là regression chỉ khi **fail ở mọi lần chạy**. Test fail ở một vài lần rồi pass là flaky: không tính, ghi vào `module_flaky` của `verify.json` và in `[!] <Class>: test sẵn có lúc pass lúc fail khi chạy cùng test mới (không tính là regression): …`.
-- Trường hợp (c), **test sinh ra** fail khi chạy cùng module, ở **bất kỳ** lần nào vẫn là regression: test lúc pass lúc fail không được ghi vào project. Lần đầu đã có (c) thì không chạy lại.
-- `verify.json` có `module_runs` (số lần đã chạy bước 5). Log và báo cáo của lần thứ k nằm ở `logs/module_tests-run<k>.log` và `reports/module_tests-run<k>/`.
-- Mỗi lần xác minh tự xác nhận lại; test flaky tìm thấy ở vòng này không được nhớ sang vòng sau.
-- Số lần chạy được ghi vào `run.json` (`config.regression_runs`); `--resume` giữ giá trị của run cũ.
+**Xác nhận trước khi ghi REGRESSION** (`verification.confirm_regression`, mặc định **bật**; tắt bằng `--no-confirm-regression`; thêm 18/11/2026, Chính chọn; **khác R03**, nơi lần chạy đầu của bước 5 là kết quả). Mục đích: không trách oan test mới khi test sẵn có vốn chập chờn.
+
+```
+Bước 5 → test sẵn có X fail (trường hợp a)
+  └─ Chạy riêng X 3 lần, KHÔNG có test mới
+       ├─ fail ít nhất 1 lần → nghi chập chờn, không tính
+       └─ đạt cả 3 lần → chạy lại module CÓ test mới 1 lần
+                            ├─ X fail → REGRESSION
+                            └─ X đạt  → không tính
+```
+
+- Mọi test sẵn có bị fail được chạy riêng **trong một lệnh** (Maven `-Dtest=A#m1+m2,B#m3`, tên class ngắn; Gradle một `--tests <class>.<method>` cho mỗi method; phần tham số sau tên method như `m[1]`, `m(int)` bị bỏ), trên bản sao mới **không có** file test sinh ra. Lệnh đó chạy 3 lần.
+- Test không chạy được khi chạy riêng (không có trong báo cáo) đi tiếp như test đạt cả 3 lần: phải fail lại trong lần chạy module thứ hai mới là REGRESSION.
+- Test "không tính" được ghi vào `module_flaky` của `verify.json` và in `[!] <Class>: test sẵn có fail khi chạy cùng test mới nhưng nghi chập chờn, không tính là regression: …`.
+- Không xác nhận khi lần đầu đã có (b) test biến mất hoặc (c) **test sinh ra** fail cùng module: kết quả là REGRESSION ngay. Ở lần chạy module thứ hai, test sinh ra fail cũng là REGRESSION: test lúc đạt lúc fail không được ghi vào project.
+- Giới hạn đã chấp nhận: test chỉ đạt khi chạy chung module (dựa vào trạng thái test khác dựng sẵn) luôn fail khi chạy riêng, nên rơi vào nhánh "nghi chập chờn"; nếu test mới thật sự làm hỏng nó thì không bị bắt. Cảnh báo ở trên cho người dùng thấy tên test để tự kiểm.
+- Log và báo cáo: `logs/isolated_tests[-run<k>].log`, `reports/isolated_tests-run<k>/`; lần chạy module thứ hai là `logs/module_tests-run2.log`, `reports/module_tests-run2/`.
+- Mỗi lần xác minh tự xác nhận lại; test nghi chập chờn ở vòng này không được nhớ sang vòng sau.
+- Lựa chọn được ghi vào `run.json` (`config.confirm_regression`); `--resume` giữ giá trị của run cũ.
 
 **Không** kết luận regression từ:
 - test `flaky` hay `failing_in_all_runs` của baseline;

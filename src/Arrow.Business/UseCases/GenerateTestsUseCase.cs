@@ -33,8 +33,8 @@ namespace Arrow.Business.UseCases;
 /// <param name="MaxTokens"><c>--max-tokens</c>.</param>
 /// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
 /// <param name="ResumeRunId"><c>--resume</c>: the run to resume (P07 §5).</param>
-/// <param name="RegressionRuns"><c>--regression-runs</c>; null for <c>verification.regression_runs</c> (P04 §3.5).</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false, bool FreshBaseline = false, int? RegressionRuns = null);
+/// <param name="NoConfirmRegression"><c>--no-confirm-regression</c>: the first failure of an existing test in step 5 is a regression (P04 §3.5).</param>
+public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false, bool FreshBaseline = false, bool NoConfirmRegression = false);
 
 /// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
 /// <param name="Kind">Local folder or GitHub repository.</param>
@@ -111,14 +111,9 @@ public sealed class GenerateTestsUseCase(
             throw new ArrowException(ErrorCodes.CliArgs, "--rounds phải từ 1 đến 10.");
         }
 
-        if (options.RegressionRuns is { } regressionRuns)
+        if (options.NoConfirmRegression)
         {
-            if (regressionRuns is < 1 or > 5)
-            {
-                throw new ArrowException(ErrorCodes.CliArgs, "--regression-runs phải từ 1 đến 5.");
-            }
-
-            settings = settings with { Verification = settings.Verification with { RegressionRuns = regressionRuns } };
+            settings = settings with { Verification = settings.Verification with { ConfirmRegression = false } };
         }
 
         var jobs = options.Jobs ?? settings.Run.Jobs;
@@ -141,14 +136,14 @@ public sealed class GenerateTestsUseCase(
             if (options.NoMetrics == old.Quality) { changed.Add(old.Quality ? "có đo" : "không đo"); }
             if (old.Quality && options.NoPit != old.NoPit) { changed.Add(old.NoPit ? "không đo PIT" : "có đo PIT"); }
             if (settings.Prompts.Strategy != old.Strategy) { changed.Add($"quy trình {old.Strategy}"); }
-            if (settings.Verification.RegressionRuns != old.RegressionRuns) { changed.Add($"bước 5 tối đa {old.RegressionRuns} lần"); }
+            if (settings.Verification.ConfirmRegression != old.ConfirmRegression) { changed.Add(old.ConfirmRegression ? "có xác nhận regression" : "không xác nhận regression"); }
             if (changed.Count > 0)
             {
                 warnings.Add("Dùng cấu hình của run cũ: " + string.Join(", ", changed));
             }
 
             options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality, NoPit = old.NoPit };
-            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP }, Prompts = settings.Prompts with { Strategy = old.Strategy }, Verification = settings.Verification with { RegressionRuns = old.RegressionRuns } };
+            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP }, Prompts = settings.Prompts with { Strategy = old.Strategy }, Verification = settings.Verification with { ConfirmRegression = old.ConfirmRegression } };
         }
 
         var model = ResolvedModel.From(settings, options.Model);
@@ -199,7 +194,7 @@ public sealed class GenerateTestsUseCase(
         var info = resume is { } r
             ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
             : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.RegressionRuns),
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.ConfirmRegression),
                 templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = resume?.Handle ?? runs.Create(info);
         if (resume is not null)
@@ -295,7 +290,7 @@ public sealed class GenerateTestsUseCase(
             var policy = new TestWritePolicy(writer, host.Verifier, host.JavaHelpers, runs, catalog);
             var applyContext = new ApplyContext(run, workspace.Checkout.ProjectRoot, options.Yes, options.DryRun, settings.Apply.Confirm,
                 TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts, TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds),
-                settings.Verification.RegressionRuns);
+                settings.Verification.ConfirmRegression);
             var applied = await ApplyStep.RunAsync(policy, [.. kept, .. runs2], applyContext, confirm, warnings, ct).ConfigureAwait(false);
             foreach (var (cut, apply) in applied)
             {

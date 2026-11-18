@@ -87,7 +87,7 @@ public static class TargetPipeline
             repair.Enabled, repair.Rounds, repair.EarlyStopP, shared.Model,
             (runs.ReadText(run.Run, $"{dir}/block1/metadata_prompt.txt") ?? "").TrimEnd('\n'),
             TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts,
-            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.RegressionRuns);
+            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.ConfirmRegression);
         var generator = new TestGenerator(shared.Llm, shared.Host.JavaHelpers, shared.Templates, runs);
 
         TargetRun Done(TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error, double? block2, double? block3, Usage? usage = null, QualityResult? quality = null, double? block4 = null) =>
@@ -145,10 +145,10 @@ public static class TargetPipeline
             _ => final.FinalState.ToOutcome(),
         };
 
-        // P04 §3.5: existing tests that failed in some runs of step 5 only (verification.regression_runs > 1).
+        // P04 §3.5: existing tests that failed with the generated test but were found flaky.
         if (final.Success && final.Verify.ModuleFlaky.Count > 0)
         {
-            warnings.Add($"{m.Cut.SimpleName}: test sẵn có lúc pass lúc fail khi chạy cùng test mới (không tính là regression): {string.Join(", ", final.Verify.ModuleFlaky)}");
+            warnings.Add($"{m.Cut.SimpleName}: test sẵn có fail khi chạy cùng test mới nhưng nghi chập chờn, không tính là regression: {string.Join(", ", final.Verify.ModuleFlaky)}");
         }
 
         // Block 4: only the final VALID suite, when measuring is on (P05 §2).

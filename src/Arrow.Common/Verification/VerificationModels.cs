@@ -89,6 +89,7 @@ public static class VerifySteps
     public const string Compile = "compile";
     public const string RunTarget = "run_target";
     public const string ModuleTests = "module_tests";
+    public const string IsolatedTests = "isolated_tests";
 }
 
 /// <summary>One step of a verification (P04 §3.8).</summary>
@@ -130,10 +131,7 @@ public sealed record VerifyResult
     /// <summary>Whether the generated test ran in step 5; null when step 5 did not run (P04 §3.5).</summary>
     public bool? GeneratedTestRanInModule { get; init; }
 
-    /// <summary>Runs of step 5: more than 1 when <c>verification.regression_runs</c> checked a regression again (P04 §3.5); null when step 5 did not run.</summary>
-    public int? ModuleRuns { get; init; }
-
-    /// <summary>Existing tests that failed in some runs of step 5 but not in all of them: flaky, not a regression (P04 §3.5).</summary>
+    /// <summary>Existing tests that failed with the generated test but were found flaky when the regression was confirmed (P04 §3.5).</summary>
     public IReadOnlyList<string> ModuleFlaky { get; init; } = [];
 
     /// <summary>The build error block for UNKNOWN (and a crash in step 2), without workspace paths.</summary>
