@@ -48,12 +48,12 @@ public sealed class PromptTests : IDisposable
 
     // ── Templates ────────────────────────────────────────────────────────────────
 
-    // Parity: LoadsAllRealPromptTemplates, RealPromptSetIsConsistent (product templates only)
+    // Parity: LoadsAllRealPromptTemplates, RealPromptSetIsConsistent (the 3 generation strategies since 18/11/2026)
     [Fact]
-    public void LoadsTheSevenEmbeddedTemplates()
+    public void LoadsTheTenEmbeddedTemplates()
     {
         var all = Store.All();
-        Assert.Equal(7, all.Count);
+        Assert.Equal(10, all.Count);
         Assert.Equal(PromptTemplateStore.Required.Values.Order(), all.Select(t => t.Id).Order());
         Assert.All(all, t =>
         {
@@ -170,6 +170,28 @@ public sealed class PromptTests : IDisposable
         Assert.Contains("```java\npackage com.acme.shop;\npublic class OrderService { public long totalPrice(long id) { return 0; } }\n```", user, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", prompt.Messages[0].Content, StringComparison.Ordinal);
     }
+
+    // R02 §3: only zero_shot_project_aware tells the model the repository configuration; few_shot adds two fixed examples.
+    [Theory]
+    [InlineData(GenerationStrategies.ZeroShot, "generation.system.zero_shot")]
+    [InlineData(GenerationStrategies.FewShot, "generation.system.few_shot")]
+    public void TheOtherStrategiesHaveNoRepositoryConfiguration(string strategy, string systemId)
+    {
+        var prompt = PromptBuilder.Generation(Store, Input(), strategy);
+
+        Assert.Equal([systemId, "generation.user.default"], prompt.Templates.Select(t => t.Id));
+        var user = prompt.Messages[1].Content;
+        Assert.DoesNotContain("{{", user, StringComparison.Ordinal);
+        Assert.Contains("- Fully qualified name: com.acme.shop.OrderService", user, StringComparison.Ordinal);
+        Assert.Contains("- Package: com.acme.shop\n- Class name: OrderService_ArrowTest", user, StringComparison.Ordinal);
+        Assert.DoesNotContain("Repository configuration (compatibility constraints)", user, StringComparison.Ordinal);
+        Assert.DoesNotContain("Maven 3.9.6", user, StringComparison.Ordinal);
+        Assert.Equal(strategy == GenerationStrategies.FewShot, prompt.Messages[0].Content.Contains("public class DefaultJwtServiceTest", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnUnknownStrategyIsRefused() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => PromptBuilder.Generation(Store, Input(), "two_shot"));
 
     [Fact]
     public void SourceCodeWithBracesAndPlaceholdersIsPutInAsItIs()

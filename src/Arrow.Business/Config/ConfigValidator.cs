@@ -1,6 +1,7 @@
 using System.Globalization;
 using Arrow.Common.Config;
 using Arrow.Common.Errors;
+using Arrow.Common.Generation;
 using Arrow.Common.Json;
 
 namespace Arrow.Business.Config;
@@ -82,6 +83,7 @@ public static class ConfigValidator
         Check(config.Run.ConfirmCostFromClasses >= 1, "run.confirm_cost_from_classes", config.Run.ConfirmCostFromClasses, "số nguyên ≥ 1");
 
         Check(Languages.Contains(config.Ui.Language), "ui.language", config.Ui.Language, "vi hoặc en");
+        Check(GenerationStrategies.IsKnown(config.Prompts.Strategy), "prompts.strategy", config.Prompts.Strategy, string.Join(", ", GenerationStrategies.All));
         return issues;
     }
 

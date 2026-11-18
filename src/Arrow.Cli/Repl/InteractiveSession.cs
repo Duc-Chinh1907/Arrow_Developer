@@ -2,6 +2,7 @@ using System.Text;
 using Arrow.Business.UseCases;
 using Arrow.Cli.Rendering;
 using Arrow.Common.Errors;
+using Arrow.Common.Generation;
 using Spectre.Console;
 
 namespace Arrow.Cli.Repl;
@@ -193,7 +194,7 @@ internal sealed class InteractiveSession(
             "project  " + (_project is { } p
                 ? $"{p.Name}  ({string.Join(" · ", new[] { p.BuildTool, p.Java is null ? null : "Java " + p.Java, p.Framework }.OfType<string>())})"
                 : "chưa chọn project · dùng /project <thư mục>"),
-            "model    " + (model.Name is { } name ? $"{_model ?? name} · {model.Host} · repair adaptive N={model.Rounds}" : "chưa có model · dùng /setup"),
+            "model    " + (model.Name is { } name ? $"{_model ?? name} · {model.Host} · repair adaptive N={model.Rounds}{(model.Strategy == GenerationStrategies.Default ? "" : $" · prompt {model.Strategy}")}" : "chưa có model · dùng /setup"),
         };
         renderer.Line($" ARROW · LLM unit test generation for Java · v{version}");
         if (renderer.Ansi is { } ansi)

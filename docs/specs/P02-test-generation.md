@@ -6,7 +6,7 @@ Khối 2 có hai chế độ:
 
 | Chế độ | Gọi từ | Chỉ dẫn | Kết quả |
 |---|---|---|---|
-| `GENERATE` | P07, sau khối 1 | Template sinh test **repository-aware** (`zero_shot_project_aware`) | c0 |
+| `GENERATE` | P07, sau khối 1 | Template sinh test theo `prompts.strategy` (§3.1); mặc định **repository-aware** (`zero_shot_project_aware`) | c0 |
 | `REPAIR` | P04 (vòng sửa) | Template sửa theo mức 1, 2 hoặc 3, dựng từ `RepairRequest` | ct của vòng t |
 
 **Lớp:** `Arrow.Business/Generation`. Template nhúng trong `Arrow.Business/Prompts/`. Gọi model qua `ILlmClient` (P03).
@@ -33,7 +33,7 @@ flowchart LR
 
 | Có | Không |
 |---|---|
-| Quy trình `zero_shot_project_aware` khi sinh | `zero_shot`, `few_shot`, so sánh quy trình (thực nghiệm RQ1) |
+| Quy trình `zero_shot_project_aware` khi sinh (mặc định); `zero_shot` và `few_shot` chọn bằng `prompts.strategy` (thêm 18/11/2026) | So sánh quy trình (thực nghiệm RQ1) |
 | Prompt sửa mức 1, 2, 3 (Adaptive) | Prompt của Fixed Repair |
 | Template nhúng sẵn; người dùng có thể ghi đè bằng thư mục riêng | Sửa template trong lúc chạy |
 | Mỗi lượt gọi là một lượt hỏi–đáp đơn (system + user) | Hội thoại nhiều lượt, gọi tool |
@@ -88,6 +88,9 @@ Mỗi lượt gọi có **2 message**:
 |---|---|---|
 | `generation/system/zero_shot_project_aware.md` | system | GENERATE |
 | `generation/user/project_aware.md` | user | GENERATE |
+| `generation/system/zero_shot.md` | system | GENERATE, `prompts.strategy = zero_shot` |
+| `generation/system/few_shot.md` | system | GENERATE, `prompts.strategy = few_shot` (có sẵn 2 ví dụ) |
+| `generation/user/default.md` | user | GENERATE, `zero_shot` và `few_shot` (không có khối M) |
 | `repair/system.md` | system | REPAIR, mọi mức |
 | `repair/user/level1.md` | user | REPAIR mức 1 |
 | `repair/user/level2.md` | user | REPAIR mức 2 (và khi mức 3 không áp dụng được) |
@@ -108,6 +111,20 @@ Sai thì báo `B2_TEMPLATE_INVALID`, không chạy.
 - `prompts.override_dir` (P09) trỏ tới một thư mục có cùng cấu trúc. File nào có trong thư mục đó thì thay bản nhúng; file nào không có thì giữ bản nhúng.
 - File ghi đè cũng phải qua kiểm tra trên, và **phải có cùng tập placeholder** với bản nhúng.
 - Có ghi đè thì in `[!] Dùng template tuỳ chỉnh: <danh sách file>`.
+
+**Quy trình sinh** (`prompts.strategy`, P09; thêm 18/11/2026, Chính chọn): chọn cặp template của lượt GENERATE theo R02 §3.
+
+| `prompts.strategy` | system | user |
+|---|---|---|
+| `zero_shot_project_aware` (mặc định) | `generation/system/zero_shot_project_aware.md` | `generation/user/project_aware.md` (có khối M) |
+| `zero_shot` | `generation/system/zero_shot.md` | `generation/user/default.md` |
+| `few_shot` | `generation/system/few_shot.md` | `generation/user/default.md` |
+
+- Chỉ lượt GENERATE (c0) đổi theo quy trình. Mọi prompt sửa vẫn có khối M, đúng như R02 §2.2.
+- Với `zero_shot` và `few_shot`, model không được biết test framework của project (R02 §3); đoán sai thì ra COMPILE hoặc DISCOVERY và phải sửa. Vì vậy khi quy trình khác mặc định, `gen` in `[!] Quy trình sinh test <tên> (prompts.strategy): …` trước khi chạy.
+- Ví dụ của `few_shot` là 2 test cố định của R02 §3; nguồn gốc ở `Prompts/generation/fewshot_provenance.json` (không nhúng vào bản build).
+- Quy trình đã dùng được ghi vào `run.json` (`config.strategy`); `--resume` giữ quy trình của run cũ (P07 §5.2). `arrow show` và khung đầu phiên tương tác hiện quy trình.
+- Không có cờ dòng lệnh: đổi bằng `arrow config set prompts.strategy <tên>`.
 
 **Ghi nhận:** `id`, `version` và sha256 của **từng file** đã dùng được ghi vào `run.json` (`prompts_sha256`) và vào `prompt.json` của từng lượt.
 

@@ -18,6 +18,7 @@ namespace Arrow.Business.Generation;
 /// <param name="Model">The model of the run, with its parameters.</param>
 /// <param name="ResultDir">Folder of this call below the run: <c>targets/&lt;cut&gt;/block2</c>, or <c>targets/&lt;cut&gt;/block3/round_&lt;k&gt;</c>.</param>
 /// <param name="Progress">Progress events (P02 §8); must not block.</param>
+/// <param name="Strategy">Prompting strategy of c0 (<c>prompts.strategy</c>); repair prompts do not depend on it.</param>
 public sealed record GenerationContext(
     RunHandle Run,
     string CutFqn,
@@ -26,7 +27,8 @@ public sealed record GenerationContext(
     string CutSource,
     ResolvedModel Model,
     string ResultDir,
-    IProgress<ArrowEvent>? Progress = null);
+    IProgress<ArrowEvent>? Progress = null,
+    string Strategy = GenerationStrategies.Default);
 
 /// <summary>What block 2 made from one call (P02 §6).</summary>
 /// <param name="Candidate">The candidate test; <see cref="CandidateTest.ValidOutput"/> is false for <c>INVALID_OUTPUT</c>.</param>
@@ -86,7 +88,7 @@ public sealed class TestGenerator(ILlmClient llm, IJavaHelperProvider javaHelper
     public async Task<GenerationResult> GenerateAsync(GenerationContext context, CancellationToken ct)
     {
         var (cut, truncation) = await PrepareCutAsync(context, ct).ConfigureAwait(false);
-        var built = PromptBuilder.Generation(templates, Input(context, cut));
+        var built = PromptBuilder.Generation(templates, Input(context, cut), context.Strategy);
         return await CallAsync(context, GenerateCallId(context.CutFqn), "GENERATE", 0, null, built, truncation, null, ct).ConfigureAwait(false);
     }
 

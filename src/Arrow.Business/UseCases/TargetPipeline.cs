@@ -98,7 +98,7 @@ public static class TargetPipeline
         GenerationResult c0;
         try
         {
-            c0 = await generator.GenerateAsync(new GenerationContext(run.Run, m.Cut.Fqn, m, repairOptions.MetadataPrompt, task.CutSource, shared.Model, $"{dir}/block2", run.Progress), ct).ConfigureAwait(false);
+            c0 = await generator.GenerateAsync(new GenerationContext(run.Run, m.Cut.Fqn, m, repairOptions.MetadataPrompt, task.CutSource, shared.Model, $"{dir}/block2", run.Progress, shared.Settings.Prompts.Strategy), ct).ConfigureAwait(false);
         }
         catch (ArrowException ex)
         {

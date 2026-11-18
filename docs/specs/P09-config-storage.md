@@ -106,7 +106,7 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
   "apply": { "confirm": true },
   "run": { "jobs": 1, "max_tokens": null, "confirm_cost_from_classes": 5, "keep_workspaces": false },
   "ui": { "color": "auto", "language": "vi" },
-  "prompts": { "override_dir": null }
+  "prompts": { "override_dir": null, "strategy": "zero_shot_project_aware" }
 }
 ```
 
@@ -135,6 +135,7 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 | `ui.color` | `auto` \| `always` \| `never` | `auto` | P08 |
 | `ui.language` | `vi` \| `en` | `vi` | Ngôn ngữ của thông báo |
 | `prompts.override_dir` | string? | `null` | Thư mục template thay cho bản nhúng (P02) |
+| `prompts.strategy` | string | `"zero_shot_project_aware"` | Quy trình sinh c0: `zero_shot_project_aware`, `zero_shot` hoặc `few_shot` (P02 §3.1). Thêm 18/11/2026 |
 
 ### 3.3 Đọc và kiểm tra
 
