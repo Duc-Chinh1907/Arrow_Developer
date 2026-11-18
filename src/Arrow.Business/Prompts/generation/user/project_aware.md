@@ -1,26 +1,24 @@
 ---
 id: generation.user.project_aware
-version: v2-draft1
+version: team-v1
 role: user
 used_by: zero_shot_project_aware
 placeholders: cut_fqn, cut_path, test_package, test_class_name, repository_configuration, cut_source
 ---
-Generate a unit test class for the target class under test (CUT) below.
+The class under test is {{cut_fqn}} (file {{cut_path}}).
 
-Target CUT
-- Fully qualified name: {{cut_fqn}}
-- Source file: {{cut_path}}
-
-Required test class
-- Package: {{test_package}}
-- Class name: {{test_class_name}}
-
-Repository configuration (compatibility constraints):
+Project information:
+<project>
 {{repository_configuration}}
+</project>
 
-Target CUT source:
-```java
+Source code of the class:
+<source>
 {{cut_source}}
-```
+</source>
 
-Return only the complete Java source of the test class {{test_class_name}}, according to the output contract.
+Write the test class for the class above.
+- Package of the test class: {{test_package}}
+- Test class name: {{test_class_name}}
+- For the class under test, call only constructors and methods that appear in the source code above.
+- Return Java code only, with no ``` and no explanations.
