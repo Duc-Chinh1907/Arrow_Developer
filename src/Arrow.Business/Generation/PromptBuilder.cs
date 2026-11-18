@@ -19,8 +19,8 @@ public sealed record PromptInput(string CutFqn, string CutPath, string TestPacka
 public sealed record BuiltPrompt(IReadOnlyList<LlmMessage> Messages, IReadOnlyList<TemplateRef> Templates);
 
 /// <summary>
-/// Chooses the templates and fills their placeholders (P02 §3). Pure: it reads no file and calls no model. GENERATE uses
-/// <c>zero_shot_project_aware</c>; REPAIR uses <c>repair/system.md</c> and the user template of the level.
+/// Chooses the templates and fills their placeholders (P02 §3). Pure: it reads no file and calls no model. GENERATE uses the
+/// templates of <c>prompts.strategy</c> (<c>zero_shot_project_aware</c> by default); REPAIR uses <c>repair/system.md</c> and the user template of the level.
 /// </summary>
 public static class PromptBuilder
 {
@@ -39,11 +39,14 @@ public static class PromptBuilder
         _ => throw new ArgumentOutOfRangeException(nameof(level), level, "Mức sửa phải là 1, 2 hoặc 3."),
     };
 
-    /// <summary>The prompt of the first generation (c0).</summary>
-    public static BuiltPrompt Generation(IPromptTemplateStore templates, PromptInput input)
+    /// <summary>
+    /// The prompt of the first generation (c0) with the templates of <paramref name="strategy"/> (R02 §3). Only
+    /// <c>zero_shot_project_aware</c> gets the repository configuration; the other two templates have no placeholder for it.
+    /// </summary>
+    public static BuiltPrompt Generation(IPromptTemplateStore templates, PromptInput input, string strategy = GenerationStrategies.Default)
     {
         var values = Shared(input);
-        return Build(templates.Get("generation/system/zero_shot_project_aware.md"), templates.Get("generation/user/project_aware.md"), values);
+        return Build(templates.Get(GenerationStrategies.SystemPath(strategy)), templates.Get(GenerationStrategies.UserPath(strategy)), values);
     }
 
     /// <summary>

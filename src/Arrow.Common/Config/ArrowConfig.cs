@@ -96,4 +96,6 @@ public enum ColorMode
 }
 
 /// <summary><c>prompts.*</c> (P02).</summary>
-public sealed record PromptsSettings(string? OverrideDir);
+/// <param name="OverrideDir">Folder of templates that replace the embedded ones.</param>
+/// <param name="Strategy">Prompting strategy of c0 (P02 §3.1): <c>zero_shot_project_aware</c>, <c>zero_shot</c> or <c>few_shot</c>.</param>
+public sealed record PromptsSettings(string? OverrideDir, string Strategy = Generation.GenerationStrategies.Default);

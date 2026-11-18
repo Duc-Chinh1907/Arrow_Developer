@@ -43,6 +43,9 @@ public sealed partial class PromptTemplateStore : IPromptTemplateStore
     {
         ["generation/system/zero_shot_project_aware.md"] = "generation.system.zero_shot_project_aware",
         ["generation/user/project_aware.md"] = "generation.user.project_aware",
+        ["generation/system/zero_shot.md"] = "generation.system.zero_shot",
+        ["generation/system/few_shot.md"] = "generation.system.few_shot",
+        ["generation/user/default.md"] = "generation.user.default",
         ["repair/system.md"] = "repair.system",
         ["repair/user/level1.md"] = "repair.user.level1",
         ["repair/user/level2.md"] = "repair.user.level2",

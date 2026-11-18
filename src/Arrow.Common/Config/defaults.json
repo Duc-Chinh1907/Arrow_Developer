@@ -20,5 +20,5 @@
   "apply": { "confirm": true },
   "run": { "jobs": 1, "max_tokens": null, "confirm_cost_from_classes": 5, "keep_workspaces": false },
   "ui": { "color": "auto", "language": "vi" },
-  "prompts": { "override_dir": null }
+  "prompts": { "override_dir": null, "strategy": "zero_shot_project_aware" }
 }

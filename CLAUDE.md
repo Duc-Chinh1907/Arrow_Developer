@@ -57,6 +57,7 @@ It is the product version of the team's research framework. There is **no resear
   - extra `count_assertions` kinds (GĐ1).
 - Decided 15/11/2026: command `arrow`, `PackageId` `ArrowDev` (assembly stays `Arrow.Cli`), license MIT, releases on GitHub only (no NuGet.org).
 - Decided 15/11/2026: repair defaults stay N = 5, P = 3; `arrow gen --no-pit` skips PIT (`GenerateTestsUseCase.MeasuredTools`, `RunConfig.NoPit`).
+- Decided 18/11/2026: `prompts.strategy` (config only, no CLI flag) chooses the c0 prompt among the three R02 §3 strategies; default `zero_shot_project_aware`. `zero_shot.md`, `few_shot.md`, `user/default.md` and `fewshot_provenance.json` were copied verbatim from `ARROW_Framework/prompts/generation`. Repair prompts do not depend on it. A non-default strategy prints a warning; `run.json` `config.strategy` keeps it for `--resume`.
 - Nothing is open for the team review any more.
 
 ## Secrets

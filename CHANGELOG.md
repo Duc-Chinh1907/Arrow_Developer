@@ -2,6 +2,12 @@
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/); phiên bản theo [SemVer](https://semver.org/lang/vi/).
 
+## [Chưa phát hành]
+
+### Thêm
+
+- Chọn quy trình sinh test c0 bằng `arrow config set prompts.strategy <tên>`: `zero_shot_project_aware` (mặc định, có cấu hình project), `zero_shot` hoặc `few_shot` (2 ví dụ cố định). Hai quy trình sau không cho model biết test framework của project nên dễ lỗi biên dịch hơn; ARROW cảnh báo khi dùng chúng. `arrow show` và khung đầu phiên tương tác hiện quy trình đã dùng; chạy tiếp một run giữ quy trình cũ.
+
 ## [0.2.0] - 2026-11-16
 
 ### Thêm

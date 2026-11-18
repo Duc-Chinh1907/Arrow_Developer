@@ -186,6 +186,27 @@ public sealed class GenExecutableTests : IDisposable
         Assert.True(runJson.RootElement.GetProperty("config").GetProperty("no_pit").GetBoolean());
     }
 
+    // prompts.strategy (Chính, 18/11/2026): c0 is asked with the few_shot templates, without the repository configuration.
+    [Fact]
+    public async Task GenWithTheFewShotStrategy()
+    {
+        await ConfigureAsync();
+        Assert.Equal(0, (await Arrow(null, null, "config", "set", "prompts.strategy", "few_shot")).ExitCode);
+        var run = await Arrow(Scenario("valid-at-c0"), null, "gen", "PriceCalculator", "--project", _project.Root, "--plain", "--yes", "--no-metrics", "--dry-run");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Contains("Quy trình sinh test few_shot", run.Output, StringComparison.Ordinal);
+
+        using var prompt = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(RunDir(run), "block2/prompt.json"), TestContext.Current.CancellationToken));
+        Assert.Equal(["generation.system.few_shot", "generation.user.default"],
+            prompt.RootElement.GetProperty("templates").EnumerateArray().Select(t => t.GetProperty("id").GetString()));
+        var user = prompt.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
+        Assert.DoesNotContain("Repository configuration", user, StringComparison.Ordinal);
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(RunDir(run), "run.json"), TestContext.Current.CancellationToken));
+        Assert.Equal("few_shot", runJson.RootElement.GetProperty("config").GetProperty("strategy").GetString());
+
+        Assert.NotEqual(0, (await Arrow(null, null, "config", "set", "prompts.strategy", "two_shot")).ExitCode);
+    }
+
     // P07 §7, §13: two classes of one module with --jobs 2; block 1 runs once for the module, both files are written.
     [Fact]
     public async Task TwoClassesOfOneModuleShareBlockOne()

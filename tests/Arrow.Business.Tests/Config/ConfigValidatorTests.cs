@@ -25,6 +25,7 @@ public class ConfigValidatorTests
         { "llm.default_model", Defaults with { Llm = Defaults.Llm with { DefaultModel = "missing" } } },
         { "quality.tools", Defaults with { Quality = Defaults.Quality with { Tools = ["jacoco", "evosuite"] } } },
         { "ui.language", Defaults with { Ui = Defaults.Ui with { Language = "fr" } } },
+        { "prompts.strategy", Defaults with { Prompts = Defaults.Prompts with { Strategy = "two_shot" } } },
         { "verification.baseline_runs", Defaults with { Verification = Defaults.Verification with { BaselineRuns = 0 } } },
         { "java.jdk_homes.7", Defaults with { Java = Defaults.Java with { JdkHomes = new Dictionary<string, string> { ["7"] = "/jdk7" } } } },
     };

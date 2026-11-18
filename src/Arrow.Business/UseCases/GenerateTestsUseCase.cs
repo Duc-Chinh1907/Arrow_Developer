@@ -10,6 +10,7 @@ using Arrow.Common;
 using Arrow.Common.Analysis;
 using Arrow.Common.Errors;
 using Arrow.Common.Events;
+using Arrow.Common.Generation;
 using Arrow.DataAccess.Apply;
 using Arrow.DataAccess.Config;
 using Arrow.DataAccess.JavaHelper;
@@ -128,19 +129,24 @@ public sealed class GenerateTestsUseCase(
             if (options.NoRepair == old.Repair) { changed.Add(old.Repair ? "có sửa" : "không sửa"); }
             if (options.NoMetrics == old.Quality) { changed.Add(old.Quality ? "có đo" : "không đo"); }
             if (old.Quality && options.NoPit != old.NoPit) { changed.Add(old.NoPit ? "không đo PIT" : "có đo PIT"); }
+            if (settings.Prompts.Strategy != old.Strategy) { changed.Add($"quy trình {old.Strategy}"); }
             if (changed.Count > 0)
             {
                 warnings.Add("Dùng cấu hình của run cũ: " + string.Join(", ", changed));
             }
 
             options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality, NoPit = old.NoPit };
-            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP } };
+            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP }, Prompts = settings.Prompts with { Strategy = old.Strategy } };
         }
 
         var model = ResolvedModel.From(settings, options.Model);
         var limits = LlmLimits.From(settings, options.MaxTokens);
         _ = llms.CreateProvider(model, limits); // CFG_SECRET_MISSING before anything starts
         var templates = new PromptTemplateStore(settings.Prompts.OverrideDir);
+        if (StrategyWarning(settings.Prompts.Strategy) is { } strategyWarning)
+        {
+            warnings.Add(strategyWarning);
+        }
 
         var machine = await tools.FindAsync(settings.Java, ct).ConfigureAwait(false);
         if (remote is not null && machine.Git is null)
@@ -181,7 +187,7 @@ public sealed class GenerateTestsUseCase(
         var info = resume is { } r
             ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
             : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit),
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy),
                 templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = resume?.Handle ?? runs.Create(info);
         if (resume is not null)
@@ -385,6 +391,17 @@ public sealed class GenerateTestsUseCase(
     public static IReadOnlyList<string> MeasuredTools(IReadOnlyList<string> configured, bool noPit) =>
         noPit ? configured.Where(t => !string.Equals(t, "pit", StringComparison.OrdinalIgnoreCase)).ToList() : configured;
 
+    /// <summary>
+    /// The warning of a strategy other than the default (P02 §3.1): the two others do not tell the model the test framework of the
+    /// project, so a wrong guess fails at compile or discovery and costs repair rounds. Null for the default.
+    /// </summary>
+    public static string? StrategyWarning(string strategy) => strategy switch
+    {
+        GenerationStrategies.ZeroShot => "Quy trình sinh test zero_shot (prompts.strategy): model không được biết cấu hình project, kể cả test framework.",
+        GenerationStrategies.FewShot => "Quy trình sinh test few_shot (prompts.strategy): model chỉ có 2 ví dụ cố định (JUnit 4, JUnit 5), không được biết cấu hình project.",
+        _ => null,
+    };
+
     /// <summary>The same local folder, or the same repository URL.</summary>
     private static bool SameProject(RunProject project, GenerateRequest request) =>
         request.Kind == ProjectSourceKind.GitRepository
@@ -507,7 +524,8 @@ public sealed class GenerateTestsUseCase(
         IReadOnlyList<ClassCandidate> cuts, ProjectWorkspace workspace, ResolvedModel model, Common.Config.RepairSettings repair, IPromptTemplateStore templates,
         LlmLimits limits, Common.Config.ArrowConfig settings, GenerateOptions options, IConfirmation confirm, RunContext run, CancellationToken ct)
     {
-        var templateChars = templates.Get("generation/system/zero_shot_project_aware.md").Body.Length + templates.Get("generation/user/project_aware.md").Body.Length;
+        var strategy = settings.Prompts.Strategy;
+        var templateChars = templates.Get(GenerationStrategies.SystemPath(strategy)).Body.Length + templates.Get(GenerationStrategies.UserPath(strategy)).Body.Length;
         var sizes = cuts.Select(c =>
         {
             var file = Path.Combine(workspace.Checkout.Root, c.Path.Replace('/', Path.DirectorySeparatorChar));
