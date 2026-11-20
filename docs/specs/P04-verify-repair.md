@@ -17,7 +17,7 @@ Chạy lệnh build qua `IBuildExecutor`, sao chép qua `IWorkspaceManager` (P01
 
 **Nguồn gốc:**
 - thuật toán theo R03 §3–8 và §14–15;
-- code **viết mới** theo spec này (PLAN §2.1), không có tập con RQ2, `run_order` hay `rq3_only`. Fixed Repair và hai nhánh F−, F2 của thực nghiệm TN2 được thêm sau, chọn bằng `repair.mechanism` (§6.7, Chính 20/11/2026). Các lớp đọc log và thuật toán (`JavacErrorParser`, `TestResultClassifier`, `SignatureBuilder`, `CheckpointComparer`, `AdaptiveRepairPolicy`) tham khảo `ARROW_Framework/src/Arrow.Service/Block3`, và test của nó được mang sang làm bộ đối chiếu.
+- code **viết mới** theo spec này (PLAN §2.1), không có tập con RQ2, `run_order` hay `rq3_only`. Fixed Repair và hai nhánh F−, F2 của thực nghiệm TN2 được thêm sau, chọn bằng `repair.mechanism` (§6.7, Chính 20/11/2026); cũng ngày đó thêm `arrow gen --c0` để sửa một bộ test có sẵn (§6.8). Các lớp đọc log và thuật toán (`JavacErrorParser`, `TestResultClassifier`, `SignatureBuilder`, `CheckpointComparer`, `AdaptiveRepairPolicy`) tham khảo `ARROW_Framework/src/Arrow.Service/Block3`, và test của nó được mang sang làm bộ đối chiếu.
 
 ```mermaid
 flowchart TB
@@ -39,6 +39,7 @@ flowchart TB
 | Xác minh 5 bước cho candidate của ARROW | Xác minh bộ test EvoSuite |
 | Adaptive Repair, N vòng (mặc định 5), dừng sớm (mặc định P = 3) | Chạy nhiều cơ chế trên cùng c0 trong một run, tập con RQ2 |
 | Cơ chế đối chứng F+, F−, F2 của TN2 qua `repair.mechanism` (§6.7) | |
+| Sửa một bộ test có sẵn: `arrow gen --c0 <file>` (§6.8) | |
 | Thử lại lỗi hạ tầng | Danh sách `needs_rerun.csv` |
 | Xác minh lại một lần khi P06 đổi tên file (`_Arrow<k>Test`) | Sửa code production hay file build |
 
@@ -400,9 +401,12 @@ Java-helper lỗi khi dựng `extra_context` thì **không dừng vòng sửa**:
   "level_after": 3, "checkpoint_round": 1, "no_improve": 2,
   "tests_passed": 2, "assertion_count": 6, "dropped_methods": [],
   "extra_context_warnings": [],
-  "llm_seconds": 4.2, "build_seconds": 18.5, "llm_tokens": { "in": 6120, "out": 1830 }, "llm_retries": 0, "replayed": false
+  "llm_seconds": 4.2, "build_seconds": 18.5, "llm_tokens": { "in": 6120, "out": 1830 }, "llm_retries": 0, "replayed": false,
+  "generation_model": "gpt6luna", "repair_model": "gpt6luna", "same_model": true
 }
 ```
+
+`generation_model`, `repair_model`, `same_model`: xem §6.8.
 
 `llm_retries` là số lần gọi lại model trong vòng đó (số lần gọi trừ 1), đúng tên trường của R03 §6.7.
 
@@ -439,6 +443,26 @@ Thêm 20/11/2026 (Chính) để nhóm chạy thực nghiệm TN2 bằng sản ph
 - Dòng vòng của Fixed kết thúc bằng `sửa tiếp từ bản này`, `giữ bản trước` (output hỏng) hoặc `thành công`.
 - `run.json` ghi `config.mechanism`; `--resume` giữ cơ chế của run cũ (P07 §5.2). `request.json`, `decision.json` và `final.json` có trường `mechanism`. `arrow show` in `có sửa (<tên>)`, khung đầu phiên tương tác in `repair <tên> N=<n>`.
 
+### 6.8 c0 từ file (`arrow gen --c0`)
+
+Thêm 20/11/2026 (Chính) cho thực nghiệm TN2 và pilot chọn N của nhóm: mọi nhánh và mọi lần lặp phải sửa **cùng một c0 đã đóng băng** (c0 của TN1, hoặc c0 sinh trước ở pilot), và một c0 có thể được sửa bằng model khác model đã viết nó (sửa chéo). Đây là tính năng thường của sản phẩm ("sửa một bộ test có sẵn"), không phải chế độ nghiên cứu.
+
+```
+arrow gen <class> --c0 <file.java> [--c0-model <nhãn>] [--c0-state <TRẠNG THÁI>] [--model <model sửa>]
+```
+
+- **Kiểm trước khi tạo run** (`CLI_ARGS`): đúng một class, không `--package`; file đọc được và không quá 1 MB; `--c0-model`, `--c0-state` chỉ dùng cùng `--c0`; `--c0-state` là một trong 7 trạng thái (`COMPILE` … `VALID`), không phân biệt hoa thường.
+- **Khối 2 không gọi model.** Code của file đi qua đúng bước chuẩn hoá của một câu trả lời (P02 §5: tách code, một kiểu top-level, bỏ package/import trùng, đặt package và tên lớp `<CUT>_ArrowTest` của run này) rồi ghi `block2/candidate.java` và `candidate.json` (`mode = "FILE"`, `model` = nhãn `--c0-model` hoặc `unknown`). Không có `prompt.json`, `response.json`, `usage.json`; `llm_calls` của target chỉ đếm các vòng sửa. File không dùng được (không phải Java, nhiều lớp) thì target là `INVALID_OUTPUT` như câu trả lời hỏng.
+- **Xác minh lại c0** bằng 5 bước như mọi c0 (§3), vì prompt sửa cần `error_block` của lần xác minh này. Chain bắt đầu từ trạng thái mới (Chính 20/11/2026). c0 giờ VALID thì không sửa (`success_round = 0`, `rounds_run = 0`); phân tích của nhóm nhận ra trường hợp này từ `c0_state = VALID` cùng `c0_previous_state` khác VALID. c0 INFRA thì target INFRA như thường.
+- **Lưu:**
+  - `run.json` `config.c0 = { file, sha256, generation_model, previous_state }` (`sha256` của byte trong file) và bản sao code ở `runs/<run>/c0_input.java`. `--resume` lấy c0 từ bản sao này, không cần file gốc; `--c0` khác sha256 của run cũ thì in cảnh báo "Dùng cấu hình của run cũ: c0 …".
+  - `final.json`: `c0_source` (`generated` hoặc `file`), `c0_previous_state` (`--c0-state`, hoặc `null`), `generation_model`, `repair_model`, `same_model`.
+  - `decision.json` mỗi vòng: `generation_model`, `repair_model`, `same_model`.
+  - `generation_model` của c0 do model sinh là tên model của run, nên `same_model = true`; của c0 từ file là `--c0-model`, không có thì `null` và `same_model = null`. `repair_model` là model của run (`--model`). So sánh là so tên trong `llm.models`, phân biệt hoa thường; nhãn `--c0-model` nên dùng đúng tên model đó trên máy chạy.
+- **Không tự chạy tiếp.** `gen --c0` không bao giờ nhận một run cũ "tìm thấy" (P07 §5.1), và một run có `config.c0` không được đề nghị chạy tiếp cho `gen` khác: script thực nghiệm chạy nhiều chain trên cùng repo với `--yes`, nếu không thì một chain có thể chạy tiếp run của chain khác với c0 và cơ chế khác. Chỉ `--resume <run>` chạy tiếp được run có `--c0`.
+- **Hiển thị:** dòng khối 2 là `Khối 2  c0 · c0 lấy từ file <tên>: <n> test, <m> assertion`; không in cảnh báo quy trình sinh (`prompts.strategy` không dùng). `arrow show` in `c0 từ file <tên> (<model>)` thay cho `prompt <quy trình>`.
+- Ước tính chi phí (P07 §4) vẫn tính cả lượt sinh c0, nên cao hơn thực tế một lượt.
+
 ## 7. Chốt bộ test
 
 **`final.json`** của CUT:
@@ -446,6 +470,8 @@ Thêm 20/11/2026 (Chính) để nhóm chạy thực nghiệm TN2 bằng sản ph
 ```json
 {
   "cut_fqn": "com.myshop.service.OrderService", "mechanism": "adaptive",
+  "c0_source": "generated", "c0_previous_state": null,
+  "generation_model": "gpt6luna", "repair_model": "gpt6luna", "same_model": true,
   "c0_state": "COMPILE", "success": true, "success_round": 4, "rounds_run": 4, "stop_reason": "valid",
   "final_state": "VALID", "final_round": 4, "final_code": "final.java",
   "repair_seconds": 96.3, "llm_seconds": 21.0, "build_seconds": 75.3,
@@ -557,6 +583,7 @@ public interface IRepairRunner
    - output hỏng giữ bản mới nhất; không dừng sớm, chỉ dừng vì `budget`;
    - F− cùng request với F+, prompt chỉ thiếu khối cấu hình (`PromptTests`); F2 mức 2 từ vòng 1, `failed_attempts` có mọi vòng trước kèm signature;
    - E2E `GenWithTheFixedMinusMechanism`: kịch bản `o8-o3-o4-o7-o1` với `fixed_minus` đạt VALID ở vòng 5, cả 5 prompt không có khối cấu hình.
+   - **c0 từ file (§6.8):** `C0FileTests` (kiểm tra đầu vào, sha256, BOM, `--c0-state`); `RepairRunnerTests` ghi `generation_model`/`repair_model`/`same_model` cho c0 sinh, c0 file của model khác và c0 file giờ VALID; E2E `GenRepairsAC0FileOfAnotherModel` (c0 của `o8-o3-o4-o7-o1` từ file, không có lượt sinh, VALID ở vòng 5, `same_model = false`) và `AC0FileThatIsValidNowIsNotRepaired` (không gọi model nào).
 5. **R03 §15.3:** REGRESSION → rollback → VALID ở vòng 3.
 6. **Dừng sớm:** P = 3, ba vòng liên tiếp không tiến triển thì `stagnation`; một vòng BETTER ở giữa thì đặt lại bộ đếm.
 7. **Phân loại:**

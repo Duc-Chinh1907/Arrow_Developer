@@ -49,6 +49,15 @@ public sealed record RoundDecision
     /// <summary>Repair mechanism of the chain (<c>repair.mechanism</c>).</summary>
     public string Mechanism { get; init; } = RepairMechanisms.Default;
 
+    /// <summary>Model that wrote c0 (P04 §6.8); null for a c0 file without <c>--c0-model</c>. Filled by the runner.</summary>
+    public string? GenerationModel { get; init; }
+
+    /// <summary>Model of this round. Filled by the runner.</summary>
+    public string? RepairModel { get; init; }
+
+    /// <summary>Whether <see cref="RepairModel"/> is <see cref="GenerationModel"/>; null when the latter is unknown. Filled by the runner.</summary>
+    public bool? SameModel { get; init; }
+
     /// <summary>Round of the checkpoint that was repaired.</summary>
     public int BaseRound { get; init; }
 

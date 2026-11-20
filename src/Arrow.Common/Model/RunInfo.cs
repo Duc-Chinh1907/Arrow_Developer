@@ -60,6 +60,7 @@ public sealed record RunProject(
 /// <param name="ConfirmRegression">A regression of step 5 is confirmed (P04 §3.5); false with <c>--no-confirm-regression</c>.</param>
 /// <param name="Strategy">Prompting strategy of c0 (<c>prompts.strategy</c>); the default in a <c>run.json</c> written before the setting existed.</param>
 /// <param name="Mechanism">Repair mechanism (<c>repair.mechanism</c>); <c>adaptive</c> in a <c>run.json</c> written before the setting existed.</param>
+/// <param name="C0">The c0 of <c>--c0</c> (P04 §6.8); null when the model generates c0.</param>
 public sealed record RunConfig(
     string Model,
     string ProviderHost,
@@ -70,7 +71,8 @@ public sealed record RunConfig(
     bool NoPit = false,
     string Strategy = Generation.GenerationStrategies.Default,
     bool ConfirmRegression = true,
-    string Mechanism = Generation.RepairMechanisms.Default);
+    string Mechanism = Generation.RepairMechanisms.Default,
+    Generation.C0File? C0 = null);
 
 /// <summary>One CUT of a run and its progress.</summary>
 public sealed record RunTarget(string CutFqn, TargetState State);

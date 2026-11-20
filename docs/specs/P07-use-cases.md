@@ -56,6 +56,8 @@ public sealed record GenerateOptions(
     IReadOnlyDictionary<string, string?> ConfigOverrides);
 ```
 
+Thêm 20/11/2026: `C0File`, `C0Model`, `C0State` của `--c0`, `--c0-model`, `--c0-state` (c0 từ file thay cho lượt sinh, chỉ với một class; P04 §6.8).
+
 Use case nhận thêm:
 - `IProgress<ArrowEvent>`: CLI hiển thị sự kiện;
 - `IConfirmation`: CLI hỏi người dùng (P08 §9);
@@ -125,6 +127,8 @@ Khi bắt đầu `arrow gen` mà không có `--resume`, tìm trong `history.json
 - trong vòng 7 ngày.
 
 Có thì hỏi `Run <id> chưa xong (3/8 class). Chạy tiếp? (Y/n)`. Có `--yes` thì chạy tiếp. Trả lời không thì tạo run mới.
+
+Không tìm khi có `--c0`, và bỏ qua run có `config.c0` (P04 §6.8, 20/11/2026): run với c0 từ file chỉ chạy tiếp bằng `--resume <run>`.
 
 ### 5.2 Điều kiện chạy tiếp
 

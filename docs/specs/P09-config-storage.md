@@ -210,6 +210,7 @@ Thứ tự ưu tiên:
 ```text
 runs/<run_id>/
   run.json
+  c0_input.java                    chỉ khi có --c0: bản sao code của file (P04 §6.8)
   events.jsonl                     sự kiện tiến độ (P07 §10)
   llm_cache/<sha256>.json
   targets/<cut_fqn>/
@@ -240,7 +241,8 @@ runs/<run_id>/
   "project": { "kind": "local", "path_name": "MyShop", "root": "D:/src/MyShop", "url": null, "git_ref": null,
                "git_commit": "ab12…", "dirty": true, "source_tree_hash": "…" },
   "config": { "model": "gpt-x", "provider_host": "api.teamorouter.com", "rounds": 5, "early_stop_p": 3, "repair": true, "quality": true,
-              "no_pit": false, "strategy": "zero_shot_project_aware", "confirm_regression": true, "mechanism": "adaptive" },
+              "no_pit": false, "strategy": "zero_shot_project_aware", "confirm_regression": true, "mechanism": "adaptive",
+              "c0": null },
   "prompts_sha256": { "repair/user/level1.md": "…", "…": "…" },
   "tools": { "java_helper": "sha256:…", "jacoco": "0.8.12", "pit": "1.17.4", "tsdetect": "2.2" },
   "targets": [ { "cut_fqn": "com.myshop.OrderService", "state": "DONE" } ],
@@ -252,6 +254,7 @@ runs/<run_id>/
 - `source_tree_hash` và `config.repair` dùng để kiểm tra khi chạy tiếp (P07 §5.2).
 - `status` là `RUNNING`, `COMPLETED`, `CANCELLED` hoặc `FAILED`.
 - `targets[].state` là `PENDING`, `RUNNING` hoặc `DONE`. Kết quả của target (`VALID`, `BLOCKED`…) nằm trong `result.json` (P07 §5.3, §6).
+- `config.c0` là `null`, hoặc với `--c0` là `{ "file": "D:/tn2/c0/A.java", "sha256": "…", "generation_model": "gpt6luna", "previous_state": "COMPILE" }` (P04 §6.8).
 - `run.json` được ghi lại (nguyên tử) mỗi khi một target đổi trạng thái.
 - **Không bao giờ** chứa khoá API hay `base_url` đầy đủ, chỉ có tên máy chủ.
 

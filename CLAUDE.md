@@ -18,7 +18,7 @@ This file provides guidance to Claude Code when working in this repository.
 - It measures JaCoCo, PIT and tsDetect.
 - It writes `<CUT>_ArrowTest.java` into the project **only with the user's consent, never overwriting**.
 
-It is the product version of the team's research framework. There is **no research mode**: no manifest, EvoSuite, RQ reports, shards or pilot. The only research option is `repair.mechanism` (Fixed Repair and the TN2 branches, decided 20/11/2026).
+It is the product version of the team's research framework. There is **no research mode**: no manifest, EvoSuite, RQ reports, shards or pilot. The only research option is `repair.mechanism` (Fixed Repair and the TN2 branches, decided 20/11/2026); `arrow gen --c0` (repair an existing suite) serves TN2 and the pilot but is a normal product feature.
 
 ## Documents (read before coding a phase)
 
@@ -64,6 +64,12 @@ It is the product version of the team's research framework. There is **no resear
   - `FixedRepairPolicy` (`RepairPolicies.Create`): always repairs the latest version, verifies duplicate code (only records `duplicate_of_round`), no early stop, ends with the latest version (R03 §6.6).
   - F− = the F+ prompt without the paragraph holding `{{repository_configuration}}` (`PromptBuilder.WithoutConfiguration`, version suffix `+no-config`); F2 = `level2.md` every round, `failed_attempts` = every earlier round with its signature.
   - `run.json` `config.mechanism`, kept by `--resume`; `request.json`/`decision.json`/`final.json` have `mechanism`; a non-default mechanism prints a warning. P04 §6.7.
+- Decided 20/11/2026 (Chính): `repair.rounds`/`--rounds` go up to 12 (`RepairSettings.MaxRounds`), for the pilot that measures 12 rounds to choose N.
+- Decided 20/11/2026 (Chính), for TN2 and the pilot (frozen c0, cross repair): `arrow gen <class> --c0 <file> [--c0-model <label>] [--c0-state <STATE>]`, a normal feature shown in help (P04 §6.8).
+  - One class only. Block 2 makes no model call: `TestGenerator.LoadAsync` normalises the file like an answer and writes `candidate.*` (mode `FILE`).
+  - c0 is verified again and the chain starts from the new state; a c0 now VALID is not repaired. `final.json` has `c0_source`, `c0_previous_state`.
+  - The tool records `generation_model`, `repair_model`, `same_model` in `final.json` and `decision.json` (`same_model` null when `--c0-model` is missing).
+  - `run.json` `config.c0` (`C0File`: file, sha256, generation_model, previous_state) and `runs/<run>/c0_input.java` for `--resume`. A `--c0` run never takes a found run, and a run with `config.c0` is never offered to another `gen`.
 - Nothing is open for the team review any more.
 
 ## Secrets

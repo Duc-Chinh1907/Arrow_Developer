@@ -24,6 +24,7 @@ namespace Arrow.Business.Repair;
 /// <param name="KeepWorkspaces"><c>run.keep_workspaces</c>.</param>
 /// <param name="ConfirmRegression"><c>verification.confirm_regression</c>; false with <c>--no-confirm-regression</c> (P04 §3.5).</param>
 /// <param name="Mechanism"><c>repair.mechanism</c> (P04 §6.7).</param>
+/// <param name="C0">The c0 of <c>--c0</c> (P04 §6.8); null when <paramref name="Model"/> generated c0.</param>
 public sealed record RepairOptions(
     bool Enabled,
     int Rounds,
@@ -35,8 +36,15 @@ public sealed record RepairOptions(
     TimeSpan InfraWait,
     bool KeepWorkspaces,
     bool ConfirmRegression = true,
-    string Mechanism = RepairMechanisms.Default)
+    string Mechanism = RepairMechanisms.Default,
+    C0File? C0 = null)
 {
+    /// <summary>Who wrote c0: the model of the run, or <c>--c0-model</c>; null when a c0 file has no model.</summary>
+    public string? GenerationModel => C0 is null ? Model.Name : C0.GenerationModel;
+
+    /// <summary>Whether the repair model is the one that wrote c0; null when that is unknown.</summary>
+    public bool? SameModel => C0File.SameModel(GenerationModel, Model.Name);
+
     /// <summary>The settings of the verification of round <paramref name="round"/> (0 for c0).</summary>
     public VerifyOptions Verify(string outputDir, int round, CandidateTest candidate) =>
         new(outputDir, round, StepTimeout, InfraAttempts, InfraWait, KeepWorkspaces, candidate.CodeHash, candidate.AssertionCount, ConfirmRegression);
@@ -53,6 +61,21 @@ public sealed record FinalTestSuite
 
     /// <summary>Repair mechanism of the chain (<c>repair.mechanism</c>).</summary>
     public string Mechanism { get; init; } = RepairMechanisms.Default;
+
+    /// <summary><c>generated</c>, or <c>file</c> for a c0 of <c>--c0</c> (P04 §6.8).</summary>
+    public string C0Source { get; init; } = C0File.Generated;
+
+    /// <summary><c>--c0-state</c>: the state of a c0 file when it was made; null otherwise. <see cref="C0State"/> is the state now.</summary>
+    public VerificationState? C0PreviousState { get; init; }
+
+    /// <summary>Model that wrote c0; null for a c0 file without <c>--c0-model</c>.</summary>
+    public string? GenerationModel { get; init; }
+
+    /// <summary>Model of the repair rounds (the model of the run).</summary>
+    public string? RepairModel { get; init; }
+
+    /// <summary>Whether <see cref="RepairModel"/> is <see cref="GenerationModel"/>; null when the latter is unknown.</summary>
+    public bool? SameModel { get; init; }
 
     /// <summary>The final suite is VALID.</summary>
     public bool Success => FinalState == VerificationState.Valid;
@@ -159,6 +182,11 @@ public sealed class RepairRunner(
                 CutFqn = task.CutFqn,
                 C0State = c0State,
                 Mechanism = options.Mechanism,
+                C0Source = options.C0 is null ? C0File.Generated : C0File.FromFile,
+                C0PreviousState = options.C0?.PreviousState,
+                GenerationModel = options.GenerationModel,
+                RepairModel = options.Model.Name,
+                SameModel = options.SameModel,
                 SuccessRound = c0State == VerificationState.Valid ? 0 : null,
                 FinalState = c0State,
                 GeneratedTestRanInModule = c0Result.GeneratedTestRanInModule,
@@ -225,6 +253,11 @@ public sealed class RepairRunner(
             CutFqn = task.CutFqn,
             C0State = c0State,
             Mechanism = options.Mechanism,
+            C0Source = options.C0 is null ? C0File.Generated : C0File.FromFile,
+            C0PreviousState = options.C0?.PreviousState,
+            GenerationModel = options.GenerationModel,
+            RepairModel = options.Model.Name,
+            SameModel = options.SameModel,
             SuccessRound = best.State == VerificationState.Valid ? best.Round : null,
             RoundsRun = Math.Min(round, options.Rounds),
             StopReason = stop ?? Common.StopReason.Budget,
@@ -321,6 +354,9 @@ public sealed class RepairRunner(
             LlmTokens = new TokenUsage(response.PromptTokens, response.CompletionTokens),
             LlmRetries = Math.Max(0, response.Attempts - 1),
             Replayed = response.Replayed,
+            GenerationModel = options.GenerationModel,
+            RepairModel = options.Model.Name,
+            SameModel = options.SameModel,
         };
         runs.WriteJson(task.Run.Run, dir + "/decision.json", decision);
         Report(task, ArrowEventTypes.B3Round, RoundText(decision),
