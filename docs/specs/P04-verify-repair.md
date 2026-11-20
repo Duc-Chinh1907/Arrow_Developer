@@ -17,7 +17,7 @@ Chạy lệnh build qua `IBuildExecutor`, sao chép qua `IWorkspaceManager` (P01
 
 **Nguồn gốc:**
 - thuật toán theo R03 §3–8 và §14–15;
-- code **viết mới** theo spec này (PLAN §2.1), không có Fixed Repair, tập con RQ2, `mechanism`, `run_order` hay `rq3_only`. Các lớp đọc log và thuật toán (`JavacErrorParser`, `TestResultClassifier`, `SignatureBuilder`, `CheckpointComparer`, `AdaptiveRepairPolicy`) tham khảo `ARROW_Framework/src/Arrow.Service/Block3`, và test của nó được mang sang làm bộ đối chiếu.
+- code **viết mới** theo spec này (PLAN §2.1), không có tập con RQ2, `run_order` hay `rq3_only`. Fixed Repair và hai nhánh F−, F2 của thực nghiệm TN2 được thêm sau, chọn bằng `repair.mechanism` (§6.7, Chính 20/11/2026). Các lớp đọc log và thuật toán (`JavacErrorParser`, `TestResultClassifier`, `SignatureBuilder`, `CheckpointComparer`, `AdaptiveRepairPolicy`) tham khảo `ARROW_Framework/src/Arrow.Service/Block3`, và test của nó được mang sang làm bộ đối chiếu.
 
 ```mermaid
 flowchart TB
@@ -37,7 +37,8 @@ flowchart TB
 | Có | Không |
 |---|---|
 | Xác minh 5 bước cho candidate của ARROW | Xác minh bộ test EvoSuite |
-| Adaptive Repair, N vòng (mặc định 5), dừng sớm (mặc định P = 3) | Fixed Repair, so sánh hai cơ chế, tập con RQ2 |
+| Adaptive Repair, N vòng (mặc định 5), dừng sớm (mặc định P = 3) | Chạy nhiều cơ chế trên cùng c0 trong một run, tập con RQ2 |
+| Cơ chế đối chứng F+, F−, F2 của TN2 qua `repair.mechanism` (§6.7) | |
 | Thử lại lỗi hạ tầng | Danh sách `needs_rerun.csv` |
 | Xác minh lại một lần khi P06 đổi tên file (`_Arrow<k>Test`) | Sửa code production hay file build |
 
@@ -299,6 +300,7 @@ Chain dừng khi **một** điều kiện đúng (kiểm tra sau c0 và sau mỗ
 | P03 dừng run (`B2_LLM_CONFIG`, `B2_WRONG_MODEL`, `B2_TOKEN_BUDGET`) | `stopped` |
 
 - **`improved`** chỉ đúng khi vòng đó cho ra bản `BETTER` checkpoint. Các vòng mã trùng, output hỏng, `WORSE` và `EQUAL` đều có `improved = false`.
+- **Chỉ Adaptive dừng sớm.** Các cơ chế fixed (§6.7) bỏ qua `early_stop_p` và chạy hết N vòng (R03 §6.2).
 - **`early_stop_p` phải ≥ 3:** đi từ mức 1 lên mức 3 cần 2 vòng không tiến triển, nên với P nhỏ hơn thì chain dừng trước khi kịp thử mức 3. Đặt nhỏ hơn 3 thì báo `CFG_INVALID` (P09).
 
 ### 6.3 Trạng thái và thuật toán
@@ -390,7 +392,7 @@ Java-helper lỗi khi dựng `extra_context` thì **không dừng vòng sửa**:
 
 ```json
 {
-  "round": 3, "base_round": 1,
+  "round": 3, "mechanism": "adaptive", "base_round": 1,
   "requested_level": 3, "level": 2, "template": "repair/user/level2.md",
   "state": "COMPILE", "error_signature": "COMPILE | cannot find symbol | method",
   "code_hash": "sha256:…", "duplicate_code": false, "duplicate_of_round": null, "invalid_output": false,
@@ -406,13 +408,44 @@ Java-helper lỗi khi dựng `extra_context` thì **không dừng vòng sửa**:
 
 Vòng mã trùng hay output hỏng **không xác minh**, nên các trường của kết quả xác minh (`state`, `comparison`, `tests_passed`…) là `null`.
 
+### 6.7 Cơ chế sửa (`repair.mechanism`)
+
+Thêm 20/11/2026 (Chính) để nhóm chạy thực nghiệm TN2 bằng sản phẩm. Chỉ đặt bằng cấu hình (`arrow config set repair.mechanism <tên>`, P09), không có cờ dòng lệnh. Mỗi run dùng **một** cơ chế cho mọi class.
+
+| Giá trị | Nhánh TN2 | Prompt mỗi vòng | Điều khiển |
+|---|---|---|---|
+| `adaptive` (mặc định) | A | Mức 1–3 (§6.3–6.4) | Checkpoint, rollback, signature, code hash, dừng sớm |
+| `fixed_plus` | F+ | `repair/user/level1.md`, có khối cấu hình | Fixed (R03 §6.6) |
+| `fixed_minus` | F− | `level1.md` **bỏ khối cấu hình** | Fixed |
+| `fixed_l2` | F2 | `repair/user/level2.md` (`extra_context`, `failed_attempts`) | Fixed |
+
+**Fixed** (cả ba nhánh, `FixedRepairPolicy`), theo R03 §6.6:
+- Mỗi vòng sửa **bản mới nhất**, kể cả khi nó tệ hơn bản trước (R03 §15.2 N6). Không checkpoint, không rollback, không lên mức, không so sánh (`comparison = null`).
+- Mã trùng **vẫn xác minh**. Khác R03: `decision.json` vẫn ghi `duplicate_of_round` (vòng đầu tiên có cùng hash) và `counters.duplicate_code` đếm các vòng này, để nhóm khỏi phải đếm lại từ `code_hash`; `duplicate_code` của vòng luôn là `false` vì vòng đó đã được xác minh.
+- Output hỏng: tính một vòng, bản mới nhất giữ nguyên.
+- Không dừng sớm; dừng khi VALID, hết N vòng, `infra`, `cancelled` hoặc `stopped` (§6.2).
+- Bộ test cuối là **bản mới nhất** (R03 `Finalize(budget, latest)`), không phải bản tốt nhất. `final_round` là vòng của bản đó.
+- `level`, `requested_level`, `level_after` luôn bằng mức của cơ chế (1, hoặc 2 với `fixed_l2`). `checkpoint_round` là vòng của bản mới nhất.
+
+**F−** (`fixed_minus`): khác R03 (R03 chỉ có Fixed). Prompt giống hệt F+, chỉ bỏ đoạn `Repository configuration (compatibility constraints):` cùng giá trị của nó (`PromptBuilder.WithoutConfiguration` bỏ các đoạn chứa `{{repository_configuration}}`). Bước xác minh vẫn dùng cấu hình project. Prompt system giữ nguyên. `prompt.json` ghi phiên bản template kèm hậu tố `+no-config`, sha256 vẫn là của file gốc. Template ghi đè (`prompts.override_dir`) không có `{{repository_configuration}}` thì báo `B2_TEMPLATE_INVALID`, vì khi đó F− trùng F+.
+
+**F2** (`fixed_l2`): khác R03. Mọi vòng dùng `level2.md` nguyên văn, kể cả vòng 1.
+- `extra_context` dựng từ bản mới nhất mỗi vòng (§6.5).
+- `failed_attempts` là **mọi vòng trước** không VALID, theo thứ tự: signature (hoặc `invalid output: …`), lỗi đầu tiên, phần mã đã đổi so với bản mà vòng đó sửa; vẫn chỉ 3 vòng cuối có chi tiết (P02 §3.4). Vòng 1 là `(none)`.
+- Giữ dòng signature để prompt của F2 và Adaptive mức 2 giống nhau về nội dung; F2 chỉ không dùng signature để điều khiển (Chính, 20/11/2026). Nhờ vậy "A vs F2" đo đúng tác động của điều khiển, "F2 vs F+" đo tác động của ngữ cảnh.
+
+**Hiển thị và lưu:**
+- Cơ chế khác `adaptive` thì `gen` in `[!] Đang sửa theo cơ chế <tên> (repair.mechanism, dùng cho thực nghiệm): …` trước khi chạy.
+- Dòng vòng của Fixed kết thúc bằng `sửa tiếp từ bản này`, `giữ bản trước` (output hỏng) hoặc `thành công`.
+- `run.json` ghi `config.mechanism`; `--resume` giữ cơ chế của run cũ (P07 §5.2). `request.json`, `decision.json` và `final.json` có trường `mechanism`. `arrow show` in `có sửa (<tên>)`, khung đầu phiên tương tác in `repair <tên> N=<n>`.
+
 ## 7. Chốt bộ test
 
 **`final.json`** của CUT:
 
 ```json
 {
-  "cut_fqn": "com.myshop.service.OrderService",
+  "cut_fqn": "com.myshop.service.OrderService", "mechanism": "adaptive",
   "c0_state": "COMPILE", "success": true, "success_round": 4, "rounds_run": 4, "stop_reason": "valid",
   "final_state": "VALID", "final_round": 4, "final_code": "final.java",
   "repair_seconds": 96.3, "llm_seconds": 21.0, "build_seconds": 75.3,
@@ -427,7 +460,7 @@ Vòng mã trùng hay output hỏng **không xác minh**, nên các trường c�
 |---|---|---|---|
 | c0 VALID | c0 (`success_round = 0`, `rounds_run = 0`) | Có | Có |
 | Chain đạt VALID ở vòng k | ct của vòng k | Có | Có |
-| `budget`, `stagnation` | Checkpoint (`best`) | Không | Không; chỉ lưu trong `runs/` |
+| `budget`, `stagnation` | Checkpoint (`best`); bản mới nhất với cơ chế fixed (§6.7) | Không | Không; chỉ lưu trong `runs/` |
 | `infra`, `cancelled`, `stopped` | Checkpoint tới lúc dừng | Không | Không |
 | `--no-repair`, c0 không VALID | c0 | Không | Không |
 
@@ -478,9 +511,10 @@ public interface IFailureDiagnoser                // code thuần
     Diagnosis Diagnose(VerifyResult result, CandidateTest candidate, RepositoryMetadata m);
 }
 
-public interface IRepairPolicy                    // AdaptiveRepairPolicy: code thuần
+public interface IRepairPolicy                    // AdaptiveRepairPolicy, FixedRepairPolicy (RepairPolicies.Create): code thuần
 {
     RepairRequest NextRequest();
+    int? DuplicateOf(string? codeHash);           // Fixed: luôn null (mã trùng vẫn xác minh)
     RoundDecision Apply(RoundOutcome outcome);    // cập nhật best, level, seen_hash, attempts, no_improve
     bool CanContinue(int round, int n);
     StopReason? StopReason { get; }
@@ -496,7 +530,7 @@ public interface IRepairRunner
 
 **Unit** (code thuần, chạy theo bảng `[Theory]`):
 
-1. **Bảng R03 §7**, chỉ cột Adaptive:
+1. **Bảng R03 §7**, cột Adaptive (cột Fixed ở mục 5):
 
 | Vòng | Kết quả xác minh | Quyết định kỳ vọng |
 |---|---|---|
@@ -518,6 +552,11 @@ public interface IRepairRunner
    - N3 là EQUAL, khác signature, giữ mức, không rollback;
    - N4 là EQUAL, lặp signature, lên mức, không rollback;
    - N5 là mã trùng hoặc output hỏng: không so sánh, lên mức.
+5. **Cơ chế fixed (§6.7, `FixedRepairPolicyTests`):**
+   - cột Fixed của R03 §7: luôn sửa từ bản mới nhất, vòng 2 tệ hơn vẫn được sửa tiếp (N6), vòng 3 mã trùng vẫn xác minh và ghi `duplicate_of_round = 2`;
+   - output hỏng giữ bản mới nhất; không dừng sớm, chỉ dừng vì `budget`;
+   - F− cùng request với F+, prompt chỉ thiếu khối cấu hình (`PromptTests`); F2 mức 2 từ vòng 1, `failed_attempts` có mọi vòng trước kèm signature;
+   - E2E `GenWithTheFixedMinusMechanism`: kịch bản `o8-o3-o4-o7-o1` với `fixed_minus` đạt VALID ở vòng 5, cả 5 prompt không có khối cấu hình.
 5. **R03 §15.3:** REGRESSION → rollback → VALID ở vòng 3.
 6. **Dừng sớm:** P = 3, ba vòng liên tiếp không tiến triển thì `stagnation`; một vòng BETTER ở giữa thì đặt lại bộ đếm.
 7. **Phân loại:**

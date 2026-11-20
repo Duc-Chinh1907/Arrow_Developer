@@ -141,5 +141,5 @@ Danh sách đầy đủ nằm trong mục "Mã lỗi" của từng spec.
 | R00 | Manifest, `experiments/*.json`, `machine.local.json`, ledger, job và hàng đợi theo khối, shard, gộp run, các lệnh `run`, `analyze`, `screen`, `rq2-subset`, `repair`, `assess`, `report`, `control`, `rerun-list` |
 | R01 | `TaskRecord`, `build_attempts`, tiêu chí B (`paired_test`, `B1_PAIRED_TEST_NOT_PASSING`, `B1_MANIFEST_INVALID`), `revision_*` |
 | R02 | Quy trình `zero_shot` và `few_shot`, kiểm tra công bằng RQ1, bắt buộc LiteLLM, `B2_CALL_LIMIT` |
-| R03 | Fixed Repair, tập con RQ2, `rq3_only`, xen kẽ Fixed/Adaptive, xác minh EvoSuite, `needs_rerun.csv` |
+| R03 | Tập con RQ2, `rq3_only`, xen kẽ Fixed/Adaptive trong một run, xác minh EvoSuite, `needs_rerun.csv`. Fixed Repair (cùng F−, F2) có từ 20/11/2026 qua `repair.mechanism` (P04 §6.7) |
 | R04 | EvoSuite, báo cáo RQ1–RQ3, chọn N, độ nhạy P, ghép cặp, `B4_EVOSUITE_*`, `B4_REPORT_MISMATCH` |

@@ -46,6 +46,9 @@ public sealed record RoundDecision
     /// <summary>The round, from 1.</summary>
     public int Round { get; init; }
 
+    /// <summary>Repair mechanism of the chain (<c>repair.mechanism</c>).</summary>
+    public string Mechanism { get; init; } = RepairMechanisms.Default;
+
     /// <summary>Round of the checkpoint that was repaired.</summary>
     public int BaseRound { get; init; }
 
@@ -70,7 +73,7 @@ public sealed record RoundDecision
     /// <summary>The code was seen before, so it was not verified.</summary>
     public bool DuplicateCode { get; init; }
 
-    /// <summary>Round of the same code; 0 for c0.</summary>
+    /// <summary>Round of the same code; 0 for c0. A fixed mechanism records it but still verifies the code.</summary>
     public int? DuplicateOfRound { get; init; }
 
     /// <summary>The answer had no usable code.</summary>
@@ -91,7 +94,7 @@ public sealed record RoundDecision
     /// <summary>Level for the next round.</summary>
     public int LevelAfter { get; init; }
 
-    /// <summary>Round of the checkpoint after this round.</summary>
+    /// <summary>Round of the checkpoint after this round; with a fixed mechanism, the round of the latest version.</summary>
     public int CheckpointRound { get; init; }
 
     /// <summary>Rounds in a row without improvement, this one included.</summary>

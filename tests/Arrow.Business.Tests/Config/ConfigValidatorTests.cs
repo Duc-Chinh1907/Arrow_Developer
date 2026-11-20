@@ -26,6 +26,7 @@ public class ConfigValidatorTests
         { "quality.tools", Defaults with { Quality = Defaults.Quality with { Tools = ["jacoco", "evosuite"] } } },
         { "ui.language", Defaults with { Ui = Defaults.Ui with { Language = "fr" } } },
         { "prompts.strategy", Defaults with { Prompts = Defaults.Prompts with { Strategy = "two_shot" } } },
+        { "repair.mechanism", Defaults with { Repair = Defaults.Repair with { Mechanism = "fixed" } } },
         { "verification.baseline_runs", Defaults with { Verification = Defaults.Verification with { BaselineRuns = 0 } } },
         { "java.jdk_homes.7", Defaults with { Java = Defaults.Java with { JdkHomes = new Dictionary<string, string> { ["7"] = "/jdk7" } } } },
     };

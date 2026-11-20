@@ -292,6 +292,50 @@ public sealed class RepairRunnerTests : IDisposable
         Assert.Equal(["divides"], final.DroppedMethods);
     }
 
+    // P04 §6.7: a fixed chain verifies duplicate code, never stops early and ends with the latest version.
+    [Fact]
+    public async Task AFixedChainEndsWithTheLatestVersion()
+    {
+        var verifier = new FakeVerifier(new Dictionary<string, VerifyResult>
+        {
+            ["r1"] = V(VerificationState.Runtime, "RUNTIME | NullPointerException | A.b", 0, "adds"),
+            ["r2"] = V(VerificationState.Compile, "COMPILE | other | -"),
+        });
+        var generator = new FakeGenerator("r1", "r2", "r2", "r2");
+        var final = await Runner(generator, verifier)
+            .RunChainAsync(C("c0"), V(VerificationState.Compile), Task(), Options(rounds: 4) with { Mechanism = RepairMechanisms.FixedPlus }, TestContext.Current.CancellationToken);
+
+        Assert.Equal((StopReason.Budget, 4, VerificationState.Compile, 4, RepairMechanisms.FixedPlus), (final.StopReason!.Value, final.RoundsRun, final.FinalState, final.FinalRound, final.Mechanism));
+        Assert.Equal("r2", final.Candidate.Code);
+        Assert.Equal(4, verifier.Calls.Count);
+        Assert.Equal([1, 1, 1, 1], generator.Requests.Select(r => r.Level));
+        Assert.Equal([0, 1, 2, 3], generator.Requests.Select(r => r.BaseRound));
+        Assert.All(generator.Requests, r => Assert.Null(r.ExtraContext));
+        var third = Read<RoundDecision>("round_3/decision.json");
+        Assert.Equal((RepairMechanisms.FixedPlus, false, 2), (third.Mechanism, third.DuplicateCode, third.DuplicateOfRound!.Value));
+        Assert.Contains("\"mechanism\": \"fixed_plus\"", _runs.ReadText(_run, $"targets/{Cut}/block3/final.json"), StringComparison.Ordinal);
+    }
+
+    // F2: level 2 from the first round, with extra_context built from the latest version.
+    [Fact]
+    public async Task FixedLevel2GetsExtraContextEveryRound()
+    {
+        var helper = new FakeHelper { Called = new CalledMethodsResult(true, ["add"], [new MethodSourceEntry("add", "int add(int a, int b) { return a + b; }")], [], []) };
+        var verifier = new FakeVerifier(new Dictionary<string, VerifyResult>
+        {
+            ["r1"] = V(VerificationState.Assertion, "ASSERTION | AssertionError | adds", 1, "adds"),
+            ["r2"] = V(VerificationState.Valid, passed: 2),
+        });
+        var generator = new FakeGenerator("r1", "r2");
+        var final = await Runner(generator, verifier, helper)
+            .RunChainAsync(C("c0"), V(VerificationState.Assertion, "ASSERTION | AssertionError | adds", 1, "adds"), Task(), Options() with { Mechanism = RepairMechanisms.FixedLevel2 }, TestContext.Current.CancellationToken);
+        Assert.Equal((StopReason.Valid, 2), (final.StopReason!.Value, final.SuccessRound!.Value));
+        Assert.Equal([2, 2], generator.Requests.Select(r => r.Level));
+        Assert.All(generator.Requests, r => Assert.Contains("int add(int a, int b)", r.ExtraContext, StringComparison.Ordinal));
+        Assert.Equal("ASSERTION | AssertionError | adds", Assert.Single(generator.Requests[1].FailedAttempts).Signature);
+        Assert.Equal(RepairMechanisms.FixedLevel2, Read<RepairRequest>("round_1/request.json").Mechanism);
+    }
+
     [Fact]
     public void RoundLinesFollowTheCliExample()
     {

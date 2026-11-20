@@ -87,7 +87,7 @@ public static class TargetPipeline
             repair.Enabled, repair.Rounds, repair.EarlyStopP, shared.Model,
             (runs.ReadText(run.Run, $"{dir}/block1/metadata_prompt.txt") ?? "").TrimEnd('\n'),
             TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts,
-            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.ConfirmRegression);
+            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.ConfirmRegression, repair.Mechanism);
         var generator = new TestGenerator(shared.Llm, shared.Host.JavaHelpers, shared.Templates, runs);
 
         TargetRun Done(TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error, double? block2, double? block3, Usage? usage = null, QualityResult? quality = null, double? block4 = null) =>

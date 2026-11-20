@@ -136,6 +136,7 @@ public sealed class GenerateTestsUseCase(
             if (options.NoMetrics == old.Quality) { changed.Add(old.Quality ? "có đo" : "không đo"); }
             if (old.Quality && options.NoPit != old.NoPit) { changed.Add(old.NoPit ? "không đo PIT" : "có đo PIT"); }
             if (settings.Prompts.Strategy != old.Strategy) { changed.Add($"quy trình {old.Strategy}"); }
+            if (settings.Repair.Mechanism != old.Mechanism) { changed.Add($"cơ chế sửa {old.Mechanism}"); }
             if (settings.Verification.ConfirmRegression != old.ConfirmRegression) { changed.Add(old.ConfirmRegression ? "có xác nhận regression" : "không xác nhận regression"); }
             if (changed.Count > 0)
             {
@@ -143,7 +144,7 @@ public sealed class GenerateTestsUseCase(
             }
 
             options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality, NoPit = old.NoPit };
-            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP }, Prompts = settings.Prompts with { Strategy = old.Strategy }, Verification = settings.Verification with { ConfirmRegression = old.ConfirmRegression } };
+            settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP, Mechanism = old.Mechanism }, Prompts = settings.Prompts with { Strategy = old.Strategy }, Verification = settings.Verification with { ConfirmRegression = old.ConfirmRegression } };
         }
 
         var model = ResolvedModel.From(settings, options.Model);
@@ -153,6 +154,11 @@ public sealed class GenerateTestsUseCase(
         if (StrategyWarning(settings.Prompts.Strategy) is { } strategyWarning)
         {
             warnings.Add(strategyWarning);
+        }
+
+        if (MechanismWarning(settings.Repair.Mechanism) is { } mechanismWarning)
+        {
+            warnings.Add(mechanismWarning);
         }
 
         var machine = await tools.FindAsync(settings.Java, ct).ConfigureAwait(false);
@@ -194,7 +200,7 @@ public sealed class GenerateTestsUseCase(
         var info = resume is { } r
             ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
             : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.ConfirmRegression),
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.ConfirmRegression, repair.Mechanism),
                 templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = resume?.Handle ?? runs.Create(info);
         if (resume is not null)
@@ -407,6 +413,18 @@ public sealed class GenerateTestsUseCase(
     {
         GenerationStrategies.ZeroShot => "Quy trình sinh test zero_shot (prompts.strategy): model không được biết cấu hình project, kể cả test framework.",
         GenerationStrategies.FewShot => "Quy trình sinh test few_shot (prompts.strategy): model chỉ có 2 ví dụ cố định (JUnit 4, JUnit 5), không được biết cấu hình project.",
+        _ => null,
+    };
+
+    /// <summary>
+    /// The warning of a repair mechanism other than <c>adaptive</c> (P04 §6.7): the fixed branches are for the team's experiment
+    /// and repair worse than Adaptive. Null for <c>adaptive</c>.
+    /// </summary>
+    public static string? MechanismWarning(string mechanism) => mechanism switch
+    {
+        RepairMechanisms.FixedPlus => "Đang sửa theo cơ chế fixed_plus (repair.mechanism, dùng cho thực nghiệm): mọi vòng dùng prompt mức 1, không checkpoint, không rollback.",
+        RepairMechanisms.FixedMinus => "Đang sửa theo cơ chế fixed_minus (repair.mechanism, dùng cho thực nghiệm): mọi vòng dùng prompt mức 1 không có cấu hình project, không checkpoint, không rollback.",
+        RepairMechanisms.FixedLevel2 => "Đang sửa theo cơ chế fixed_l2 (repair.mechanism, dùng cho thực nghiệm): mọi vòng dùng prompt mức 2, không checkpoint, không rollback.",
         _ => null,
     };
 

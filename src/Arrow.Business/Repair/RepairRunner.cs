@@ -23,6 +23,7 @@ namespace Arrow.Business.Repair;
 /// <param name="InfraWait"><c>verification.infra_wait_seconds</c>.</param>
 /// <param name="KeepWorkspaces"><c>run.keep_workspaces</c>.</param>
 /// <param name="ConfirmRegression"><c>verification.confirm_regression</c>; false with <c>--no-confirm-regression</c> (P04 §3.5).</param>
+/// <param name="Mechanism"><c>repair.mechanism</c> (P04 §6.7).</param>
 public sealed record RepairOptions(
     bool Enabled,
     int Rounds,
@@ -33,7 +34,8 @@ public sealed record RepairOptions(
     int InfraAttempts,
     TimeSpan InfraWait,
     bool KeepWorkspaces,
-    bool ConfirmRegression = true)
+    bool ConfirmRegression = true,
+    string Mechanism = RepairMechanisms.Default)
 {
     /// <summary>The settings of the verification of round <paramref name="round"/> (0 for c0).</summary>
     public VerifyOptions Verify(string outputDir, int round, CandidateTest candidate) =>
@@ -48,6 +50,9 @@ public sealed record FinalTestSuite
 
     /// <summary>State of c0.</summary>
     public required VerificationState C0State { get; init; }
+
+    /// <summary>Repair mechanism of the chain (<c>repair.mechanism</c>).</summary>
+    public string Mechanism { get; init; } = RepairMechanisms.Default;
 
     /// <summary>The final suite is VALID.</summary>
     public bool Success => FinalState == VerificationState.Valid;
@@ -64,7 +69,7 @@ public sealed record FinalTestSuite
     /// <summary>State of the final suite.</summary>
     public required VerificationState FinalState { get; init; }
 
-    /// <summary>Round of the final suite.</summary>
+    /// <summary>Round of the final suite: the checkpoint (Adaptive) or the latest version (fixed mechanisms).</summary>
     public int FinalRound { get; init; }
 
     /// <summary>File of the final suite, next to <c>final.json</c>.</summary>
@@ -123,7 +128,7 @@ public interface IRepairRunner
 }
 
 /// <summary>
-/// <see cref="IRepairRunner"/>: the loop of P04 §6.3 around <see cref="AdaptiveRepairPolicy"/>. Each round writes
+/// <see cref="IRepairRunner"/>: the loop of P04 §6.3 around the policy of <c>repair.mechanism</c> (<see cref="RepairPolicies"/>). Each round writes
 /// <c>request.json</c> before the model call, block 2 writes its files, and the round ends with <c>verify.json</c> (when it was
 /// verified) and <c>decision.json</c>. A cancellation ends the chain with <c>cancelled</c> instead of an exception, so that
 /// the checkpoint is kept.
@@ -153,6 +158,7 @@ public sealed class RepairRunner(
             {
                 CutFqn = task.CutFqn,
                 C0State = c0State,
+                Mechanism = options.Mechanism,
                 SuccessRound = c0State == VerificationState.Valid ? 0 : null,
                 FinalState = c0State,
                 GeneratedTestRanInModule = c0Result.GeneratedTestRanInModule,
@@ -165,7 +171,7 @@ public sealed class RepairRunner(
             return direct;
         }
 
-        var policy = new AdaptiveRepairPolicy(new ChainVersion(0, c0, c0Result, diagnoser.Diagnose(c0Result, c0, task.Metadata)), task.CutFqn, options.EarlyStopP);
+        var policy = RepairPolicies.Create(options.Mechanism, new ChainVersion(0, c0, c0Result, diagnoser.Diagnose(c0Result, c0, task.Metadata)), task.CutFqn, options.EarlyStopP);
         var totals = new Totals();
         StopReason? stop = null;
         ErrorInfo? error = null;
@@ -218,6 +224,7 @@ public sealed class RepairRunner(
         {
             CutFqn = task.CutFqn,
             C0State = c0State,
+            Mechanism = options.Mechanism,
             SuccessRound = best.State == VerificationState.Valid ? best.Round : null,
             RoundsRun = Math.Min(round, options.Rounds),
             StopReason = stop ?? Common.StopReason.Budget,
@@ -266,7 +273,7 @@ public sealed class RepairRunner(
     }
 
     /// <summary>One round: request, model, verification (unless the code is new and usable), decision.</summary>
-    private async Task<(RoundEnd Outcome, RoundDecision? Decision)> RoundAsync(AdaptiveRepairPolicy policy, int round, TaskContext task, RepairOptions options, Totals totals, CancellationToken ct)
+    private async Task<(RoundEnd Outcome, RoundDecision? Decision)> RoundAsync(IRepairPolicy policy, int round, TaskContext task, RepairOptions options, Totals totals, CancellationToken ct)
     {
         var dir = RoundDir(task, round);
         var request = policy.NextRequest();
@@ -336,7 +343,8 @@ public sealed class RepairRunner(
 
     /// <summary>What the policy decided: checkpoint, rollback, level change or keep.</summary>
     public static string DecisionText(RoundDecision d) =>
-        d.Improved ? (d.State == VerificationState.Valid ? "thành công" : "tốt hơn · checkpoint")
+        RepairMechanisms.IsFixed(d.Mechanism) ? (d.Improved ? "thành công" : d.InvalidOutput ? "giữ bản trước" : "sửa tiếp từ bản này")
+        : d.Improved ? (d.State == VerificationState.Valid ? "thành công" : "tốt hơn · checkpoint")
         : d.Rollback ? $"tệ hơn · rollback, lên mức {d.LevelAfter}"
         : d.Level != d.LevelAfter || d.RequestedLevel != d.LevelAfter ? $"lên mức {d.LevelAfter}"
         : "giữ mức";

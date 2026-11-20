@@ -51,7 +51,8 @@ public static class PromptBuilder
 
     /// <summary>
     /// The prompt of a repair round: the failing code is <see cref="RepairRequest.BaseCode"/>; levels 2 and 3 add the extra context and the
-    /// failed attempts, level 3 the methods to rewrite.
+    /// failed attempts, level 3 the methods to rewrite. With <c>fixed_minus</c> the user template loses its repository configuration
+    /// block (<see cref="WithoutConfiguration"/>).
     /// </summary>
     public static BuiltPrompt Repair(IPromptTemplateStore templates, PromptInput input, RepairRequest request)
     {
@@ -71,7 +72,40 @@ public static class PromptBuilder
             values["failing_methods"] = string.Join(", ", request.RewriteMethods.Select(m => $"`{m}`"));
         }
 
-        return Build(templates.Get("repair/system.md"), templates.Get(RepairUserPath(request.Level)), values);
+        var user = templates.Get(RepairUserPath(request.Level));
+        if (request.Mechanism == RepairMechanisms.FixedMinus)
+        {
+            user = WithoutConfiguration(user);
+            values.Remove("repository_configuration");
+        }
+
+        return Build(templates.Get("repair/system.md"), user, values);
+    }
+
+    /// <summary>Version suffix of a template without its repository configuration block, in <c>prompt.json</c>.</summary>
+    public const string WithoutConfigurationSuffix = "+no-config";
+
+    /// <summary>
+    /// F− (P04 §6.7): the template without the paragraphs that hold <c>{{repository_configuration}}</c> (the heading
+    /// "Repository configuration (compatibility constraints):" and its value), so that the rest of the prompt stays the same as F+.
+    /// A template without that placeholder is refused, since F− would then be the same as F+.
+    /// </summary>
+    public static PromptTemplate WithoutConfiguration(PromptTemplate template)
+    {
+        const string placeholder = "{{repository_configuration}}";
+        var paragraphs = Lf(template.Body).Split("\n\n");
+        var kept = paragraphs.Where(p => !p.Contains(placeholder, StringComparison.Ordinal)).ToList();
+        if (kept.Count == paragraphs.Length)
+        {
+            throw new ArrowException(ErrorCodes.B2TemplateInvalid, $"{template.Path}: không có {placeholder}, nên không bỏ được khối cấu hình cho fixed_minus.");
+        }
+
+        return template with
+        {
+            Body = string.Join("\n\n", kept),
+            Version = template.Version + WithoutConfigurationSuffix,
+            Placeholders = template.Placeholders.Where(p => p != "repository_configuration").ToHashSet(StringComparer.Ordinal),
+        };
     }
 
     /// <summary>Short name of a test class from its FQN: <c>a.b.OrderService_ArrowTest</c> → <c>OrderService_ArrowTest</c>.</summary>

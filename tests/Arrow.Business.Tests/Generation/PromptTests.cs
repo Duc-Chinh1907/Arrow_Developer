@@ -238,6 +238,44 @@ public sealed class PromptTests : IDisposable
         Assert.Equal("repair.user.level3", level3.Templates[1].Id);
     }
 
+    // P04 §6.7: F− is the F+ prompt without the repository configuration block, and nothing else changes.
+    [Fact]
+    public void FixedMinusLeavesOutOnlyTheRepositoryConfiguration()
+    {
+        var plus = PromptBuilder.Repair(Store, Input(), Request(1) with { Mechanism = RepairMechanisms.FixedPlus });
+        var minus = PromptBuilder.Repair(Store, Input(), Request(1) with { Mechanism = RepairMechanisms.FixedMinus });
+        var text = minus.Messages[1].Content;
+        Assert.DoesNotContain("Repository configuration", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Maven 3.9.6", text, StringComparison.Ordinal);
+        Assert.Contains("- Class name: OrderService_ArrowTest\n\nFailure output:\n", text, StringComparison.Ordinal);
+
+        var configuration = "Repository configuration (compatibility constraints):\n" + Input().MetadataPrompt.TrimEnd('\n') + "\n\n";
+        Assert.Equal(plus.Messages[1].Content.Replace(configuration, "", StringComparison.Ordinal), text);
+        Assert.Equal(plus.Messages[0].Content, minus.Messages[0].Content);
+        Assert.Equal(plus.Templates[1].Version + PromptBuilder.WithoutConfigurationSuffix, minus.Templates[1].Version);
+        Assert.Equal(plus.Templates[1].Sha256, minus.Templates[1].Sha256);
+    }
+
+    // F2 uses the level 2 template as it is, with the signature of each failed attempt (Chính, 20/11/2026).
+    [Fact]
+    public void FixedLevel2UsesTheLevel2Template()
+    {
+        FailedAttempt[] attempts = [new(1, "COMPILE | cannot find symbol | method", "cannot find symbol", null)];
+        var adaptive = PromptBuilder.Repair(Store, Input(), Request(2, attempts));
+        var f2 = PromptBuilder.Repair(Store, Input(), Request(2, attempts) with { Mechanism = RepairMechanisms.FixedLevel2 });
+        Assert.Equal(adaptive.Messages, f2.Messages);
+        Assert.Contains("- Round 1 · COMPILE | cannot find symbol | method", f2.Messages[1].Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FixedMinusNeedsTheConfigurationPlaceholder()
+    {
+        var template = Store.Get("repair/user/level1.md");
+        var without = PromptBuilder.WithoutConfiguration(template);
+        var ex = Assert.Throws<ArrowException>(() => PromptBuilder.WithoutConfiguration(without));
+        Assert.Equal(ErrorCodes.B2TemplateInvalid, ex.Code);
+    }
+
     [Fact]
     public void EmptyExtraContextAndAttemptsAreNone()
     {

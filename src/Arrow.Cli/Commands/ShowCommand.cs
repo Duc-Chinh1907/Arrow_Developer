@@ -4,6 +4,7 @@ using Arrow.Business.UseCases;
 using Arrow.Cli.Rendering;
 using Arrow.Common;
 using Arrow.Common.Analysis;
+using Arrow.Common.Generation;
 
 namespace Arrow.Cli.Commands;
 
@@ -73,7 +74,7 @@ internal static class ShowCommand
         context.Renderer.Line($"Project {r.Project.PathName}{(r.Project.Root is { } root ? $" ({root})" : r.Project.Url is { } url ? $" ({url} @ {r.Project.GitCommit})" : "")}");
         if (r.Config is { } c)
         {
-            context.Renderer.Line($"Model {c.Model} ({c.ProviderHost}) · N={c.Rounds} · {(c.Repair ? "có sửa" : "không sửa")} · {(c.Quality ? "có đo" : "không đo")} · prompt {c.Strategy}{(c.ConfirmRegression ? "" : " · không xác nhận regression")}");
+            context.Renderer.Line($"Model {c.Model} ({c.ProviderHost}) · N={c.Rounds} · {(c.Repair ? (c.Mechanism == RepairMechanisms.Default ? "có sửa" : $"có sửa ({c.Mechanism})") : "không sửa")} · {(c.Quality ? "có đo" : "không đo")} · prompt {c.Strategy}{(c.ConfirmRegression ? "" : " · không xác nhận regression")}");
         }
 
         context.Renderer.Table(

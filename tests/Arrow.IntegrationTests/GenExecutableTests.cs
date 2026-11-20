@@ -207,6 +207,45 @@ public sealed class GenExecutableTests : IDisposable
         Assert.NotEqual(0, (await Arrow(null, null, "config", "set", "prompts.strategy", "two_shot")).ExitCode);
     }
 
+    // repair.mechanism (Chính, 20/11/2026): the chain of §14.5 with F−. Round 2 repeats round 1 and is verified again; every
+    // prompt is level 1 without the repository configuration.
+    [Fact]
+    public async Task GenWithTheFixedMinusMechanism()
+    {
+        await ConfigureAsync();
+        Assert.Equal(0, (await Arrow(null, null, "config", "set", "repair.mechanism", "fixed_minus")).ExitCode);
+        var run = await Gen("o8-o3-o4-o7-o1", null, "--yes");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Contains("cơ chế fixed_minus", run.Output, StringComparison.Ordinal);
+        Assert.Contains("vòng 2 · mức 1 → COMPILE · sửa tiếp từ bản này", run.Output, StringComparison.Ordinal);
+        Assert.Contains("vòng 5 · mức 1 → VALID", run.Output, StringComparison.Ordinal);
+
+        var dir = RunDir(run);
+        Assert.True(File.Exists(TargetFile(dir, "block3/round_2/verify.json")));
+        for (var k = 1; k <= 5; k++)
+        {
+            using var decision = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(dir, $"block3/round_{k}/decision.json"), TestContext.Current.CancellationToken));
+            Assert.Equal(("fixed_minus", 1), (decision.RootElement.GetProperty("mechanism").GetString(), decision.RootElement.GetProperty("level").GetInt32()));
+        }
+
+        var prompts = Directory.GetFiles(Path.Combine(dir, "targets"), "prompt.json", SearchOption.AllDirectories).Where(p => p.Contains("round_", StringComparison.Ordinal)).ToList();
+        Assert.Equal(5, prompts.Count);
+        foreach (var path in prompts)
+        {
+            using var prompt = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+            var user = prompt.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
+            Assert.DoesNotContain("Repository configuration", user, StringComparison.Ordinal);
+            Assert.Contains("Failure output:", user, StringComparison.Ordinal);
+        }
+
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "run.json"), TestContext.Current.CancellationToken));
+        Assert.Equal("fixed_minus", runJson.RootElement.GetProperty("config").GetProperty("mechanism").GetString());
+        var show = await Arrow(null, null, "show", Path.GetFileName(dir), "--plain");
+        Assert.Contains("có sửa (fixed_minus)", show.Output, StringComparison.Ordinal);
+
+        Assert.NotEqual(0, (await Arrow(null, null, "config", "set", "repair.mechanism", "fixed")).ExitCode);
+    }
+
     // P07 §7, §13: two classes of one module with --jobs 2; block 1 runs once for the module, both files are written.
     [Fact]
     public async Task TwoClassesOfOneModuleShareBlockOne()

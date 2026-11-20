@@ -65,7 +65,11 @@ public sealed record JavaSettings(
     string? GitPath);
 
 /// <summary><c>repair.*</c> (P04).</summary>
-public sealed record RepairSettings(bool Enabled, int Rounds, int? EarlyStopP);
+/// <param name="Enabled">Repair runs after a c0 that is not VALID.</param>
+/// <param name="Rounds">N.</param>
+/// <param name="EarlyStopP">P of the early stop rule; null turns it off. Only Adaptive stops early.</param>
+/// <param name="Mechanism">Repair mechanism (P04 §6.7): <c>adaptive</c>, <c>fixed_plus</c>, <c>fixed_minus</c> or <c>fixed_l2</c>.</param>
+public sealed record RepairSettings(bool Enabled, int Rounds, int? EarlyStopP, string Mechanism = Generation.RepairMechanisms.Default);
 
 /// <summary><c>verification.*</c> (P01, P04). <paramref name="BaselineCache"/>: reuse a baseline measured by an earlier run (P01 §6.2).</summary>
 public sealed record VerificationSettings(int BaselineRuns, int StepTimeoutSeconds, int InfraAttempts, int InfraWaitSeconds, bool BaselineCache = true, bool ConfirmRegression = true);

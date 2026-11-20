@@ -22,6 +22,7 @@ public sealed record FailedAttempt(int Round, string Signature, string? FirstErr
 /// <param name="ExtraContext">Signatures and sources of classes named in the error (level 2 and 3).</param>
 /// <param name="FailedAttempts">Attempts so far, by round.</param>
 /// <param name="RewriteMethods">Test methods to rewrite (level 3).</param>
+/// <param name="Mechanism">Repair mechanism of the chain (<c>repair.mechanism</c>); <c>fixed_minus</c> leaves the repository configuration out of the prompt.</param>
 public sealed record RepairRequest(
     string CutFqn,
     int Round,
@@ -33,7 +34,8 @@ public sealed record RepairRequest(
     string ErrorBlock,
     string? ExtraContext,
     IReadOnlyList<FailedAttempt> FailedAttempts,
-    IReadOnlyList<string> RewriteMethods);
+    IReadOnlyList<string> RewriteMethods,
+    string Mechanism = RepairMechanisms.Default);
 
 /// <summary>Why an answer could not be used (P02 §5.2). Only these three exist.</summary>
 public static class InvalidReasons
