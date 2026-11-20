@@ -336,6 +336,52 @@ public sealed class RepairRunnerTests : IDisposable
         Assert.Equal(RepairMechanisms.FixedLevel2, Read<RepairRequest>("round_1/request.json").Mechanism);
     }
 
+    // P04 §6.8 (Chính, 20/11/2026): a c0 the model of the run generated is repaired by the same model.
+    [Fact]
+    public async Task AGeneratedC0IsRepairedByTheSameModel()
+    {
+        var verifier = new FakeVerifier(new Dictionary<string, VerifyResult> { ["r1"] = V(VerificationState.Valid, passed: 2) });
+        var final = await Runner(new FakeGenerator("r1"), verifier)
+            .RunChainAsync(C("c0"), V(VerificationState.Compile), Task(), Options(), TestContext.Current.CancellationToken);
+
+        Assert.Equal((C0File.Generated, "fake", "fake", true), (final.C0Source, final.GenerationModel, final.RepairModel, final.SameModel));
+        Assert.Null(final.C0PreviousState);
+        var decision = Read<RoundDecision>("round_1/decision.json");
+        Assert.Equal(("fake", "fake", true), (decision.GenerationModel, decision.RepairModel, decision.SameModel));
+        var json = _runs.ReadText(_run, $"targets/{Cut}/block3/final.json")!;
+        Assert.Contains("\"c0_source\": \"generated\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"same_model\": true", json, StringComparison.Ordinal);
+    }
+
+    // P04 §6.8: a c0 file written by another model; final.json keeps its earlier state next to the state found now.
+    [Fact]
+    public async Task AC0FileOfAnotherModelIsACrossRepair()
+    {
+        var c0 = new C0File("/data/c0/A.java", new string('a', 64), "qwen3coder-or", VerificationState.Compile);
+        var verifier = new FakeVerifier(new Dictionary<string, VerifyResult> { ["r1"] = V(VerificationState.Valid, passed: 2) });
+        var final = await Runner(new FakeGenerator("r1"), verifier)
+            .RunChainAsync(C("c0"), V(VerificationState.Assertion, "ASSERTION | AssertionError | adds", 1, "adds"), Task(), Options() with { C0 = c0 }, TestContext.Current.CancellationToken);
+
+        Assert.Equal((C0File.FromFile, "qwen3coder-or", "fake", false), (final.C0Source, final.GenerationModel, final.RepairModel, final.SameModel));
+        Assert.Equal((VerificationState.Compile, VerificationState.Assertion), (final.C0PreviousState!.Value, final.C0State));
+        Assert.Equal(false, Read<RoundDecision>("round_1/decision.json").SameModel);
+        Assert.Contains("\"c0_previous_state\": \"COMPILE\"", _runs.ReadText(_run, $"targets/{Cut}/block3/final.json"), StringComparison.Ordinal);
+    }
+
+    // P04 §6.8: a c0 file that is VALID now is not repaired; without --c0-model the generation model is unknown.
+    [Fact]
+    public async Task AC0FileThatIsValidNowIsNotRepaired()
+    {
+        var generator = new FakeGenerator();
+        var final = await Runner(generator, new FakeVerifier([]))
+            .RunChainAsync(C("c0"), V(VerificationState.Valid, passed: 2), Task(), Options() with { C0 = new C0File("/c0.java", new string('b', 64), null, VerificationState.Runtime) }, TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, 0, VerificationState.Valid, VerificationState.Runtime), (final.SuccessRound!.Value, final.RoundsRun, final.C0State, final.C0PreviousState!.Value));
+        Assert.Empty(generator.Requests);
+        Assert.Null(final.GenerationModel);
+        Assert.Null(final.SameModel);
+    }
+
     [Fact]
     public void RoundLinesFollowTheCliExample()
     {

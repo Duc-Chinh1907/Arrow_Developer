@@ -74,7 +74,7 @@ internal static class ShowCommand
         context.Renderer.Line($"Project {r.Project.PathName}{(r.Project.Root is { } root ? $" ({root})" : r.Project.Url is { } url ? $" ({url} @ {r.Project.GitCommit})" : "")}");
         if (r.Config is { } c)
         {
-            context.Renderer.Line($"Model {c.Model} ({c.ProviderHost}) · N={c.Rounds} · {(c.Repair ? (c.Mechanism == RepairMechanisms.Default ? "có sửa" : $"có sửa ({c.Mechanism})") : "không sửa")} · {(c.Quality ? "có đo" : "không đo")} · prompt {c.Strategy}{(c.ConfirmRegression ? "" : " · không xác nhận regression")}");
+            context.Renderer.Line($"Model {c.Model} ({c.ProviderHost}) · N={c.Rounds} · {(c.Repair ? (c.Mechanism == RepairMechanisms.Default ? "có sửa" : $"có sửa ({c.Mechanism})") : "không sửa")} · {(c.Quality ? "có đo" : "không đo")} · {(c.C0 is { } c0 ? $"c0 từ file {Path.GetFileName(c0.File)}{(c0.GenerationModel is null ? "" : $" ({c0.GenerationModel})")}" : $"prompt {c.Strategy}")}{(c.ConfirmRegression ? "" : " · không xác nhận regression")}");
         }
 
         context.Renderer.Table(

@@ -99,6 +99,31 @@ public sealed class TestGenerator(ILlmClient llm, IJavaHelperProvider javaHelper
         return await CallAsync(context, RepairCallId(context.CutFqn, request.Round), "REPAIR", request.Round, request.Level, built, truncation, request, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// c0 from a file of <c>arrow gen --c0</c> (P04 §6.8) instead of a model call: the code goes through the same normalisation as an
+    /// answer (one type, package and class name of this run), then <c>candidate.java</c> and <c>candidate.json</c> (mode <c>FILE</c>)
+    /// are written. There is no <c>prompt.json</c>, <c>response.json</c> or <c>usage.json</c>.
+    /// </summary>
+    public async Task<CandidateTest> LoadAsync(GenerationContext context, string code, C0File source, CancellationToken ct)
+    {
+        var candidate = await NormalizeAsync(code, context.Metadata, null, ct).ConfigureAwait(false);
+        if (candidate.Code is not null)
+        {
+            runs.WriteText(context.Run, Path(context, "candidate.java"), candidate.Code);
+        }
+
+        runs.WriteJson(context.Run, Path(context, "candidate.json"), new CandidateFile(
+            context.CutFqn, "FILE", 0, null, source.GenerationModel ?? "unknown", candidate.ValidOutput, candidate.InvalidReason, candidate.ParseError,
+            candidate.TestFqn, candidate.TestPath, candidate.CodeHash, candidate.TestMethodCount, candidate.AssertionCount,
+            candidate.Normalization, candidate.DroppedMethods, null));
+        Report(context, ArrowEventTypes.B2Candidate, candidate.ValidOutput ? EventLevel.Info : EventLevel.Warning,
+            candidate.ValidOutput
+                ? $"c0 lấy từ file {System.IO.Path.GetFileName(source.File)}: {candidate.TestMethodCount} test, {candidate.AssertionCount} assertion"
+                : $"File c0 {System.IO.Path.GetFileName(source.File)} không dùng được: {candidate.InvalidReason}",
+            ("valid", candidate.ValidOutput), ("invalid_reason", candidate.InvalidReason), ("normalization", candidate.Normalization), ("c0_file", source.File));
+        return candidate;
+    }
+
     private static PromptInput Input(GenerationContext context, string cut) => new(
         context.Metadata.Cut.Fqn,
         context.Metadata.Paths.CutPath,

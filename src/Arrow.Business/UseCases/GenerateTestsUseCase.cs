@@ -34,7 +34,12 @@ namespace Arrow.Business.UseCases;
 /// <param name="Jobs"><c>--jobs</c>; null for <c>run.jobs</c>.</param>
 /// <param name="ResumeRunId"><c>--resume</c>: the run to resume (P07 §5).</param>
 /// <param name="NoConfirmRegression"><c>--no-confirm-regression</c>: the first failure of an existing test in step 5 is a regression (P04 §3.5).</param>
-public sealed record GenerateOptions(string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false, bool FreshBaseline = false, bool NoConfirmRegression = false);
+/// <param name="C0File"><c>--c0</c>: an existing suite used as c0 instead of a generated one (P04 §6.8); only with one class.</param>
+/// <param name="C0Model"><c>--c0-model</c>: who wrote that suite, a free label.</param>
+/// <param name="C0State"><c>--c0-state</c>: its state when it was made, e.g. <c>COMPILE</c>.</param>
+public sealed record GenerateOptions(
+    string? Model, int? Rounds, bool NoRepair, bool NoMetrics, bool Yes, bool DryRun, long? MaxTokens, int? Jobs = null, string? ResumeRunId = null, bool NoPit = false,
+    bool FreshBaseline = false, bool NoConfirmRegression = false, string? C0File = null, string? C0Model = null, string? C0State = null);
 
 /// <summary>A request of <c>arrow gen</c> (P07 §1).</summary>
 /// <param name="Kind">Local folder or GitHub repository.</param>
@@ -124,6 +129,7 @@ public sealed class GenerateTestsUseCase(
 
         var catalog = ErrorCatalog.For(settings.Ui.Language);
         var warnings = new List<string>();
+        var (c0, c0Code) = ReadC0(request);
 
         // P07 §5.1: a run to resume, named or found; its settings win over the options (P07 §5.2).
         var resume = await FindResumeAsync(request, confirm, warnings, ct).ConfigureAwait(false);
@@ -138,6 +144,7 @@ public sealed class GenerateTestsUseCase(
             if (settings.Prompts.Strategy != old.Strategy) { changed.Add($"quy trình {old.Strategy}"); }
             if (settings.Repair.Mechanism != old.Mechanism) { changed.Add($"cơ chế sửa {old.Mechanism}"); }
             if (settings.Verification.ConfirmRegression != old.ConfirmRegression) { changed.Add(old.ConfirmRegression ? "có xác nhận regression" : "không xác nhận regression"); }
+            if (c0 is not null && c0.Sha256 != old.C0?.Sha256) { changed.Add(old.C0 is null ? "c0 do model sinh" : $"c0 từ file {Path.GetFileName(old.C0.File)}"); }
             if (changed.Count > 0)
             {
                 warnings.Add("Dùng cấu hình của run cũ: " + string.Join(", ", changed));
@@ -145,13 +152,16 @@ public sealed class GenerateTestsUseCase(
 
             options = options with { Model = old.Model, Rounds = old.Rounds, NoRepair = !old.Repair, NoMetrics = !old.Quality, NoPit = old.NoPit };
             settings = settings with { Repair = settings.Repair with { EarlyStopP = old.EarlyStopP, Mechanism = old.Mechanism }, Prompts = settings.Prompts with { Strategy = old.Strategy }, Verification = settings.Verification with { ConfirmRegression = old.ConfirmRegression } };
+            c0 = old.C0;
+            c0Code = old.C0 is null ? null : runs.ReadText(resume.Value.Handle, C0File.RunCopy)
+                ?? throw new ArrowException(ErrorCodes.GenResumeMismatch, $"Run {resume.Value.Info.RunId} thiếu {C0File.RunCopy}.", new Dictionary<string, string> { ["run_id"] = resume.Value.Info.RunId });
         }
 
         var model = ResolvedModel.From(settings, options.Model);
         var limits = LlmLimits.From(settings, options.MaxTokens);
         _ = llms.CreateProvider(model, limits); // CFG_SECRET_MISSING before anything starts
         var templates = new PromptTemplateStore(settings.Prompts.OverrideDir);
-        if (StrategyWarning(settings.Prompts.Strategy) is { } strategyWarning)
+        if (c0 is null && StrategyWarning(settings.Prompts.Strategy) is { } strategyWarning)
         {
             warnings.Add(strategyWarning);
         }
@@ -200,12 +210,17 @@ public sealed class GenerateTestsUseCase(
         var info = resume is { } r
             ? r.Info with { Status = RunStatus.Running, FinishedAt = null }
             : new RunInfo(id, arrowVersion, DateTimeOffset.UtcNow, null, RunStatus.Running, command, project,
-                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.ConfirmRegression, repair.Mechanism),
+                new RunConfig(model.Name, model.BaseUrl.Host, repair.Rounds, repair.EarlyStopP, repair.Enabled, measure is not null, measure is not null && options.NoPit, settings.Prompts.Strategy, settings.Verification.ConfirmRegression, repair.Mechanism, c0),
                 templates.All().ToDictionary(t => t.Path, t => t.Sha256), new Dictionary<string, string>(), [], RunTotals.Zero);
         var handle = resume?.Handle ?? runs.Create(info);
         if (resume is not null)
         {
             runs.Update(handle, info);
+        }
+        else if (c0Code is not null)
+        {
+            // P04 §6.8: the run keeps the code, so that --resume and a later check do not depend on the file.
+            runs.WriteText(handle, C0File.RunCopy, c0Code);
         }
         var work = Path.Combine(home.WorkDir, id);
         if (Directory.Exists(work))
@@ -289,7 +304,7 @@ public sealed class GenerateTestsUseCase(
             }
 
             // P07 §6–7: the targets, at most `jobs` at a time.
-            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog.With("run_id", id).With("log_path", handle.Root), settings, repair, measure, workspace, runs, toolStore, processes);
+            var shared = new PipelineShared(host, llms.Create(model, handle, limits, run.Progress), model, templates, catalog.With("run_id", id).With("log_path", handle.Root), settings, repair, measure, workspace, runs, toolStore, processes, c0, c0Code);
             var runs2 = await RunTargetsAsync(cuts, run, shared, jobs, state, results, warnings, ct).ConfigureAwait(false);
 
             // P07 §9: the write step, then the end of the run.
@@ -359,11 +374,19 @@ public sealed class GenerateTestsUseCase(
             return (handle, info);
         }
 
+        // P04 §6.8: a run with --c0 is resumed only by --resume, and a found run with a c0 file is never offered: experiment scripts
+        // run many chains of one repository with --yes, and a found run would bring back the c0 and the mechanism of another chain.
+        if (request.Options.C0File is not null)
+        {
+            return null;
+        }
+
         var since = DateTimeOffset.UtcNow.AddDays(-7);
         var candidate = runs.Recent(50).FirstOrDefault(r =>
             r.Info.Status is RunStatus.Running or RunStatus.Cancelled or RunStatus.Failed
             && r.Info.StartedAt >= since
             && r.Info.Command.FirstOrDefault() == "gen"
+            && r.Info.Config?.C0 is null
             && SameProject(r.Info.Project, request));
         if (candidate.Info is null)
         {
@@ -399,6 +422,63 @@ public sealed class GenerateTestsUseCase(
         var root = Path.GetFullPath(request.Location);
         return info.Project.SourceTreeHash is { } hash && Directory.Exists(root)
             && LocalProjectTree.Scan(root).SourceTreeHashWithout(WrittenPaths(handle, info.Targets)) == hash;
+    }
+
+    /// <summary>
+    /// The c0 of <c>--c0</c> (P04 §6.8), checked before anything is created: one class, a readable file of at most
+    /// <see cref="C0File.MaxBytes"/> bytes, and <c>--c0-model</c>/<c>--c0-state</c> only with it. Null without <c>--c0</c>.
+    /// </summary>
+    public static (C0File? File, string? Code) ReadC0(GenerateRequest request)
+    {
+        var options = request.Options;
+        if (options.C0File is not { } path)
+        {
+            if (options.C0Model is not null || options.C0State is not null)
+            {
+                throw new ArrowException(ErrorCodes.CliArgs, "--c0-model và --c0-state chỉ dùng cùng --c0.");
+            }
+
+            return (null, null);
+        }
+
+        if (options.ResumeRunId is null && (request.CutQueries.Count != 1 || request.Package is not null))
+        {
+            throw new ArrowException(ErrorCodes.CliArgs, "--c0 dùng cho đúng một class (không dùng với nhiều class hay --package).");
+        }
+
+        VerificationState? state = null;
+        if (options.C0State is { } typed)
+        {
+            state = Enum.GetValues<VerificationState>().Cast<VerificationState?>().FirstOrDefault(s => string.Equals(s.ToString(), typed.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? throw new ArrowException(ErrorCodes.CliArgs, "--c0-state phải là một trong: " + string.Join(", ", Enum.GetValues<VerificationState>().Select(s => s.ToString().ToUpperInvariant())) + ".");
+        }
+
+        var full = Path.GetFullPath(path);
+        byte[] bytes;
+        try
+        {
+            var info = new FileInfo(full);
+            if (!info.Exists)
+            {
+                throw new ArrowException(ErrorCodes.CliArgs, $"Không thấy file c0 {full}.");
+            }
+
+            if (info.Length > C0File.MaxBytes)
+            {
+                throw new ArrowException(ErrorCodes.CliArgs, $"File c0 {full} lớn hơn {C0File.MaxBytes / 1024} KB.");
+            }
+
+            bytes = File.ReadAllBytes(full);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ArrowException(ErrorCodes.CliArgs, $"Không đọc được file c0 {full}: {ex.Message}");
+        }
+
+        var sha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        var code = new System.Text.UTF8Encoding(false).GetString(bytes).TrimStart('\uFEFF');
+        var model = string.IsNullOrWhiteSpace(options.C0Model) ? null : options.C0Model.Trim();
+        return (new C0File(full.Replace('\\', '/'), sha, model, state), code);
     }
 
     /// <summary>The tools of block 4: <c>quality.tools</c>, without PIT for <c>--no-pit</c> (Chính, 15/11/2026).</summary>

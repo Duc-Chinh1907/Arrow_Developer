@@ -246,6 +246,66 @@ public sealed class GenExecutableTests : IDisposable
         Assert.NotEqual(0, (await Arrow(null, null, "config", "set", "repair.mechanism", "fixed")).ExitCode);
     }
 
+    /// <summary>The Java code of a scenario answer, without its fence: what TN1 keeps as c0.</summary>
+    private string C0FileOf(string scenario, string answer)
+    {
+        var lines = File.ReadAllLines(Path.Combine(Path.GetDirectoryName(Scenario(scenario))!, answer)).Where(l => !l.StartsWith("```", StringComparison.Ordinal));
+        var path = Path.Combine(_home, $"{scenario}-c0.java");
+        File.WriteAllText(path, string.Join('\n', lines) + "\n");
+        return path;
+    }
+
+    // --c0 (P04 §6.8, Chính 20/11/2026): the c0 of the chain of §14.5 comes from a file written by another model; the run makes no
+    // generation call, repairs it as before, and records the generation and repair models.
+    [Fact]
+    public async Task GenRepairsAC0FileOfAnotherModel()
+    {
+        await ConfigureAsync();
+        var c0 = C0FileOf("o8-o3-o4-o7-o1", "c0_compile_missing_method.md");
+        var run = await Gen("o8-o3-o4-o7-o1", null, "--yes", "--dry-run", "--c0", c0, "--c0-model", "qwen3coder-or", "--c0-state", "COMPILE");
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Contains("c0 lấy từ file o8-o3-o4-o7-o1-c0.java", run.Output, StringComparison.Ordinal);
+        Assert.Contains("vòng 5 · mức 2 → VALID", run.Output, StringComparison.Ordinal);
+
+        var dir = RunDir(run);
+        Assert.False(File.Exists(TargetFile(dir, "block2/prompt.json")));
+        Assert.True(File.Exists(TargetFile(dir, "block2/candidate.java")));
+        Assert.Equal(await File.ReadAllTextAsync(c0, TestContext.Current.CancellationToken), await File.ReadAllTextAsync(Path.Combine(dir, "c0_input.java"), TestContext.Current.CancellationToken));
+        using var runJson = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "run.json"), TestContext.Current.CancellationToken));
+        var config = runJson.RootElement.GetProperty("config").GetProperty("c0");
+        Assert.Equal(("qwen3coder-or", "COMPILE", 64), (config.GetProperty("generation_model").GetString(), config.GetProperty("previous_state").GetString(), config.GetProperty("sha256").GetString()!.Length));
+        using var final = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(dir, "block3/final.json"), TestContext.Current.CancellationToken));
+        var f = final.RootElement;
+        Assert.Equal(("file", "qwen3coder-or", "fake", false), (f.GetProperty("c0_source").GetString(), f.GetProperty("generation_model").GetString(), f.GetProperty("repair_model").GetString(), f.GetProperty("same_model").GetBoolean()));
+        using var result = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(dir, "result.json"), TestContext.Current.CancellationToken));
+        Assert.Equal(5, result.RootElement.GetProperty("llm_calls").GetInt32());
+
+        var show = await Arrow(null, null, "show", Path.GetFileName(dir), "--plain");
+        Assert.Contains("c0 từ file o8-o3-o4-o7-o1-c0.java (qwen3coder-or)", show.Output, StringComparison.Ordinal);
+
+        // A c0 file needs exactly one class.
+        var two = await Arrow(Scenario("o8-o3-o4-o7-o1"), null, "gen", "PriceCalculator", "Invoice", "--project", _project.Root, "--plain", "--c0", c0);
+        Assert.Equal(2, two.ExitCode);
+        Assert.Contains("đúng một class", two.Output, StringComparison.Ordinal);
+    }
+
+    // P04 §6.8: a c0 file that is VALID now is not repaired, whatever its earlier state; no model is called at all.
+    [Fact]
+    public async Task AC0FileThatIsValidNowIsNotRepaired()
+    {
+        await ConfigureAsync();
+        var c0 = C0FileOf("valid-at-c0", "c0_valid.md");
+        var rules = Path.Combine(_home, "no-model.json");
+        File.WriteAllText(rules, """{ "rules": [], "default": { "error": "no_rule" } }""");
+        var run = await Arrow(rules, null, "gen", "PriceCalculator", "--project", _project.Root, "--no-metrics", "--plain", "--yes", "--dry-run", "--c0", c0, "--c0-state", "ASSERTION");
+        Assert.True(run.ExitCode == 0, run.Output);
+
+        using var final = JsonDocument.Parse(await File.ReadAllTextAsync(TargetFile(RunDir(run), "block3/final.json"), TestContext.Current.CancellationToken));
+        var f = final.RootElement;
+        Assert.Equal(("VALID", "ASSERTION", 0, 0), (f.GetProperty("c0_state").GetString(), f.GetProperty("c0_previous_state").GetString(), f.GetProperty("success_round").GetInt32(), f.GetProperty("rounds_run").GetInt32()));
+        Assert.Equal(JsonValueKind.Null, f.GetProperty("same_model").ValueKind);
+    }
+
     // P07 §7, §13: two classes of one module with --jobs 2; block 1 runs once for the module, both files are written.
     [Fact]
     public async Task TwoClassesOfOneModuleShareBlockOne()

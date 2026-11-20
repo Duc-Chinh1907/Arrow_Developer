@@ -41,6 +41,8 @@ public sealed record TargetRun(TargetResult Result, FinalTestSuite? Final, Repos
 /// <param name="Runs">Results of runs.</param>
 /// <param name="Tools">Tools of block 4.</param>
 /// <param name="Processes">Starts <c>java</c> for block 4.</param>
+/// <param name="C0">The c0 of <c>--c0</c> (P04 §6.8); null when the model generates c0.</param>
+/// <param name="C0Code">The code of <paramref name="C0"/>.</param>
 public sealed record PipelineShared(
     IAnalyzerHost Host,
     ILlmClient Llm,
@@ -53,7 +55,9 @@ public sealed record PipelineShared(
     ProjectWorkspace Workspace,
     IRunStore Runs,
     IToolStore Tools,
-    IProcessRunner Processes);
+    IProcessRunner Processes,
+    C0File? C0 = null,
+    string? C0Code = null);
 
 /// <summary>The pipeline of one CUT (P07 §6): block 1, c0, its verification, the repair chain and block 4. Writing comes later.</summary>
 public static class TargetPipeline
@@ -87,37 +91,47 @@ public static class TargetPipeline
             repair.Enabled, repair.Rounds, repair.EarlyStopP, shared.Model,
             (runs.ReadText(run.Run, $"{dir}/block1/metadata_prompt.txt") ?? "").TrimEnd('\n'),
             TimeSpan.FromSeconds(settings.Verification.StepTimeoutSeconds), settings.Verification.InfraAttempts,
-            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.ConfirmRegression, repair.Mechanism);
+            TimeSpan.FromSeconds(settings.Verification.InfraWaitSeconds), settings.Run.KeepWorkspaces, settings.Verification.ConfirmRegression, repair.Mechanism, shared.C0);
         var generator = new TestGenerator(shared.Llm, shared.Host.JavaHelpers, shared.Templates, runs);
 
         TargetRun Done(TargetOutcome outcome, VerificationState? c0State, FinalTestSuite? final, ErrorInfo? error, double? block2, double? block3, Usage? usage = null, QualityResult? quality = null, double? block4 = null) =>
             new(Result(m, outcome, c0State, final, error, block1, block2, block3, total, shared.Measure is null, usage, quality, block4), final, m, warnings, task);
 
-        // Block 2: c0.
+        // Block 2: c0, from the model or from the file of --c0 (P04 §6.8).
         var watch = Stopwatch.StartNew();
-        GenerationResult c0;
-        try
+        var context = new GenerationContext(run.Run, m.Cut.Fqn, m, repairOptions.MetadataPrompt, task.CutSource, shared.Model, $"{dir}/block2", run.Progress, shared.Settings.Prompts.Strategy);
+        CandidateTest c0;
+        Usage usage;
+        if (shared.C0 is { } given)
         {
-            c0 = await generator.GenerateAsync(new GenerationContext(run.Run, m.Cut.Fqn, m, repairOptions.MetadataPrompt, task.CutSource, shared.Model, $"{dir}/block2", run.Progress, shared.Settings.Prompts.Strategy), ct).ConfigureAwait(false);
+            c0 = await generator.LoadAsync(context, shared.C0Code!, given, ct).ConfigureAwait(false);
+            usage = Usage.None;
         }
-        catch (ArrowException ex)
+        else
         {
-            var stop = RepairRunner.StopCodes.Contains(ex.Code);
-            return Done(stop ? TargetOutcome.Cancelled : TargetOutcome.Infra, null, null, catalog.Describe(ex), watch.Elapsed.TotalSeconds, null);
+            try
+            {
+                var generated = await generator.GenerateAsync(context, ct).ConfigureAwait(false);
+                (c0, usage) = (generated.Candidate, new Usage(generated.Response));
+            }
+            catch (ArrowException ex)
+            {
+                var stop = RepairRunner.StopCodes.Contains(ex.Code);
+                return Done(stop ? TargetOutcome.Cancelled : TargetOutcome.Infra, null, null, catalog.Describe(ex), watch.Elapsed.TotalSeconds, null);
+            }
         }
 
         var block2 = watch.Elapsed.TotalSeconds;
-        var usage = new Usage(c0.Response);
-        if (!c0.Candidate.ValidOutput)
+        if (!c0.ValidOutput)
         {
-            return Done(TargetOutcome.InvalidOutput, null, null, catalog.Describe(ErrorCodes.B2InvalidOutput, c0.Candidate.InvalidReason), block2, null, usage);
+            return Done(TargetOutcome.InvalidOutput, null, null, catalog.Describe(ErrorCodes.B2InvalidOutput, c0.InvalidReason), block2, null, usage);
         }
 
         // Block 3: verify c0, then the chain.
         watch.Restart();
         var v0 = await shared.Host.Verifier.VerifyAsync(
-            SuiteFiles.Single(c0.Candidate.TestFqn, c0.Candidate.TestPath, c0.Candidate.Code!), task,
-            repairOptions.Verify($"{dir}/block3/c0", 0, c0.Candidate), ct).ConfigureAwait(false);
+            SuiteFiles.Single(c0.TestFqn, c0.TestPath, c0.Code!), task,
+            repairOptions.Verify($"{dir}/block3/c0", 0, c0), ct).ConfigureAwait(false);
         runs.WriteJson(run.Run, $"{dir}/block3/verify_c0.json", v0);
         if (v0.IsInfra)
         {
@@ -125,7 +139,7 @@ public static class TargetPipeline
         }
 
         var runner = new RepairRunner(generator, shared.Host.Verifier, new FailureDiagnoser(), new ExtraContextBuilder(shared.Host.JavaHelpers), shared.Host.JavaHelpers, runs, catalog);
-        var final = await runner.RunChainAsync(c0.Candidate, v0, task, repairOptions, ct).ConfigureAwait(false);
+        var final = await runner.RunChainAsync(c0, v0, task, repairOptions, ct).ConfigureAwait(false);
         var block3 = watch.Elapsed.TotalSeconds;
         usage = usage.Add(final);
         if (final.DroppedMethods.Count > 0)
@@ -241,6 +255,9 @@ public static class TargetPipeline
     /// <summary>Model calls, tokens and cost of a target.</summary>
     private sealed record Usage(int Calls, TokenUsage Tokens, double? Cost)
     {
+        /// <summary>A c0 of <c>--c0</c>: no model call.</summary>
+        public static readonly Usage None = new(0, TokenUsage.Zero, null);
+
         public Usage(LlmResponse response)
             : this(response.Attempts, new TokenUsage(response.PromptTokens, response.CompletionTokens), response.CostUsd)
         {

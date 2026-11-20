@@ -32,15 +32,19 @@ internal static class GenCommand
         var maxTokens = new Option<long?>("--max-tokens") { Description = "Ngân sách token của cả run" };
         var package = new Option<string?>("--package") { Description = "Mọi class cụ thể trong package này" };
         var jobs = new Option<int?>("--jobs") { Description = "Số class chạy song song, 1–8 (mặc định: run.jobs)" };
+        var c0 = new Option<string?>("--c0") { Description = "Dùng bộ test có sẵn trong file .java này làm c0 thay vì gọi model sinh, rồi xác minh và sửa nó; chỉ với một class" };
+        var c0Model = new Option<string?>("--c0-model") { Description = "Model đã viết bộ test của --c0 (nhãn tự do, ghi vào kết quả để so sánh)" };
+        var c0State = new Option<string?>("--c0-state") { Description = "Trạng thái trước đây của bộ test --c0 (COMPILE, ASSERTION, …), chỉ để ghi lại" };
         var resume = new Option<string?>("--resume") { Description = "Chạy tiếp một run bị ngắt (id hoặc tiền tố của id)" };
         var command = new Command("gen", "Sinh unit test cho một hoặc nhiều class, xác minh trên build thật, sửa tự động, đo chất lượng, rồi hỏi ghi file")
         {
-            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, noPit, freshBaseline, noConfirmRegression, dryRun, jobs, maxTokens, resume,
+            classes, project, repo, gitRef, package, model, rounds, noRepair, noMetrics, noPit, freshBaseline, noConfirmRegression, dryRun, jobs, maxTokens, resume, c0, c0Model, c0State,
         };
         command.SetAction((parse, ct) => app.Execute(parse, ct, (context, token) =>
         {
             var options = new GenerateOptions(parse.GetValue(model), parse.GetValue(rounds), parse.GetValue(noRepair), parse.GetValue(noMetrics),
-                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume), parse.GetValue(noPit), parse.GetValue(freshBaseline), parse.GetValue(noConfirmRegression));
+                context.Globals.Yes, parse.GetValue(dryRun), parse.GetValue(maxTokens), parse.GetValue(jobs), parse.GetValue(resume), parse.GetValue(noPit), parse.GetValue(freshBaseline), parse.GetValue(noConfirmRegression),
+                parse.GetValue(c0) is { } c0Path ? Path.GetFullPath(c0Path, context.Console.CurrentDirectory) : null, parse.GetValue(c0Model), parse.GetValue(c0State));
             // A pasted list may carry spaces or a "\r" at the end of a name (GĐ7).
             var names = (parse.GetValue(classes) ?? []).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
             return RunAsync(context, names, parse.GetValue(package), parse.GetValue(project), parse.GetValue(repo), parse.GetValue(gitRef), options,
