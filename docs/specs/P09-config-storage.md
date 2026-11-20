@@ -121,7 +121,7 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 | `java.jdk_homes` | map | `{}` | JDK theo số major. `arrow setup` tự điền |
 | `java.maven_path`, `gradle_path`, `git_path` | string? | `null` | `null` = tìm trong `PATH` |
 | `repair.enabled` | bool | true | `false` giống `--no-repair` |
-| `repair.rounds` | int 1–10 | 5 | N |
+| `repair.rounds` | int 1–12 | 5 | N |
 | `repair.early_stop_p` | int? ≥ 3 | 3 | `null` = không dừng sớm. Đặt nhỏ hơn 3 thì báo `CFG_INVALID` (P04). Chỉ Adaptive dùng |
 | `repair.mechanism` | string | `"adaptive"` | Cơ chế sửa: `adaptive`, `fixed_plus` (F+), `fixed_minus` (F−) hoặc `fixed_l2` (F2) của thực nghiệm TN2 (P04 §6.7). Không có cờ dòng lệnh. Thêm 20/11/2026 |
 | `verification.*` | | như trên | P01, P04 |

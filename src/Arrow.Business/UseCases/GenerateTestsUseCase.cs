@@ -106,9 +106,9 @@ public sealed class GenerateTestsUseCase(
         var effective = config.Load(projectRoot, NoOverrides);
         ConfigValidator.ThrowIfInvalid(effective);
         var settings = effective.Config;
-        if (options.Rounds is < 1 or > 10)
+        if (options.Rounds < 1 || options.Rounds > Common.Config.RepairSettings.MaxRounds)
         {
-            throw new ArrowException(ErrorCodes.CliArgs, "--rounds phải từ 1 đến 10.");
+            throw new ArrowException(ErrorCodes.CliArgs, $"--rounds phải từ 1 đến {Common.Config.RepairSettings.MaxRounds}.");
         }
 
         if (options.NoConfirmRegression)
