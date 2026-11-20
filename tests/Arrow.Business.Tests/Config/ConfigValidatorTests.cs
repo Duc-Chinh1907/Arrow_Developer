@@ -15,9 +15,16 @@ public class ConfigValidatorTests
         Assert.Empty(ConfigValidator.Validate(Defaults));
     }
 
+    [Fact]
+    public void TwelveRoundsAreAllowedForThePilot()
+    {
+        Assert.Equal(12, RepairSettings.MaxRounds);
+        Assert.Empty(ConfigValidator.Validate(Defaults with { Repair = Defaults.Repair with { Rounds = 12, EarlyStopP = null } }));
+    }
+
     public static TheoryData<string, ArrowConfig> BrokenConfigs => new()
     {
-        { "repair.rounds", Defaults with { Repair = Defaults.Repair with { Rounds = 11 } } },
+        { "repair.rounds", Defaults with { Repair = Defaults.Repair with { Rounds = 13 } } },
         { "repair.early_stop_p", Defaults with { Repair = Defaults.Repair with { EarlyStopP = 2 } } },
         { "run.jobs", Defaults with { Run = Defaults.Run with { Jobs = 0 } } },
         { "run.max_tokens", Defaults with { Run = Defaults.Run with { MaxTokens = 0 } } },

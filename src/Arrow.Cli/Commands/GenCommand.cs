@@ -22,7 +22,7 @@ internal static class GenCommand
         var repo = new Option<string?>("--repo") { Description = "URL https của repo GitHub" };
         var gitRef = new Option<string?>("--ref") { Description = "Nhánh, tag hoặc SHA đầy đủ của repo" };
         var model = new Option<string?>("--model") { Description = "Tên model trong llm.models (mặc định: llm.default_model)" };
-        var rounds = new Option<int?>("--rounds") { Description = "Số vòng sửa tối đa, 1–10 (mặc định: repair.rounds)" };
+        var rounds = new Option<int?>("--rounds") { Description = "Số vòng sửa tối đa, 1–12 (mặc định: repair.rounds)" };
         var noRepair = new Option<bool>("--no-repair") { Description = "Chỉ sinh và xác minh c0" };
         var noMetrics = new Option<bool>("--no-metrics") { Description = "Bỏ khối 4 (đo chất lượng)" };
         var freshBaseline = new Option<bool>("--fresh-baseline") { Description = "Đo baseline lại, không dùng kết quả đã lưu của lần chạy trước" };

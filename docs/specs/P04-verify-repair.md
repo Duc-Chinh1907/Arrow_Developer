@@ -48,7 +48,7 @@ flowchart TB
 |---|---|
 | `CandidateTest` c0 (hoặc ct) | P02 |
 | M, `baseline.json`, `workspace.json`, `test_classpath.txt` | P01 |
-| `N` = `repair.rounds` (1–10, mặc định 5); `early_stop_p` (≥ 3 hoặc `null`, mặc định 3); `repair.enabled` | P09, `--rounds`, `--no-repair` |
+| `N` = `repair.rounds` (1–12, mặc định 5); `early_stop_p` (≥ 3 hoặc `null`, mặc định 3); `repair.enabled` | P09, `--rounds`, `--no-repair` |
 | `step_timeout_seconds` (900), `infra_attempts` (3), `infra_wait_seconds` (30) | P09 |
 | `ITestGenerator`, `IJavaHelper` | P02, P10 |
 

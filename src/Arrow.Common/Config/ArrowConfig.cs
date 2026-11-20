@@ -66,10 +66,14 @@ public sealed record JavaSettings(
 
 /// <summary><c>repair.*</c> (P04).</summary>
 /// <param name="Enabled">Repair runs after a c0 that is not VALID.</param>
-/// <param name="Rounds">N.</param>
+/// <param name="Rounds">N, 1 to <see cref="MaxRounds"/>.</param>
 /// <param name="EarlyStopP">P of the early stop rule; null turns it off. Only Adaptive stops early.</param>
 /// <param name="Mechanism">Repair mechanism (P04 §6.7): <c>adaptive</c>, <c>fixed_plus</c>, <c>fixed_minus</c> or <c>fixed_l2</c>.</param>
-public sealed record RepairSettings(bool Enabled, int Rounds, int? EarlyStopP, string Mechanism = Generation.RepairMechanisms.Default);
+public sealed record RepairSettings(bool Enabled, int Rounds, int? EarlyStopP, string Mechanism = Generation.RepairMechanisms.Default)
+{
+    /// <summary>Largest N; 12 so that the pilot can choose N among 5…10 (Chính, 20/11/2026).</summary>
+    public const int MaxRounds = 12;
+}
 
 /// <summary><c>verification.*</c> (P01, P04). <paramref name="BaselineCache"/>: reuse a baseline measured by an earlier run (P01 §6.2).</summary>
 public sealed record VerificationSettings(int BaselineRuns, int StepTimeoutSeconds, int InfraAttempts, int InfraWaitSeconds, bool BaselineCache = true, bool ConfirmRegression = true);

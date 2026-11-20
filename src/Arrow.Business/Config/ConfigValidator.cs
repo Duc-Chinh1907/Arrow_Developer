@@ -64,7 +64,7 @@ public static class ConfigValidator
             Check(!string.IsNullOrWhiteSpace(home), "java.jdk_homes." + major, home, "đường dẫn JDK, không rỗng");
         }
 
-        Check(config.Repair.Rounds is >= 1 and <= 10, "repair.rounds", config.Repair.Rounds, "số nguyên từ 1 đến 10");
+        Check(config.Repair.Rounds is >= 1 and <= RepairSettings.MaxRounds, "repair.rounds", config.Repair.Rounds, $"số nguyên từ 1 đến {RepairSettings.MaxRounds}");
         Check(config.Repair.EarlyStopP is null or >= 3, "repair.early_stop_p", config.Repair.EarlyStopP, "null hoặc số nguyên ≥ 3");
         Check(RepairMechanisms.IsKnown(config.Repair.Mechanism), "repair.mechanism", config.Repair.Mechanism, string.Join(", ", RepairMechanisms.All));
 

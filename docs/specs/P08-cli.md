@@ -59,7 +59,7 @@ arrow gen <class…> [--project <dir> | --repo <url> [--ref <ref>]] [--package <
 | `--ref <ref>` | nhánh mặc định | Nhánh, tag hoặc SHA. Chỉ đi với `--repo` |
 | `--package <pkg>` | — | Mọi class cụ thể trong package (P01 §3.3 bước 6) |
 | `--model <tên>` | `llm.default_model` | Khoá trong `llm.models` |
-| `--rounds <N>` | `repair.rounds` (5) | Số vòng sửa tối đa, 1–10 |
+| `--rounds <N>` | `repair.rounds` (5) | Số vòng sửa tối đa, 1–12 |
 | `--no-repair` | — | Chỉ sinh và xác minh c0 |
 | `--no-metrics` | — | Bỏ khối 4 |
 | `--no-pit` | — | Khối 4 không chạy PIT (bước đo lâu nhất); vẫn đo JaCoCo và tsDetect. Thêm 15/11/2026 |
