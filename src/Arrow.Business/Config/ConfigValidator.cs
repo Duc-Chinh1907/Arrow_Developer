@@ -66,6 +66,7 @@ public static class ConfigValidator
 
         Check(config.Repair.Rounds is >= 1 and <= 10, "repair.rounds", config.Repair.Rounds, "số nguyên từ 1 đến 10");
         Check(config.Repair.EarlyStopP is null or >= 3, "repair.early_stop_p", config.Repair.EarlyStopP, "null hoặc số nguyên ≥ 3");
+        Check(RepairMechanisms.IsKnown(config.Repair.Mechanism), "repair.mechanism", config.Repair.Mechanism, string.Join(", ", RepairMechanisms.All));
 
         var verification = config.Verification;
         Check(verification.BaselineRuns >= 1, "verification.baseline_runs", verification.BaselineRuns, "số nguyên ≥ 1");

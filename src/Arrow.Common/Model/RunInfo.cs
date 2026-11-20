@@ -59,6 +59,7 @@ public sealed record RunProject(
 /// <param name="NoPit">True with <c>--no-pit</c>; false in a <c>run.json</c> written before the flag existed.</param>
 /// <param name="ConfirmRegression">A regression of step 5 is confirmed (P04 §3.5); false with <c>--no-confirm-regression</c>.</param>
 /// <param name="Strategy">Prompting strategy of c0 (<c>prompts.strategy</c>); the default in a <c>run.json</c> written before the setting existed.</param>
+/// <param name="Mechanism">Repair mechanism (<c>repair.mechanism</c>); <c>adaptive</c> in a <c>run.json</c> written before the setting existed.</param>
 public sealed record RunConfig(
     string Model,
     string ProviderHost,
@@ -68,7 +69,8 @@ public sealed record RunConfig(
     bool Quality,
     bool NoPit = false,
     string Strategy = Generation.GenerationStrategies.Default,
-    bool ConfirmRegression = true);
+    bool ConfirmRegression = true,
+    string Mechanism = Generation.RepairMechanisms.Default);
 
 /// <summary>One CUT of a run and its progress.</summary>
 public sealed record RunTarget(string CutFqn, TargetState State);

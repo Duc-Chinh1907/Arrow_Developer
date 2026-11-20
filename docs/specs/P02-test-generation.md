@@ -34,7 +34,7 @@ flowchart LR
 | Có | Không |
 |---|---|
 | Quy trình `zero_shot_project_aware` khi sinh (mặc định); `zero_shot` và `few_shot` chọn bằng `prompts.strategy` (thêm 18/11/2026) | So sánh quy trình (thực nghiệm RQ1) |
-| Prompt sửa mức 1, 2, 3 (Adaptive) | Prompt của Fixed Repair |
+| Prompt sửa mức 1, 2, 3 (Adaptive); các cơ chế fixed của `repair.mechanism` dùng lại `level1.md` (F− bỏ khối cấu hình) hoặc `level2.md` (P04 §6.7, thêm 20/11/2026) | Template riêng cho Fixed Repair |
 | Template nhúng sẵn; người dùng có thể ghi đè bằng thư mục riêng | Sửa template trong lúc chạy |
 | Mỗi lượt gọi là một lượt hỏi–đáp đơn (system + user) | Hội thoại nhiều lượt, gọi tool |
 | Chuẩn hoá package, tên class; ghép method ở mức 3 | Thêm hay sửa import, sửa logic test |

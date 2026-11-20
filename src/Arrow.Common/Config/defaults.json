@@ -14,7 +14,7 @@
     "gradle_path": null,
     "git_path": null
   },
-  "repair": { "enabled": true, "rounds": 5, "early_stop_p": 3 },
+  "repair": { "enabled": true, "rounds": 5, "early_stop_p": 3, "mechanism": "adaptive" },
   "verification": { "baseline_runs": 2, "step_timeout_seconds": 900, "infra_attempts": 3, "infra_wait_seconds": 30, "baseline_cache": true, "confirm_regression": true },
   "quality": { "enabled": true, "tools": ["jacoco", "pit", "tsdetect"], "pit_timeout_seconds": 1800, "tsdetect_timeout_seconds": 300 },
   "apply": { "confirm": true },

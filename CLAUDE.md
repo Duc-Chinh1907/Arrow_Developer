@@ -18,7 +18,7 @@ This file provides guidance to Claude Code when working in this repository.
 - It measures JaCoCo, PIT and tsDetect.
 - It writes `<CUT>_ArrowTest.java` into the project **only with the user's consent, never overwriting**.
 
-It is the product version of the team's research framework. There is **no research mode**: no manifest, Fixed Repair, EvoSuite, RQ reports, shards or pilot.
+It is the product version of the team's research framework. There is **no research mode**: no manifest, EvoSuite, RQ reports, shards or pilot. The only research option is `repair.mechanism` (Fixed Repair and the TN2 branches, decided 20/11/2026).
 
 ## Documents (read before coding a phase)
 
@@ -60,6 +60,10 @@ It is the product version of the team's research framework. There is **no resear
 - Decided 18/11/2026: `prompts.strategy` (config only, no CLI flag) chooses the c0 prompt among the three R02 §3 strategies; default `zero_shot_project_aware`. `zero_shot.md`, `few_shot.md`, `user/default.md` and `fewshot_provenance.json` were copied verbatim from `ARROW_Framework/prompts/generation`. Repair prompts do not depend on it. A non-default strategy prints a warning; `run.json` `config.strategy` keeps it for `--resume`.
 - Decided 18/11/2026: step 5 confirms a regression before it counts (`verification.confirm_regression`, default on; `--no-confirm-regression`). The failing existing tests run alone in one command, 3 times, on a copy without the generated test (`Verifier.IsolatedArguments`); a test failing at least once there is suspected flaky (`module_flaky`, warning). Tests passing all 3 times face one more module run with the generated test and are a regression only if they fail again. A missing test (b) or a generated test failing with the module (c) is a regression at once. P04 §3.5 marks it "khác R03". This replaced the short-lived `--regression-runs` of PR #45.
 - Decided 19/11/2026: the c0 prompts are the team's `team-v1` set, kept in `docs/reference/generation/` and copied verbatim into `src/Arrow.Business/Prompts/generation/` (same ids and placeholders; few-shot example code unchanged). The repair prompts are still `v2-draft2`. R02 §9.2 still quotes the old prompt text.
+- Decided 20/11/2026 (Chính, reopening "no Fixed Repair"): `repair.mechanism` (config only, no CLI flag) = `adaptive` (default) | `fixed_plus` (F+) | `fixed_minus` (F−) | `fixed_l2` (F2) for the team's TN2 (`docs/reference/cac_thuc_nghiem*.md`).
+  - `FixedRepairPolicy` (`RepairPolicies.Create`): always repairs the latest version, verifies duplicate code (only records `duplicate_of_round`), no early stop, ends with the latest version (R03 §6.6).
+  - F− = the F+ prompt without the paragraph holding `{{repository_configuration}}` (`PromptBuilder.WithoutConfiguration`, version suffix `+no-config`); F2 = `level2.md` every round, `failed_attempts` = every earlier round with its signature.
+  - `run.json` `config.mechanism`, kept by `--resume`; `request.json`/`decision.json`/`final.json` have `mechanism`; a non-default mechanism prints a warning. P04 §6.7.
 - Nothing is open for the team review any more.
 
 ## Secrets

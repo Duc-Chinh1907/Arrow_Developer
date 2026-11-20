@@ -100,7 +100,7 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
     "gradle_path": null,
     "git_path": null
   },
-  "repair": { "enabled": true, "rounds": 5, "early_stop_p": 3 },
+  "repair": { "enabled": true, "rounds": 5, "early_stop_p": 3, "mechanism": "adaptive" },
   "verification": { "baseline_runs": 2, "step_timeout_seconds": 900, "infra_attempts": 3, "infra_wait_seconds": 30, "baseline_cache": true, "confirm_regression": true },
   "quality": { "enabled": true, "tools": ["jacoco", "pit", "tsdetect"], "pit_timeout_seconds": 1800, "tsdetect_timeout_seconds": 300 },
   "apply": { "confirm": true },
@@ -122,7 +122,8 @@ Tầng sau ghi đè tầng trước, theo **từng khoá**, không thay cả đ�
 | `java.maven_path`, `gradle_path`, `git_path` | string? | `null` | `null` = tìm trong `PATH` |
 | `repair.enabled` | bool | true | `false` giống `--no-repair` |
 | `repair.rounds` | int 1–10 | 5 | N |
-| `repair.early_stop_p` | int? ≥ 3 | 3 | `null` = không dừng sớm. Đặt nhỏ hơn 3 thì báo `CFG_INVALID` (P04) |
+| `repair.early_stop_p` | int? ≥ 3 | 3 | `null` = không dừng sớm. Đặt nhỏ hơn 3 thì báo `CFG_INVALID` (P04). Chỉ Adaptive dùng |
+| `repair.mechanism` | string | `"adaptive"` | Cơ chế sửa: `adaptive`, `fixed_plus` (F+), `fixed_minus` (F−) hoặc `fixed_l2` (F2) của thực nghiệm TN2 (P04 §6.7). Không có cờ dòng lệnh. Thêm 20/11/2026 |
 | `verification.*` | | như trên | P01, P04 |
 | `verification.confirm_regression` | bool | true | Chạy riêng test sẵn có bị fail ở bước 5 (3 lần, không có test mới) rồi chạy lại module trước khi ghi REGRESSION (P04 §3.5); `false` = như R03. Thêm 18/11/2026 |
 | `verification.baseline_cache` | bool | true | Dùng lại baseline đã đo của lần chạy trước (P01 §6.2); `false` = luôn đo. Thêm 16/11/2026 |
@@ -238,7 +239,8 @@ runs/<run_id>/
   "command": ["gen", "OrderService", "--rounds", "5"],
   "project": { "kind": "local", "path_name": "MyShop", "root": "D:/src/MyShop", "url": null, "git_ref": null,
                "git_commit": "ab12…", "dirty": true, "source_tree_hash": "…" },
-  "config": { "model": "gpt-x", "provider_host": "api.teamorouter.com", "rounds": 5, "early_stop_p": 3, "repair": true, "quality": true },
+  "config": { "model": "gpt-x", "provider_host": "api.teamorouter.com", "rounds": 5, "early_stop_p": 3, "repair": true, "quality": true,
+              "no_pit": false, "strategy": "zero_shot_project_aware", "confirm_regression": true, "mechanism": "adaptive" },
   "prompts_sha256": { "repair/user/level1.md": "…", "…": "…" },
   "tools": { "java_helper": "sha256:…", "jacoco": "0.8.12", "pit": "1.17.4", "tsdetect": "2.2" },
   "targets": [ { "cut_fqn": "com.myshop.OrderService", "state": "DONE" } ],

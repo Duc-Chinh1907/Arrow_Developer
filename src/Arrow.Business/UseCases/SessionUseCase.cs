@@ -25,7 +25,8 @@ public sealed record SessionProject(string Root, string Name, string BuildTool, 
 /// <param name="Rounds">Repair budget N.</param>
 /// <param name="Models">Every configured model name.</param>
 /// <param name="Strategy">Prompting strategy of c0 (<c>prompts.strategy</c>).</param>
-public sealed record SessionModel(string? Name, string? Host, int Rounds, IReadOnlyList<string> Models, string Strategy = Common.Generation.GenerationStrategies.Default);
+/// <param name="Mechanism">Repair mechanism (<c>repair.mechanism</c>).</param>
+public sealed record SessionModel(string? Name, string? Host, int Rounds, IReadOnlyList<string> Models, string Strategy = Common.Generation.GenerationStrategies.Default, string Mechanism = Common.Generation.RepairMechanisms.Default);
 
 /// <summary>A class of the class picker (P08 §5.3).</summary>
 /// <param name="Fqn">FQN.</param>
@@ -94,7 +95,7 @@ public sealed partial class SessionUseCase(IConfigStore config, ToolDiscovery to
         try
         {
             var model = ResolvedModel.From(settings, null);
-            return new SessionModel(model.Name, model.BaseUrl.Host, settings.Repair.Rounds, models, settings.Prompts.Strategy);
+            return new SessionModel(model.Name, model.BaseUrl.Host, settings.Repair.Rounds, models, settings.Prompts.Strategy, settings.Repair.Mechanism);
         }
         catch (ArrowException)
         {

@@ -65,7 +65,7 @@ ARROW Developer CLI là công cụ dòng lệnh cho lập trình viên Java. Ng�
 | 00 Tổng quan | 4 khối, trạng thái xác minh, code hash, quy ước JSON, ghi file nguyên tử, cách ghi log build | Manifest, `experiments/*.json`, ledger, job và hàng đợi, shard, gộp run, `rq2-subset`, `screen`, lệnh `run/analyze/repair/assess/report/control` |
 | 01 Khối 1 | Tự dò build root (Mục 4.1 bước 2), build tool, Java version, chọn JDK, dependencies, test framework, M, test path `_ArrowTest` (trùng thì `_Arrow2Test`, khác R01), snapshot, baseline ×2, xoá jar hỏng | Đọc `build_attempts` của manifest, tiêu chí B và `paired_test`. Đầu vào là project của người dùng thay cho manifest (Mục 5.1) |
 | 02 Khối 2 | Template, khối M, gọi model qua `ILlmClient`, tách và chuẩn hoá mã, `code_hash`, cache theo `call_id` (để chạy tiếp) | Chỉ dùng quy trình `zero_shot_project_aware` (không làm `zero_shot`, `few_shot`, kiểm tra công bằng RQ1). Không bắt buộc LiteLLM (Mục 7) |
-| 03 Khối 3 | Xác minh 5 bước, chẩn đoán, Adaptive Repair, INFRA | Fixed Repair, tập con RQ2, `rq3_only`, xác minh EvoSuite, `needs_rerun.csv` |
+| 03 Khối 3 | Xác minh 5 bước, chẩn đoán, Adaptive Repair, INFRA; Fixed Repair, F−, F2 qua `repair.mechanism` (P04 §6.7, thêm 20/11/2026) | Xen kẽ cơ chế trong một run, tập con RQ2, `rq3_only`, xác minh EvoSuite, `needs_rerun.csv` |
 | 04 Khối 4 | JaCoCo, PIT (dòng lệnh), tsDetect, phạm vi `<FQN>` và `<FQN>$*` | EvoSuite, báo cáo RQ1–RQ3, chọn N, độ nhạy P, ghép cặp |
 | 05 Câu hỏi | Các chốt Q4, Q5, Q7, Q8 | Q1–Q3, Q6 (riêng thực nghiệm) |
 | 07 Kiến trúc | — | **Bỏ.** Thay bằng Mục 3.2 |

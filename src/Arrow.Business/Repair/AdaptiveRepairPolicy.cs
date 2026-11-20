@@ -111,6 +111,7 @@ public sealed class AdaptiveRepairPolicy : IRepairPolicy
         var decision = new RoundDecision
         {
             Round = request.Round,
+            Mechanism = RepairMechanisms.Adaptive,
             BaseRound = request.BaseRound,
             RequestedLevel = request.RequestedLevel,
             Level = request.Level,
